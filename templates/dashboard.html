@@ -32,66 +32,103 @@
     <div class="tab"><a href="{{ url_for('whatsapp_complaints') }}"><i class="fab fa-whatsapp"></i> WhatsApp messages</a></div>
 {% endblock %}
 {% block content %}
-    <section class="bg-white rounded shadow p-4 mb-6">
-        <h2 class="section-title mb-2">Network Status</h2>
-        <div class="flex flex-col sm:flex-row sm:items-start sm:space-x-8">
-            <div id="ip-status-list" class="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1">
-                <div data-ip="103.149.126.10" class="network-card">
-                    <div class="flex items-center gap-2">
-                        <i class="fas fa-server text-gray-500"></i>
-                        <span class="font-medium">Vishrantwadi</span>
-                    </div>
-                    <i class="status-icon fas fa-circle-notch fa-spin text-gray-400"></i>
+    <div class="dashboard-wrapper">
+        <section class="section-card">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Network Status</h2>
+                    <p class="section-meta">Auto-refreshes every 5 seconds with live availability.</p>
                 </div>
-                <div data-ip="36.50.163.244" class="network-card">
-                    <div class="flex items-center gap-2">
-                        <i class="fas fa-server text-gray-500"></i>
-                        <span class="font-medium">Dhanori</span>
+                <span class="status-pill"><i class="fas fa-signal"></i> Live</span>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-start sm:space-x-8">
+                <div id="ip-status-list" class="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1">
+                    <div data-ip="103.149.126.10" class="network-card">
+                        <div class="network-card__info">
+                            <i class="fas fa-server"></i>
+                            <div>
+                                <span class="network-card__name">Vishrantwadi</span>
+                                <span class="network-card__meta">Core router</span>
+                            </div>
+                        </div>
+                        <i class="status-icon fas fa-circle-notch fa-spin text-gray-400"></i>
                     </div>
-                    <i class="status-icon fas fa-circle-notch fa-spin text-gray-400"></i>
-                </div>
-                <div data-ip="154.84.251.178" class="network-card">
-                    <div class="flex items-center gap-2">
-                        <i class="fas fa-server text-gray-500"></i>
-                        <span class="font-medium">Tingrenagar</span>
+                    <div data-ip="36.50.163.244" class="network-card">
+                        <div class="network-card__info">
+                            <i class="fas fa-server"></i>
+                            <div>
+                                <span class="network-card__name">Dhanori</span>
+                                <span class="network-card__meta">Distribution hub</span>
+                            </div>
+                        </div>
+                        <i class="status-icon fas fa-circle-notch fa-spin text-gray-400"></i>
                     </div>
-                    <i class="status-icon fas fa-circle-notch fa-spin text-gray-400"></i>
+                    <div data-ip="154.84.251.178" class="network-card">
+                        <div class="network-card__info">
+                            <i class="fas fa-server"></i>
+                            <div>
+                                <span class="network-card__name">Tingrenagar</span>
+                                <span class="network-card__meta">Access gateway</span>
+                            </div>
+                        </div>
+                        <i class="status-icon fas fa-circle-notch fa-spin text-gray-400"></i>
+                    </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <section class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div class="stat-card bg-blue-500 text-white">
-            <div class="label">Total</div>
-            <div class="value">{{ total }}</div>
-        </div>
-        <div class="stat-card bg-yellow-500 text-white">
-            <div class="label">Pending</div>
-            <div class="value">{{ pending }}</div>
-        </div>
-        <div class="stat-card bg-green-500 text-white">
-            <div class="label">Resolved</div>
-            <div class="value">{{ resolved }}</div>
-        </div>
-    </section>
-
-    <section class="bg-white rounded shadow p-4 mb-8">
-        <div class="chart-container" style="height:300px;">
-            <canvas id="statusChart"></canvas>
-        </div>
-    </section>
-
-    <div class="table-section centered-card recent-complaints-card w-full">
-        <div class="recent-complaints-header">
-            <h2 class="section-title">Recent Complaints</h2>
-            <div class="category-filters">
-                <button type="button" class="button filter-btn" data-category="All">All</button>
-                {% for cat in categories %}
-                <button type="button" class="button filter-btn" data-category="{{ cat }}">{{ cat }}</button>
-                {% endfor %}
+        <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="stat-card bg-blue-500 text-white">
+                <div class="stat-text">
+                    <div class="label">Total Complaints</div>
+                    <div class="value">{{ total }}</div>
+                    <div class="stat-subtext">All sources combined</div>
+                </div>
+                <div class="stat-icon"><i class="fas fa-inbox"></i></div>
             </div>
-        </div>
+            <div class="stat-card bg-yellow-500 text-white">
+                <div class="stat-text">
+                    <div class="label">Pending</div>
+                    <div class="value">{{ pending }}</div>
+                    <div class="stat-subtext">Needs attention</div>
+                </div>
+                <div class="stat-icon"><i class="fas fa-hourglass-half"></i></div>
+            </div>
+            <div class="stat-card bg-green-500 text-white">
+                <div class="stat-text">
+                    <div class="label">Resolved</div>
+                    <div class="value">{{ resolved }}</div>
+                    <div class="stat-subtext">Completed updates</div>
+                </div>
+                <div class="stat-icon"><i class="fas fa-circle-check"></i></div>
+            </div>
+        </section>
+
+        <section class="section-card">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Status Breakdown</h2>
+                    <p class="section-meta">Monitor resolution performance at a glance.</p>
+                </div>
+            </div>
+            <div class="chart-container" style="height:300px;">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </section>
+
+        <div class="table-section centered-card recent-complaints-card w-full">
+            <div class="recent-complaints-header">
+                <div>
+                    <h2 class="section-title">Recent Complaints</h2>
+                    <p class="section-meta">Filter quickly to triage incoming issues.</p>
+                </div>
+                <div class="category-filters">
+                    <button type="button" class="button filter-btn" data-category="All">All</button>
+                    {% for cat in categories %}
+                    <button type="button" class="button filter-btn" data-category="{{ cat }}">{{ cat }}</button>
+                    {% endfor %}
+                </div>
+            </div>
         <form id="bulkActionForm" method="POST" class="w-full">
             <div class="bulk-buttons recent-complaints-actions">
                 <button type="submit"
@@ -177,62 +214,77 @@
                 </table>
             </div>
         </form>
-    </div>
+        </div>
 
-    {% if pending_connections %}
-    <h2 class="section-title">Recent Open Connection Requests (Pending)</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Mobile</th>
-                <th>Area</th>
-                <th>Status</th>
-                <th>Requested At</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for conn in pending_connections %}
-            <tr>
-                <td>{{ conn[0] }}</td>
-                <td>{{ conn[1] }}</td>
-                <td>{{ conn[2] }}</td>
-                <td>{{ conn[3] }}</td>
-                <td style="color: orange; font-weight: bold;">{{ conn[4] }}</td>
-                <td>{{ conn[5] }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <div style="margin-top:10px;">
-        <a href="{{ url_for('new_connections') }}">
-            <button>View All Connections</button>
-        </a>
-    </div>
-    {% endif %}
+        {% if pending_connections %}
+        <section class="section-card table-card">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Recent Connection Requests</h2>
+                    <p class="section-meta">Pending requests waiting for approval.</p>
+                </div>
+                <a href="{{ url_for('new_connections') }}" class="button outline-button">View all</a>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table compact-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Mobile</th>
+                            <th>Area</th>
+                            <th>Status</th>
+                            <th>Requested At</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for conn in pending_connections %}
+                        <tr>
+                            <td>{{ conn[0] }}</td>
+                            <td>{{ conn[1] }}</td>
+                            <td>{{ conn[2] }}</td>
+                            <td>{{ conn[3] }}</td>
+                            <td><span class="status-badge pending">{{ conn[4] }}</span></td>
+                            <td>{{ conn[5] }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        {% endif %}
 
-    <h2 class="section-title">Current Stock Summary</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Device</th>
-                <th>Total Stock</th>
-                <th>Issued</th>
-                <th>Available</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for device, summary in stock_summary.items() %}
-            <tr>
-                <td>{{ device }}</td>
-                <td>{{ summary.stock }}</td>
-                <td>{{ summary.issued }}</td>
-                <td>{{ summary.available }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+        <section class="section-card table-card">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">Current Stock Summary</h2>
+                    <p class="section-meta">Quick snapshot of available inventory.</p>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table compact-table">
+                    <thead>
+                        <tr>
+                            <th>Device</th>
+                            <th>Total Stock</th>
+                            <th>Issued</th>
+                            <th>Available</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for device, summary in stock_summary.items() %}
+                        <tr>
+                            <td>{{ device }}</td>
+                            <td>{{ summary.stock }}</td>
+                            <td>{{ summary.issued }}</td>
+                            <td>{{ summary.available }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
 {% endblock %}
 {% block extra_scripts %}
 <script>
@@ -295,9 +347,20 @@
         const checkboxes = document.querySelectorAll('input[name="selected_ids[]"]');
         checkboxes.forEach(cb => cb.checked = this.checked);
     });
-    document.querySelectorAll('.filter-btn').forEach(btn => {
+    const filterButtons = document.querySelectorAll('.filter-btn');
+    if (filterButtons.length) {
+        filterButtons[0].classList.add('active');
+        filterButtons[0].setAttribute('aria-pressed', 'true');
+    }
+    filterButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             const category = btn.getAttribute('data-category');
+            filterButtons.forEach(button => {
+                button.classList.remove('active');
+                button.setAttribute('aria-pressed', 'false');
+            });
+            btn.classList.add('active');
+            btn.setAttribute('aria-pressed', 'true');
             document.querySelectorAll('.recent-complaints-table tbody tr').forEach(row => {
                 const rowCat = row.getAttribute('data-category');
                 if (category === 'All' || rowCat === category) {

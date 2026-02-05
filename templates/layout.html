@@ -23,8 +23,10 @@
             {% block header_actions %}{% endblock %}
         </div>
     </header>
-    <nav class="tabs" id="mainNav">
-        {% block tabs %}{% endblock %}
+    <nav class="tabs floating-nav" id="mainNav">
+        <div class="floating-nav__links">
+            {% block tabs %}{% endblock %}
+        </div>
     </nav>
     <div id="sidebarOverlay" class="sidebar-overlay"></div>
     <main class="container mx-auto p-4">

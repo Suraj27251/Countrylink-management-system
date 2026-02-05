@@ -1,9 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Human Resource</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+{% extends 'layout.html' %}
+{% block title %}Human Resource{% endblock %}
+{% block extra_head %}
     <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
     <style>
         .container {
@@ -71,9 +68,16 @@
             }
         }
     </style>
-</head>
-<body>
-
+{% endblock %}
+{% block tabs %}
+    <div class="tab"><a href="{{ url_for('dashboard') }}"><i class="fas fa-gauge"></i> Dashboard</a></div>
+    <div class="tab"><a href="{{ url_for('complaints_page') }}"><i class="fas fa-code-branch"></i> Complaints</a></div>
+    <div class="tab"><a href="{{ url_for('new_connections') }}"><i class="fas fa-user-plus"></i> New Connections</a></div>
+    <div class="tab"><a href="{{ url_for('stock') }}"><i class="fas fa-boxes"></i> Stock</a></div>
+    <div class="tab active"><a href="{{ url_for('hr_dashboard') }}"><i class="fas fa-users"></i> Human Resource</a></div>
+    <div class="tab"><a href="{{ url_for('whatsapp_complaints') }}"><i class="fab fa-whatsapp"></i> WhatsApp messages</a></div>
+{% endblock %}
+{% block content %}
 <div class="container">
 
     <h2 class="section-title">👥 Attendance Records</h2>
@@ -168,6 +172,4 @@
     </form>
 
 </div>
-
-</body>
-</html>
+{% endblock %}

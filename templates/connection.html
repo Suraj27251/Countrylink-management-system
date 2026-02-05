@@ -1,48 +1,12 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>New Connection Requests</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+{% extends 'layout.html' %}
+{% block title %}New Connection Requests{% endblock %}
+{% block extra_head %}
     <style>
         body {
             font-family: 'Roboto', sans-serif;
             background: #f2f5f9;
             margin: 0;
             padding: 0;
-        }
-
-        .header {
-            background-color: #ffffff;
-            padding: 15px 30px;
-            color: #333;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #ccc;
-            flex-wrap: wrap;
-        }
-
-        .header .logo img {
-            height: 40px;
-            width: auto;
-        }
-
-        .header .title {
-            flex: 1;
-            text-align: center;
-            font-size: 22px;
-            font-weight: bold;
-            color: #333;
-        }
-
-        .header a.home-btn {
-            color: white;
-            text-decoration: none;
-            background: #28a745;
-            padding: 8px 14px;
-            border-radius: 5px;
-            font-size: 14px;
-            font-weight: bold;
         }
 
         .container {
@@ -157,17 +121,16 @@
             }
         }
     </style>
-</head>
-<body>
-
-<div class="header">
-    <a href="{{ url_for('dashboard') }}" class="logo">
-        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Countrylink Logo">
-    </a>
-    <div class="title">COUNTRYLINK BROADBAND</div>
-    <a href="{{ url_for('dashboard') }}" class="home-btn">🏠 Home</a>
-</div>
-
+{% endblock %}
+{% block tabs %}
+    <div class="tab"><a href="{{ url_for('dashboard') }}"><i class="fas fa-gauge"></i> Dashboard</a></div>
+    <div class="tab"><a href="{{ url_for('complaints_page') }}"><i class="fas fa-code-branch"></i> Complaints</a></div>
+    <div class="tab active"><a href="{{ url_for('new_connections') }}"><i class="fas fa-user-plus"></i> New Connections</a></div>
+    <div class="tab"><a href="{{ url_for('stock') }}"><i class="fas fa-boxes"></i> Stock</a></div>
+    <div class="tab"><a href="{{ url_for('hr_dashboard') }}"><i class="fas fa-users"></i> Human Resource</a></div>
+    <div class="tab"><a href="{{ url_for('whatsapp_complaints') }}"><i class="fab fa-whatsapp"></i> WhatsApp messages</a></div>
+{% endblock %}
+{% block content %}
 <div class="container">
     <h2>New Connection Requests</h2>
 
@@ -239,6 +202,4 @@
         }
     }
 </script>
-
-</body>
-</html>
+{% endblock %}

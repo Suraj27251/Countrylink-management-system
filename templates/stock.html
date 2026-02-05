@@ -1,10 +1,7 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Stock Management</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+{% extends 'layout.html' %}
+{% block title %}Stock Management{% endblock %}
+{% block extra_head %}
     <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
-    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
     <style>
         .form-box {
             background: #fff;
@@ -94,33 +91,16 @@
             border: 1px solid #ccc;
         }
     </style>
-</head>
-<body>
-
-<!-- 🔷 HEADER -->
-<div class="header">
-    <div class="logo">
-        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Countrylink Logo">
-    </div>
-    <div class="title">COUNTRYLINK BROADBAND</div>
-    <div class="language">
-        <select>
-            <option value="en">ENGLISH</option>
-            <option value="hi">HINDI</option>
-        </select>
-    </div>
-</div>
-
-<!-- 💂 TABS -->
-<div class="tabs">
-    <div class="tab"><a href="{{ url_for('dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></div>
+{% endblock %}
+{% block tabs %}
+    <div class="tab"><a href="{{ url_for('dashboard') }}"><i class="fas fa-gauge"></i> Dashboard</a></div>
     <div class="tab"><a href="{{ url_for('complaints_page') }}"><i class="fas fa-code-branch"></i> Complaints</a></div>
     <div class="tab"><a href="{{ url_for('new_connections') }}"><i class="fas fa-user-plus"></i> New Connections</a></div>
-    <div class="tab active"><a href="#"><i class="fas fa-boxes-stacked"></i> Stock</a></div>
-    <div class="tab"><a href="{{ url_for('hr_dashboard') }}"><i class="fas fa-users"></i> HR</a></div>
-</div>
-
-<!-- 📦 CONTENT -->
+    <div class="tab active"><a href="{{ url_for('stock') }}"><i class="fas fa-boxes-stacked"></i> Stock</a></div>
+    <div class="tab"><a href="{{ url_for('hr_dashboard') }}"><i class="fas fa-users"></i> Human Resource</a></div>
+    <div class="tab"><a href="{{ url_for('whatsapp_complaints') }}"><i class="fab fa-whatsapp"></i> WhatsApp messages</a></div>
+{% endblock %}
+{% block content %}
 <div class="container">
     <h2>Add or Update Stock Item</h2>
     <form method="POST" class="form-box">
@@ -285,6 +265,4 @@
     filterTable("stockSearch", "stockTable");
     filterTable("issuedSearch", "issuedTable");
 </script>
-
-</body>
-</html>
+{% endblock %}
