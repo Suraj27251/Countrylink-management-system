@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+
+
+<!-- ================= CHECKOUT PAGE ================= -->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Countrylink - Internet Plan Checkout</title>
+  <link rel="stylesheet" href="../css/checkout.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <button class="back-btn">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M19 12H5M12 19L5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <h1 class="logo">
+        <img src="../images/countrylink-logo.png" alt="Countrylink Logo" onerror="this.style.display='none'; document.querySelector('.logo span').style.display='inline';">
+        <span style="display: none;">Countrylink</span>
+      </h1>
+      <div class="secure-badge">
+        <div class="secure-dot"></div>
+        <span>SECURE<br>CHECKOUT</span>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <div class="left-panel">
+        <section class="internet-plan">
+          <div class="section-header">
+            <span class="section-number">1.</span>
+            <h2>INTERNET PLAN</h2>
+            <span class="billing-type">Monthly Billing</span>
+          </div>
+
+          <div class="plan-options">
+  <label class="plan-option selected">
+    <input type="radio" name="plan" value="50-limited" data-price="499" data-plan-name="50 Mbps Limited" checked>
+    <div class="plan-content">
+      <span class="plan-name">50 Mbps Limited</span>
+      <span class="plan-price">₹499<span class="price-period">/mo</span></span>
+    </div>
+  </label>
+
+  <label class="plan-option">
+    <input type="radio" name="plan" value="50-unlimited" data-price="799" data-plan-name="50 Mbps Unlimited">
+    <div class="plan-content">
+      <span class="plan-name">50 Mbps Unlimited</span>
+      <span class="plan-price">₹799<span class="price-period">/mo</span></span>
+    </div>
+  </label>
+
+  <label class="plan-option">
+    <input type="radio" name="plan" value="100-unlimited" data-price="899" data-plan-name="100 Mbps Unlimited">
+    <div class="plan-content">
+      <span class="plan-name">100 Mbps Unlimited</span>
+      <span class="plan-price">₹899<span class="price-period">/mo</span></span>
+    </div>
+  </label>
+
+  <label class="plan-option">
+    <input type="radio" name="plan" value="200-unlimited" data-price="999" data-plan-name="200 Mbps Unlimited">
+    <div class="plan-content">
+      <span class="plan-name">200 Mbps Unlimited</span>
+      <span class="plan-price">₹999<span class="price-period">/mo</span></span>
+    </div>
+  </label>
+
+  <label class="plan-option">
+    <input type="radio" name="plan" value="300-unlimited" data-price="1099" data-plan-name="300 Mbps Unlimited">
+    <div class="plan-content">
+      <span class="plan-name">300 Mbps Unlimited</span>
+      <span class="plan-price">₹1099<span class="price-period">/mo</span></span>
+    </div>
+  </label>
+</div>
+
+
+         <div class="billing-cycle">
+  <h3>BILLING CYCLE</h3>
+  <div class="cycle-options">
+    <button class="cycle-btn active" data-cycle="monthly">
+      Monthly
+    </button>
+
+    <button class="cycle-btn" data-cycle="quarterly">
+      Quarterly <span class="save-badge">SAVE 10%</span>
+    </button>
+
+    <button class="cycle-btn" data-cycle="semiannual">
+      Semi-Ann <span class="save-badge">SAVE 20%</span>
+    </button>
+
+    <button class="cycle-btn annual" data-cycle="annual">
+      Annual <span class="save-badge">SAVE 25%</span>
+    </button>
+  </div>
+</div>
+
+
+        <section class="ott-addons">
+  <div class="section-header">
+    <span class="section-number">2.</span>
+    <h2>OTT ADD-ONS</h2>
+    <span class="optional">Optional</span>
+  </div>
+
+  <div class="addon-options">
+    <label class="addon-option">
+      <input type="checkbox" name="addon" value="premium" data-price="200">
+      <div class="addon-content">
+        <h4>OTT Premium</h4>
+        <span class="addon-price">₹200/mo</span>
+      </div>
+    </label>
+
+    <label class="addon-option">
+      <input type="checkbox" name="addon" value="vip" data-price="350">
+      <div class="addon-content">
+        <h4>OTT VIP</h4>
+        <span class="addon-price">₹350/mo</span>
+      </div>
+    </label>
+
+    <label class="addon-option">
+      <input type="checkbox" name="addon" value="prime" data-price="7996">
+      <div class="addon-content">
+        <h4>OTT Prime</h4>
+        <span class="addon-price">₹7996/yr</span>
+      </div>
+    </label>
+  </div>
+</section>
+
+
+        <section class="payment-method">
+          <h2>Payment Method</h2>
+
+          <div class="payment-options">
+            <label class="payment-option selected">
+              <input type="radio" name="payment" value="upi" checked>
+              <div class="payment-content">
+                <div class="payment-info">
+                  <h4>UPI / Net Banking</h4>
+                  <p>GPay, PhonePe, Paytm</p>
+                  <p style="display: none;">UPI ID: <strong>9765009850@okbizaxis</strong></p>
+                  <p style="display: none;">Name: <strong>COUNTRYLINK BROADBAND SERVICES</strong></p>
+                </div>
+                <div class="payment-icons">
+                  <span class="payment-icon">GP</span>
+                  <span class="payment-icon">Ph</span>
+                </div>
+              </div>
+            </label>
+
+            <label class="payment-option">
+              <input type="radio" name="payment" value="card">
+              <div class="payment-content">
+                <div class="payment-info">
+                  <h4>Debit / Credit Card</h4>
+                  <p>Visa, Mastercard, Rupay</p>
+                </div>
+                <div class="card-icon">
+                  <svg width="24" height="16" viewBox="0 0 24 16" fill="none">
+                    <rect width="24" height="16" rx="2" fill="#E5E7EB"/>
+                    <rect x="2" y="6" width="20" height="2" fill="#9CA3AF"/>
+                  </svg>
+                </div>
+              </div>
+            </label>
+
+            <label class="payment-option">
+              <input type="radio" name="payment" value="cash">
+              <div class="payment-content">
+                <div class="payment-info">
+                  <h4>Cash on Collection</h4>
+                  <p>Pay when we arrive</p>
+                  <p>section under construction please contact customer care</p>
+                </div>
+                <div class="cash-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <rect x="2" y="7" width="20" height="10" rx="2" fill="#E5E7EB"/>
+                    <circle cx="12" cy="12" r="2" fill="#9CA3AF"/>
+                  </svg>
+                </div>
+              </div>
+            </label>
+          </div>
+        </section>
+      </div>
+
+      <div class="right-panel">
+  <div class="checkout-summary">
+    <div class="total-payable">
+      <span class="total-label">Total Payable</span>
+      <span class="total-amount">₹499</span>
+    </div>
+
+    <!-- GST optional checkbox -->
+    <div class="breakdown-item">
+      <label>
+        <input type="checkbox" id="gstCheckbox">
+        Add GST Bill (18%)
+      </label>
+    </div>
+
+    <div class="price-breakdown">
+      <div class="breakdown-item">
+        <span>Plan Charges</span>
+        <span id="planCharges">₹499</span>
+      </div>
+
+      <!-- GST value updated dynamically -->
+      <div class="breakdown-item">
+        <span>GST (18%)</span>
+        <span id="gstAmount">₹0</span>
+      </div>
+
+      <div class="breakdown-total">
+        <span>Total Pay</span>
+        <span class="final-amount">₹499</span>
+      </div>
+    </div>
+
+    <button class="pay-btn">
+      Pay Now ₹499
+    </button>
+
+
+          <div class="security-badges">
+            <div class="badge">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="8" fill="#10B981"/>
+                <path d="M6 8L7 9L10 6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span>Secure</span>
+            </div>
+            <div class="badge">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <rect x="3" y="6" width="10" height="7" rx="1" fill="#10B981"/>
+                <path d="M5 6V4C5 2.89543 5.89543 2 7 2H9C10.1046 2 11 2.89543 11 4V6" stroke="#10B981" stroke-width="1.5"/>
+              </svg>
+              <span>Encrypted</span>
+            </div>
+            <div class="badge">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="8" fill="#10B981"/>
+                <path d="M6 8L7 9L10 6" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span>Verified</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+
+  <script>
+  const qrCodePath = '../img/qr_code.png';
+  let billingCycle = 'monthly';
+
+  /* ================= PLAN CARD ↔ RADIO SYNC ================= */
+  document.querySelectorAll('.plan-option').forEach(option => {
+    option.addEventListener('click', () => {
+      document.querySelectorAll('.plan-option')
+        .forEach(o => o.classList.remove('selected'));
+
+      option.classList.add('selected');
+      const radio = option.querySelector('input[type="radio"]');
+      if (radio) radio.checked = true;
+      calculateTotal();
+    });
+  });
+
+  /* ================= PAYMENT CARD ↔ RADIO SYNC ================= */
+  document.querySelectorAll('.payment-option').forEach(option => {
+    option.addEventListener('click', () => {
+      document.querySelectorAll('.payment-option')
+        .forEach(o => o.classList.remove('selected'));
+
+      option.classList.add('selected');
+      const radio = option.querySelector('input[type="radio"]');
+      if (radio) radio.checked = true;
+    });
+  });
+
+  /* ================= BILLING CYCLE ================= */
+  document.querySelectorAll('.cycle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.cycle-btn')
+        .forEach(b => b.classList.remove('active'));
+
+      btn.classList.add('active');
+      billingCycle = btn.dataset.cycle || 'monthly';
+      updatePrimeAddon();
+      calculateTotal();
+    });
+  });
+
+  /* ================= OTT PRIME (ANNUAL ONLY) ================= */
+  function updatePrimeAddon() {
+    const prime = document.querySelector('input[value="prime"]');
+    if (!prime) return;
+
+    if (billingCycle !== 'annual') {
+      prime.checked = false;
+      prime.disabled = true;
+      prime.closest('.addon-option').style.opacity = '0.5';
+    } else {
+      prime.disabled = false;
+      prime.closest('.addon-option').style.opacity = '1';
+    }
+  }
+
+  /* ================= TOTAL CALCULATION ================= */
+  function calculateTotal() {
+    const planInput = document.querySelector('input[name="plan"]:checked');
+    let planPrice = Number(planInput?.dataset.price) || 0;
+
+    let months = 1;
+    let discountRate = 0;
+
+    if (billingCycle === 'quarterly') { months = 3; discountRate = 0.10; }
+    if (billingCycle === 'semiannual') { months = 6; discountRate = 0.20; }
+    if (billingCycle === 'annual') { months = 12; discountRate = 0.25; }
+
+    const basePlanTotal = planPrice * months;
+    const discount = basePlanTotal * discountRate;
+    const discountedPlan = basePlanTotal - discount;
+
+    document.getElementById('planCharges').innerText = `₹${Math.round(discountedPlan)}`;
+
+    let addonTotal = 0;
+    document.querySelectorAll('input[name="addon"]:checked').forEach(a => {
+      const price = Number(a.dataset.price) || 0;
+      if (a.value === 'prime') {
+        // Only add yearly price for annual billing
+        if (billingCycle === 'annual') addonTotal += price;
+      } else {
+        addonTotal += price * months;
+      }
+    });
+
+    let subtotal = discountedPlan + addonTotal;
+
+    let gst = 0;
+    if (document.getElementById('gstCheckbox')?.checked) {
+      gst = subtotal * 0.18;
+    }
+
+    const total = Math.round(subtotal + gst);
+
+    document.querySelector('.total-amount').innerText = `₹${total}`;
+    document.querySelector('.final-amount').innerText = `₹${total}`;
+    document.getElementById('gstAmount').innerText = gst ? `₹${Math.round(gst)}` : '₹0';
+    document.querySelector('.pay-btn').innerText = `Pay Now ₹${total}`;
+  }
+
+  document.querySelectorAll('input').forEach(el =>
+    el.addEventListener('change', calculateTotal)
+  );
+
+  /* ================= RAZORPAY DYNAMIC PAYMENT ================= */
+async function payWithRazorpay(amount) {
+
+  // ✅ Ensure amount is a proper number
+  amount = Number(amount);
+
+  // Debug: Log the amount being sent to backend
+  console.log("[DEBUG] Amount to send to backend (should be rupees):", amount);
+
+  if (!amount || amount <= 0) {
+    alert("Invalid payment amount. Please refresh the page.");
+    console.error("❌ Invalid amount:", amount);
+    return;
+  }
+
+  // Send to backend (relative path)
+  let order;
+  try {
+    const res = await fetch('create-order.php', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        amount: amount   // ✅ send clean integer (e.g. 499)
+      })
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      alert('Order API error: ' + text);
+      return;
+    }
+    order = await res.json();
+  } catch (err) {
+    alert('Network or server error: ' + err);
+    return;
+  }
+  // Debug: Log the order object received from backend
+  console.log("[DEBUG] Order object from backend:", order);
+  if (order && order.amount) {
+    console.log("[DEBUG] Amount received from backend (should be paise):", order.amount);
+  }
+
+  const options = {
+    key: "rzp_live_S2uFzG02Xbl4AA", // ✅ ONLY key_id
+    amount: order.amount,          // ✅ amount in paise from backend
+    currency: "INR",
+    name: "CountryLink Broadband",
+    description: "Internet Subscription",
+    order_id: order.id,
+    handler: function (response) {
+      alert("Payment Successful ✅");
+      console.log("💰 Razorpay response:", response);
+    },
+    theme: { color: "#0d6efd" }
+  };
+
+  const rzp = new Razorpay(options);
+  rzp.open();
+}
+
+  /* ================= PAY BUTTON ================= */
+  document.querySelector('.pay-btn').addEventListener('click', () => {
+    // Always recalculate before payment to ensure latest value
+    calculateTotal();
+    // Use setTimeout to ensure DOM updates after calculateTotal
+    setTimeout(() => {
+      const selectedPayment = document.querySelector('input[name="payment"]:checked')?.value;
+      // Get the latest amount from .final-amount
+      const amountText = document.querySelector('.final-amount').innerText;
+      const amount = parseInt(amountText.replace(/[^0-9]/g, ''), 10);
+      console.log("[DEBUG] Amount being sent to Razorpay:", amount);
+
+      if (!amount || isNaN(amount) || amount < 10) {
+        alert("Invalid or too low payment amount. Please check your selection.");
+        return;
+      }
+
+      if (selectedPayment === 'upi') {
+        const qrPopup = document.createElement('div');
+        qrPopup.style.cssText =
+          'position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:1000';
+
+        const img = document.createElement('img');
+        img.src = qrCodePath;
+        img.style.maxWidth = '90%';
+
+        const close = document.createElement('button');
+        close.innerText = 'Close';
+        close.style.position = 'absolute';
+        close.style.top = '20px';
+        close.style.right = '20px';
+        close.onclick = () => document.body.removeChild(qrPopup);
+
+        qrPopup.append(img, close);
+        document.body.appendChild(qrPopup);
+      }
+
+      if (selectedPayment === 'card') {
+        payWithRazorpay(amount);
+      }
+
+      if (selectedPayment === 'cash') {
+        alert("Home collection request will be submitted.");
+      }
+    }, 0);
+  });
+
+  updatePrimeAddon();
+  calculateTotal();
+</script>
+
+</body>
+</html>
+
+
+
