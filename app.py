@@ -55,7 +55,6 @@ def _start_ping_thread():
         _ping_thread_started = True
 
 
-@app.before_first_request
 def _launch_ping_thread():
     _start_ping_thread()
 
@@ -211,6 +210,7 @@ def init_db():
 @app.before_request
 def before_request():
     init_db()
+    _launch_ping_thread()
 
 
 # --- updated ping status route ---
