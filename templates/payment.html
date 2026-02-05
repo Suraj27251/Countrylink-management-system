@@ -266,7 +266,9 @@
 
 
   <script>
-  const qrCodePath = '../img/qr_code.png';
+  const upiId = '9765009850@okbizaxis';
+  const upiName = 'COUNTRYLINK BROADBAND SERVICES';
+  const upiNote = 'Countrylink Broadband Subscription';
   let billingCycle = 'monthly';
 
   /* ================= PLAN CARD ↔ RADIO SYNC ================= */
@@ -431,6 +433,58 @@ async function payWithRazorpay(amount) {
   rzp.open();
 }
 
+  function buildUpiQrUrl(amount, planName) {
+    const payload = new URLSearchParams({
+      pa: upiId,
+      pn: upiName,
+      tn: planName ? `${upiNote} - ${planName}` : upiNote,
+      am: amount.toFixed(2),
+      cu: 'INR'
+    });
+
+    const upiUrl = `upi://pay?${payload.toString()}`;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(upiUrl)}`;
+  }
+
+  function showUpiQrPopup({ amount, planName }) {
+    const qrPopup = document.createElement('div');
+    qrPopup.style.cssText =
+      'position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:1000';
+
+    const card = document.createElement('div');
+    card.style.cssText =
+      'background:#fff;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:16px;align-items:center;max-width:90%;width:360px;text-align:center;position:relative';
+
+    const title = document.createElement('h3');
+    title.innerText = 'Scan & Pay with UPI';
+    title.style.margin = '0';
+
+    const summary = document.createElement('p');
+    summary.innerHTML = `<strong>Amount:</strong> ₹${amount.toFixed(2)}<br><strong>Plan:</strong> ${planName || 'Selected Plan'}`;
+    summary.style.margin = '0';
+
+    const img = document.createElement('img');
+    img.src = buildUpiQrUrl(amount, planName);
+    img.alt = 'UPI QR code';
+    img.style.maxWidth = '100%';
+    img.style.border = '1px solid #e5e7eb';
+    img.style.borderRadius = '12px';
+
+    const upiText = document.createElement('p');
+    upiText.innerHTML = `<strong>UPI ID:</strong> ${upiId}<br><strong>Name:</strong> ${upiName}`;
+    upiText.style.margin = '0';
+    upiText.style.fontSize = '0.9rem';
+
+    const close = document.createElement('button');
+    close.innerText = 'Close';
+    close.style.cssText = 'margin-top:8px;padding:8px 16px;border-radius:999px;border:none;background:#0d6efd;color:#fff;cursor:pointer';
+    close.onclick = () => document.body.removeChild(qrPopup);
+
+    card.append(title, summary, img, upiText, close);
+    qrPopup.appendChild(card);
+    document.body.appendChild(qrPopup);
+  }
+
   /* ================= PAY BUTTON ================= */
   document.querySelector('.pay-btn').addEventListener('click', () => {
     // Always recalculate before payment to ensure latest value
@@ -449,23 +503,8 @@ async function payWithRazorpay(amount) {
       }
 
       if (selectedPayment === 'upi') {
-        const qrPopup = document.createElement('div');
-        qrPopup.style.cssText =
-          'position:fixed;inset:0;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;z-index:1000';
-
-        const img = document.createElement('img');
-        img.src = qrCodePath;
-        img.style.maxWidth = '90%';
-
-        const close = document.createElement('button');
-        close.innerText = 'Close';
-        close.style.position = 'absolute';
-        close.style.top = '20px';
-        close.style.right = '20px';
-        close.onclick = () => document.body.removeChild(qrPopup);
-
-        qrPopup.append(img, close);
-        document.body.appendChild(qrPopup);
+        const planName = document.querySelector('input[name="plan"]:checked')?.dataset.planName;
+        showUpiQrPopup({ amount, planName });
       }
 
       if (selectedPayment === 'card') {
