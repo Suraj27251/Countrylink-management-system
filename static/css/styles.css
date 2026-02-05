@@ -136,6 +136,35 @@ input:checked + .slider:before {
     flex-wrap: wrap;
 }
 
+.floating-nav {
+    position: sticky;
+    top: 16px;
+    margin: 16px auto 24px;
+    width: min(1120px, 92%);
+    padding: 10px 20px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #16a34a, #facc15, #f97316);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+    border: none;
+    z-index: 50;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.floating-nav__links {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 auto;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.floating-nav .sidebar-chart-container {
+    display: none;
+}
+
+
 .tab { 
     padding: 12px 16px; 
     text-align: center; 
@@ -143,6 +172,13 @@ input:checked + .slider:before {
     flex-grow: 1; 
     font-weight: bold; 
     border-right: 1px solid #ccc; 
+}
+
+.floating-nav .tab {
+    border-right: none;
+    padding: 8px 14px;
+    border-radius: 999px;
+    flex-grow: 0;
 }
 
 .tab a {
@@ -153,9 +189,19 @@ input:checked + .slider:before {
     gap: 8px;
 }
 
+.floating-nav .tab a {
+    color: #1f2937;
+    font-weight: 600;
+}
+
 .tab:hover,
 .tab.active {
     background-color: #e0e0e0;
+}
+
+.floating-nav .tab:hover,
+.floating-nav .tab.active {
+    background: rgba(255, 255, 255, 0.35);
 }
 
 /* ===== MOBILE MENU BUTTON ===== */
@@ -207,6 +253,20 @@ input:checked + .slider:before {
     .sidebar-chart-container {
         padding: 1rem;
     }
+
+    .floating-nav .sidebar-chart-container {
+        display: block;
+    }
+
+    .floating-nav {
+        width: 240px;
+        margin: 0;
+        border-radius: 0;
+        background: #1f2937;
+        box-shadow: 2px 0 8px rgba(0,0,0,0.2);
+        top: 0;
+    }
+
 }
 
 .sidebar-overlay {
