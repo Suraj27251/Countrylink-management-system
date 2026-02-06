@@ -1,60 +1,292 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <title>Complaint Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='provider/providerHTML-main/css/bootstrap.min.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='provider/providerHTML-main/css/style.css') }}" class="rel" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='provider/providerHTML-main/css/navbar_animation.css') }}" class="rel" />
+
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Kanit&family=Poppins:wght@600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v5.10.0/css/all.css"
+    integrity="sha384-AYmEC3Yw5cVb3ZcuHtOA93w35dYTsvhLPVnYs9eStHfGJvOvKxVfELGroGkvsg+p" crossorigin="anonymous" />
+
+  <title>Countrylink</title>
 </head>
+
 <body>
-    <div class="container">
-        <h1>Complaint Management Dashboard</h1>
-
-        <div class="stats">
-            <div>Total Complaints: <strong>{{ total }}</strong></div>
-            <div>Unassigned: <strong>{{ unassigned }}</strong></div>
-            <div>In Progress: <strong>{{ in_progress }}</strong></div>
-            <div>Completed: <strong>{{ completed }}</strong></div>
+  <section class="navbar-sec">
+    <nav class="navbar navbar-expand-lg fixed-top navbar-light ">
+      <div class="container">
+        <button class="navbar-toggler text-danger third-button" type="button" data-toggle="collapse"
+          data-target="#navbarSupportedContent22" aria-controls="navbarSupportedContent22" aria-expanded="false"
+          aria-label="Toggle navigation">
+          <div class="animated-icon3"><span></span><span></span><span></span></div>
+        </button>
+        <a class="navbar-brand" href="#">Countrylink</a>
+        <div class="collapse navbar-collapse" id="navbarSupportedContent22">
+          <ul class="navbar-nav ml-auto">
+            <li class="nav-item active">
+              <a class="nav-link" href="#jumbotron-sec">Home<span class="sr-only">(current)</span></a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#plans">Plans</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#about">About</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#contact">Contact</a>
+            </li>
+            <li class="nav-item">
+              <a href="{{ url_for('auth.login') }}" type="button" class="btn tombol">Login</a>
+            </li>
+          </ul>
         </div>
+      </div>
+    </nav>
+  </section>
 
-        {% if complaints %}
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Customer Name</th>
-                    <th>Phone</th>
-                    <th>Issue</th>
-                    <th>Status</th>
-                    <th>Update Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for comp in complaints %}
-                <tr>
-                    <td>{{ comp[0] }}</td>
-                    <td>{{ comp[1] }}</td>
-                    <td>{{ comp[2] }}</td>
-                    <td>{{ comp[3] }}</td>
-                    <td>{{ comp[4] }}</td>
-                    <td>
-                        <form method="POST" action="{{ url_for('dashboard') }}">
-                            <input type="hidden" name="id" value="{{ comp[0] }}">
-                            <select name="status" required>
-                                <option value="">--Select--</option>
-                                <option value="unassigned">Unassigned</option>
-                                <option value="in_progress">In Progress</option>
-                                <option value="completed">Completed</option>
-                            </select>
-                            <button type="submit">Update</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-            <p>No complaints found.</p>
-        {% endif %}
+  <section id="jumbotron-sec">
+    <div class="jumbotron jumbotron-fluid">
+      <div class="container">
+        <div class="padding-jumbo">
+          <div class="row">
+            <div class="col-lg-6 align-self-center">
+              <h1 class="display-4">Countrylink Fiber Internet & OTT Bundles</h1>
+              <p class="lead">Get blazing-fast, reliable internet with curated OTT packages for the whole family.</p>
+              <div class="btn-jumbo">
+                <a href="#plans" type="button" class="btn tombol">View Plans</a>
+                <a href="#contact" type="button" class="btn tombol-transparan"><i
+                    class="fas fa-map-marker-alt pr-3"></i>Check Availability</a>
+              </div>
+            </div>
+            <div class="col-lg-6 ">
+              <img src="{{ url_for('static', filename='provider/providerHTML-main/img/sally1.jpg') }}" alt="Countrylink"
+                class="img" />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+  </section>
+
+  <div class="container" id="plans">
+    <div class="row text-center justify-content-center mt-5 mb-5">
+      <div class="col-lg-6">
+        <h1 class="title">Countrylink Internet-Only Plans</h1>
+      </div>
+    </div>
+  </div>
+  <div class="container flex-container">
+    <div class="card">
+      <div class="header text-center">
+        <h1 class="title">Limited 50 Mbps</h1>
+        <img src="{{ url_for('static', filename='provider/providerHTML-main/img/eclipse_speed.png') }}" alt="speed"
+          class="img" />
+        <p class="title">500 GB</p>
+      </div>
+      <div class="content">
+        <ul class="">
+          <li>Free 5G WiFi router*</li>
+          <li>Free installation*</li>
+        </ul>
+        <p>₹499/-</p>
+      </div>
+      <div class="text-center mt-4 content">
+        <a href="#contact" type="button" class=" btn tombol-transparan ">Get Started</a>
+      </div>
+    </div>
+    <div class="card besar">
+      <div class="header text-center">
+        <h1 class="title">Unlimited 100 Mbps</h1>
+        <img src="{{ url_for('static', filename='provider/providerHTML-main/img/pas.png') }}" alt="speed" class="img" />
+        <p class="title">Fiber Connectivity</p>
+      </div>
+      <div class="content">
+        <ul class="">
+          <li>Unlimited data</li>
+          <li>Free 5G WiFi router*</li>
+        </ul>
+        <p>₹900/-</p>
+      </div>
+      <div class="text-center content mt-4">
+        <a href="#contact" type="button" class=" btn tombol ">Get Started</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="header text-center">
+        <h1 class="title">Unlimited 300 Mbps</h1>
+        <img src="{{ url_for('static', filename='provider/providerHTML-main/img/super.png') }}" alt="speed" class="img" />
+        <p class="title">Best for OTT</p>
+      </div>
+      <div class="content">
+        <ul class="">
+          <li>Unlimited data</li>
+          <li>Premium streaming ready</li>
+        </ul>
+        <p>₹1099/-</p>
+      </div>
+      <div class="text-center content mt-4">
+        <a href="#contact" type="button" class=" btn tombol-transparan">Get Started</a>
+      </div>
+    </div>
+  </div>
+  <div class="container">
+    <div class="row mt-5">
+      <div class="col-lg">
+        <div class="text-center content out">
+          <a href="#contact" type="button" class=" btn tombol-transparan">Ask for Full Plan List</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="about-bg" id="about"></div>
+  <div class="about">
+    <div class="container flex-container mt-5">
+      <div class="row">
+        <div class="col-lg-7 pb-5">
+          <h1 class="title">Why Choose Countrylink?</h1>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-lg-6 align-self-center">
+          <h1 class="title-brand ">Countrylink</h1>
+        </div>
+        <div class="col-lg-6">
+          <p class="info">Countrylink brings high-speed fiber internet with OTT bundles to keep your home connected and
+            entertained. Enjoy stable speeds, easy onboarding, and plans designed for every household.</p>
+          <div class="text-center">
+            <a href="#plans" type="button" class=" btn tombol">See All Plans</a>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="card-about">
+          <div class="card-featured text-lg-center">
+            <div class="rectangle text-center  ">
+              <img src="{{ url_for('static', filename='provider/providerHTML-main/img/rocket.png') }}" alt="fast"
+                class="img" />
+            </div>
+            <h1>Super Fast</h1>
+            <p>Stream, game, and work with reliable high-speed fiber.</p>
+          </div>
+          <div class="card-featured text-lg-center ">
+            <div class="rectangle text-center ">
+              <img src="{{ url_for('static', filename='provider/providerHTML-main/img/fiber.png') }}" alt="fiber"
+                class="img" />
+            </div>
+            <h1>Fiber Optic</h1>
+            <p>Consistent connectivity powered by Countrylink fiber.</p>
+          </div>
+          <div class="card-featured text-lg-center">
+            <div class="rectangle text-center ">
+              <img src="{{ url_for('static', filename='provider/providerHTML-main/img/money.png') }}" alt="value"
+                class="img" />
+            </div>
+            <h1>Best Value</h1>
+            <p>Flexible monthly and quarterly plans with OTT add-ons.</p>
+          </div>
+          <div class="card-featured text-lg-center">
+            <div class="rectangle text-center">
+              <img src="{{ url_for('static', filename='provider/providerHTML-main/img/call.png') }}" alt="support"
+                class="img" />
+            </div>
+            <h1>Always On Support</h1>
+            <p>Reach Countrylink support whenever you need assistance.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="konsul">
+    <div class="container flex-container">
+      <div class="row">
+        <div class="col-lg-6 align-self-center ">
+          <h1>Need Help Picking a Plan?</h1>
+          <p>Our Countrylink team can guide you to the right internet and OTT package for your home.</p>
+        </div>
+        <div class="col-lg-6">
+          <img src="{{ url_for('static', filename='provider/providerHTML-main/img/people.png') }}" alt="consultation"
+            class="img">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer id="contact">
+    <div class="container flex-container">
+      <div class="row">
+        <div class="col-lg-6">
+          <h1>Countrylink Coverage Areas</h1>
+          <div class="card-footers">
+            <a href="#">Navi Mumbai</a>
+            <a href="#">Panvel</a>
+            <a href="#">Kharghar</a>
+            <a href="#">Ulwe</a>
+            <a href="#">Taloja</a>
+            <a href="#">Kamothe</a>
+            <a href="#">Kalamboli</a>
+            <a href="#">Old Panvel</a>
+            <a href="#">New Panvel</a>
+            <a href="#">Roadpali</a>
+          </div>
+        </div>
+        <div class="col-lg-3">
+          <h1>Customer Service</h1>
+          <div class="card-footers2">
+            <p>For complaints and service requests</p>
+            <div class="padding-footer">
+              <h2>9765009850</h2>
+              <form>
+                <select class="form-control">
+                  <option>24x7 Support</option>
+                </select>
+              </form>
+            </div>
+          </div>
+          <button type="submit" class="btn tombol">Call</button>
+        </div>
+        <div class="col-lg-3">
+          <h1>New Connections</h1>
+          <p>For new Countrylink connections</p>
+          <div class="padding-footer2">
+            <h2>9765005851</h2>
+            <form>
+              <select class="form-control">
+                <option>Sales & Installations</option>
+              </select>
+            </form>
+          </div>
+          <button type="submit" class="btn tombol">Call</button>
+        </div>
+      </div>
+    </div>
+    <div class="row title-brand-footer justify-content-center">
+      <h1 class="title-brand">Countrylink</h1>
+    </div>
+    <div class="row icon-awesome justify-content-center">
+      <a href="#" class=""><i class="fab fa-facebook fa-3x mr-3"></a></i>
+      <a href="#" class=""><i class="fab fa-linkedin fa-3x mr-3 "></a></i>
+      <a href="#" class=""><i class="fab fa-instagram fa-3x mr-3 "></a></i>
+      <a href="#" class=""><i class="fab fa-whatsapp fa-3x mr-3 "></a></i>
+      <a href="#" class=""><i class="fas fa-envelope fa-3x mr-3 "></a></i>
+    </div>
+    </div>
+  </footer>
+
+
+  <script src="{{ url_for('static', filename='provider/providerHTML-main/js/jquery.slim.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='provider/providerHTML-main/js/bootstrap.bundle.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='provider/providerHTML-main/js/script.js') }}"></script>
 </body>
+
 </html>
