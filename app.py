@@ -1,4 +1,6 @@
 import os
+import zipfile
+from pathlib import Path
 import csv
 import pickle
 import socket
@@ -15,6 +17,22 @@ from sklearn.naive_bayes import MultinomialNB
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me')
+
+
+def ensure_provider_assets():
+    base_dir = Path(app.root_path)
+    zip_path = base_dir / 'providerHTML-main.zip'
+    target_dir = base_dir / 'static' / 'provider' / 'providerHTML-main'
+    if target_dir.exists():
+        return
+    if not zip_path.exists():
+        return
+    target_dir.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(zip_path) as archive:
+        archive.extractall(target_dir.parent)
+
+
+ensure_provider_assets()
 
 # ---- AI categorization setup ----
 MODEL_PATH = 'complaint_model.pkl'
@@ -226,6 +244,11 @@ def ping_status():
 # ==============================
 
 @app.route('/')
+def landing():
+    return render_template('index.html')
+
+
+@app.route('/dashboard')
 @login_required
 def dashboard():
     conn = sqlite3.connect('complaints.db')
