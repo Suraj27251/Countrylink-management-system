@@ -444,6 +444,7 @@ def flow_endpoint():
 @login_required
 def view_complaints():
     conn = sqlite3.connect('complaints.db')
+    conn.row_factory = sqlite3.Row
     c = conn.cursor()
     c.execute("""
         SELECT id, name, mobile, complaint, status, created_at, source 
@@ -452,8 +453,95 @@ def view_complaints():
         ORDER BY created_at DESC LIMIT 100
     """)
     complaints = c.fetchall()
+
+    c.execute("""
+        SELECT
+            mobile,
+            SUM(CASE WHEN date(created_at) >= date('now', '-30 day') THEN 1 ELSE 0 END) AS count_30d,
+            SUM(CASE WHEN date(created_at) >= date('now', '-30 day') AND status != 'Resolved' THEN 1 ELSE 0 END) AS unresolved_30d,
+            SUM(CASE WHEN date(created_at) >= date('now', '-7 day') THEN 1 ELSE 0 END) AS count_7d,
+            SUM(
+                CASE
+                    WHEN date(created_at) >= date('now', '-14 day')
+                         AND date(created_at) < date('now', '-7 day')
+                    THEN 1
+                    ELSE 0
+                END
+            ) AS count_prev_7d,
+            MAX(created_at) AS last_seen
+        FROM complaints
+        WHERE source != 'WhatsApp'
+        GROUP BY mobile
+    """)
+    stats_rows = c.fetchall()
+
+    customer_stats = {}
+    for row in stats_rows:
+        score = (row["count_30d"] or 0) * 2 + (row["unresolved_30d"] or 0) * 3 + (row["count_7d"] or 0) * 2
+        if score >= 12:
+            risk_level = "Highly Disturbed"
+        elif score >= 7:
+            risk_level = "At Risk"
+        else:
+            risk_level = "Normal"
+
+        if (row["count_7d"] or 0) > (row["count_prev_7d"] or 0):
+            trend = "Rising"
+        elif (row["count_7d"] or 0) < (row["count_prev_7d"] or 0):
+            trend = "Falling"
+        else:
+            trend = "Stable"
+
+        customer_stats[row["mobile"]] = {
+            "count_30d": row["count_30d"] or 0,
+            "unresolved_30d": row["unresolved_30d"] or 0,
+            "count_7d": row["count_7d"] or 0,
+            "count_prev_7d": row["count_prev_7d"] or 0,
+            "last_seen": row["last_seen"],
+            "score": score,
+            "risk_level": risk_level,
+            "trend": trend,
+        }
+
+    complaints_enriched = []
+    for complaint in complaints:
+        mobile = complaint["mobile"]
+        stats = customer_stats.get(mobile, {})
+        complaints_enriched.append({
+            "id": complaint["id"],
+            "name": complaint["name"],
+            "mobile": mobile,
+            "complaint": complaint["complaint"],
+            "status": complaint["status"],
+            "created_at": complaint["created_at"],
+            "source": complaint["source"],
+            "risk_level": stats.get("risk_level", "Normal"),
+            "trend": stats.get("trend", "Stable"),
+            "score": stats.get("score", 0),
+        })
+
+    high_risk_customers = [
+        {
+            "mobile": mobile,
+            "risk_level": stats["risk_level"],
+            "trend": stats["trend"],
+            "score": stats["score"],
+            "count_30d": stats["count_30d"],
+            "unresolved_30d": stats["unresolved_30d"],
+            "last_seen": stats["last_seen"],
+        }
+        for mobile, stats in customer_stats.items()
+        if stats["risk_level"] in {"Highly Disturbed", "At Risk"}
+    ]
+    high_risk_customers.sort(key=lambda item: item["score"], reverse=True)
     conn.close()
-    return render_template('complaints.html', complaints=complaints)
+    return render_template(
+        'complaints.html',
+        complaints=complaints_enriched,
+        high_risk_customers=high_risk_customers[:5],
+        high_risk_total=sum(1 for stats in customer_stats.values() if stats["risk_level"] == "Highly Disturbed"),
+        at_risk_total=sum(1 for stats in customer_stats.values() if stats["risk_level"] == "At Risk"),
+    )
 
 
 @app.route('/whatsapp')

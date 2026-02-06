@@ -46,6 +46,40 @@
     .resolve-btn {
       color: green;
     }
+    .risk-badge {
+      font-size: 0.75rem;
+      padding: 0.35rem 0.6rem;
+    }
+    .risk-Highly\ Disturbed {
+      background-color: #dc3545;
+      color: #fff;
+    }
+    .risk-At\ Risk {
+      background-color: #fd7e14;
+      color: #fff;
+    }
+    .risk-Normal {
+      background-color: #198754;
+      color: #fff;
+    }
+    .trend-Rising {
+      color: #dc3545;
+      font-weight: 600;
+    }
+    .trend-Stable {
+      color: #6c757d;
+      font-weight: 600;
+    }
+    .trend-Falling {
+      color: #198754;
+      font-weight: 600;
+    }
+    .analysis-card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+    }
   </style>
 {% endblock %}
 {% block tabs %}
@@ -59,6 +93,58 @@
 {% block content %}
 <div class="container">
   <h2 class="mb-4 text-center">All Complaints Overview</h2>
+
+  <div class="analysis-card mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <div>
+        <h5 class="mb-1">Predictive Analysis (30-day window)</h5>
+        <p class="text-muted mb-0">Highlights customers with rising complaint frequency and unresolved tickets.</p>
+      </div>
+      <div class="d-flex gap-3">
+        <div class="text-center">
+          <div class="fw-bold text-danger fs-4">{{ high_risk_total }}</div>
+          <div class="text-muted">Highly Disturbed</div>
+        </div>
+        <div class="text-center">
+          <div class="fw-bold text-warning fs-4">{{ at_risk_total }}</div>
+          <div class="text-muted">At Risk</div>
+        </div>
+      </div>
+    </div>
+    <div class="mt-3">
+      <h6 class="mb-3">Top Disturbed Customers</h6>
+      {% if high_risk_customers %}
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Mobile</th>
+                <th>Risk Level</th>
+                <th>Trend</th>
+                <th>Complaints (30d)</th>
+                <th>Unresolved (30d)</th>
+                <th>Last Seen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for customer in high_risk_customers %}
+              <tr>
+                <td>{{ customer.mobile }}</td>
+                <td><span class="badge risk-badge risk-{{ customer.risk_level }}">{{ customer.risk_level }}</span></td>
+                <td class="trend-{{ customer.trend }}">{{ customer.trend }}</td>
+                <td>{{ customer.count_30d }}</td>
+                <td>{{ customer.unresolved_30d }}</td>
+                <td>{{ customer.last_seen }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="text-muted">No high-risk customers detected yet.</div>
+      {% endif %}
+    </div>
+  </div>
 
   <div class="filter-section d-flex justify-content-between align-items-center">
     <div>
@@ -94,6 +180,8 @@
           <th>Mobile</th>
           <th>Complaint</th>
           <th>Status</th>
+          <th>Risk</th>
+          <th>Trend</th>
           <th>Received At</th>
           <th>Source</th>
           <th>Actions</th>
@@ -101,24 +189,26 @@
       </thead>
       <tbody>
         {% for c in complaints %}
-        <tr id="row-{{ c[0] }}">
-          <td><input type="checkbox" class="selectComplaint" value="{{ c[0] }}"></td>
-          <td>{{ c[0] }}</td>
+        <tr id="row-{{ c.id }}">
+          <td><input type="checkbox" class="selectComplaint" value="{{ c.id }}"></td>
+          <td>{{ c.id }}</td>
           <td>
-            {% set source = c[6] if c|length > 6 else 'Web' %}
+            {% set source = c.source or 'Web' %}
             {% if source == 'WhatsApp' %}
               <img src="https://cdn-icons-png.flaticon.com/512/733/733585.png" alt="WA" class="whatsapp-icon">
             {% endif %}
-            {{ c[1] }}
+            {{ c.name }}
           </td>
-          <td>{{ c[2] }}</td>
-          <td>{{ c[3] }}</td>
-          <td><span class="badge badge-status status-{{ c[4] }}" id="status-{{ c[0] }}">{{ c[4] }}</span></td>
-          <td>{{ c[5] }}</td>
+          <td>{{ c.mobile }}</td>
+          <td>{{ c.complaint }}</td>
+          <td><span class="badge badge-status status-{{ c.status }}" id="status-{{ c.id }}">{{ c.status }}</span></td>
+          <td><span class="badge risk-badge risk-{{ c.risk_level }}">{{ c.risk_level }}</span></td>
+          <td class="trend-{{ c.trend }}">{{ c.trend }}</td>
+          <td>{{ c.created_at }}</td>
           <td>{{ source }}</td>
           <td>
-            <span class="action-btn resolve-btn" title="Mark as Resolved" onclick="markResolved({{ c[0] }})">✔️</span>
-            <span class="action-btn delete-btn" title="Delete Complaint" onclick="deleteComplaint({{ c[0] }})">🗑️</span>
+            <span class="action-btn resolve-btn" title="Mark as Resolved" onclick="markResolved({{ c.id }})">✔️</span>
+            <span class="action-btn delete-btn" title="Delete Complaint" onclick="deleteComplaint({{ c.id }})">🗑️</span>
           </td>
         </tr>
         {% endfor %}
