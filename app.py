@@ -801,6 +801,30 @@ def whatsapp_complaints():
         ORDER BY datetime(created_at) DESC, id DESC
     """)
     rows = c.fetchall()
+    legacy_mode = False
+    if not rows:
+        legacy_mode = True
+        c.execute("""
+            SELECT id, name, mobile, complaint AS text, created_at
+            FROM complaints
+            WHERE source = 'WhatsApp'
+            ORDER BY datetime(created_at) DESC, id DESC
+        """)
+        legacy_rows = c.fetchall()
+        rows = [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "mobile": row["mobile"],
+                "direction": "inbound",
+                "message_type": "text",
+                "text": row["text"],
+                "media_url": None,
+                "file_name": None,
+                "created_at": row["created_at"],
+            }
+            for row in legacy_rows
+        ]
 
     latest_by_mobile = {}
     for row in rows:
@@ -828,13 +852,16 @@ def whatsapp_complaints():
     messages = []
     active_name = None
     if active_mobile:
-        c.execute("""
-            SELECT id, name, mobile, direction, message_type, text, media_url, file_name, media_mime_type, created_at
-            FROM whatsapp_messages
-            WHERE mobile = ?
-            ORDER BY datetime(created_at) ASC, id ASC
-        """, (active_mobile,))
-        messages = c.fetchall()
+        if legacy_mode:
+            messages = [row for row in rows if row["mobile"] == active_mobile]
+        else:
+            c.execute("""
+                SELECT id, name, mobile, direction, message_type, text, media_url, file_name, media_mime_type, created_at
+                FROM whatsapp_messages
+                WHERE mobile = ?
+                ORDER BY datetime(created_at) ASC, id ASC
+            """, (active_mobile,))
+            messages = c.fetchall()
         active_name = contacts[0]["name"] if contacts and contacts[0]["mobile"] == active_mobile else None
         if not active_name and messages:
             active_name = messages[0]["name"] or active_mobile
