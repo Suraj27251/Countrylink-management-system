@@ -230,7 +230,7 @@
 {% endblock %}
 {% block content %}
 <div class="container py-4">
-  <div class="whatsapp-wrapper">
+  <div class="whatsapp-wrapper" data-phone-number-id="{{ phone_number_id or '' }}" data-waba-id="{{ waba_id or '' }}">
     <aside class="chat-sidebar">
       <div class="sidebar-header">
         WhatsApp Inbox
@@ -265,7 +265,7 @@
           </div>
         </div>
         {% if not config_ready %}
-          <div class="warning-banner">WhatsApp API credentials missing. Configure WHATSAPP_TOKEN and WHATSAPP_PHONE_NUMBER_ID.</div>
+          <div class="warning-banner">WhatsApp API credentials missing. Configure META_ACCESS_TOKEN and PHONE_NUMBER_ID.</div>
         {% endif %}
       </div>
 

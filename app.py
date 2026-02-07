@@ -43,21 +43,32 @@ ensure_provider_assets()
 
 # ---- WhatsApp helpers ----
 def whatsapp_config_ready():
-    return bool(os.environ.get('WHATSAPP_TOKEN') and os.environ.get('WHATSAPP_PHONE_NUMBER_ID'))
+    return bool(
+        os.environ.get('META_ACCESS_TOKEN')
+        and os.environ.get('PHONE_NUMBER_ID')
+        and os.environ.get('WABA_ID')
+    )
 
 
 def get_whatsapp_headers():
-    token = os.environ.get('WHATSAPP_TOKEN')
+    token = os.environ.get('META_ACCESS_TOKEN')
     if not token:
-        raise RuntimeError("Missing WHATSAPP_TOKEN")
+        raise RuntimeError("Missing META_ACCESS_TOKEN")
     return {"Authorization": f"Bearer {token}"}
 
 
 def get_whatsapp_phone_number_id():
-    phone_number_id = os.environ.get('WHATSAPP_PHONE_NUMBER_ID')
+    phone_number_id = os.environ.get('PHONE_NUMBER_ID')
     if not phone_number_id:
-        raise RuntimeError("Missing WHATSAPP_PHONE_NUMBER_ID")
+        raise RuntimeError("Missing PHONE_NUMBER_ID")
     return phone_number_id
+
+
+def get_whatsapp_waba_id():
+    waba_id = os.environ.get('WABA_ID')
+    if not waba_id:
+        raise RuntimeError("Missing WABA_ID")
+    return waba_id
 
 
 def detect_message_type(mime_type):
@@ -812,6 +823,8 @@ def whatsapp_complaints():
         active_mobile=active_mobile,
         active_name=active_name or "",
         config_ready=whatsapp_config_ready(),
+        phone_number_id=os.environ.get('PHONE_NUMBER_ID'),
+        waba_id=os.environ.get('WABA_ID'),
     )
 
 
