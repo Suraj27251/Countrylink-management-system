@@ -29,7 +29,6 @@
     <div class="tab"><a href="{{ url_for('new_connections') }}"><i class="fas fa-user-plus"></i> New Connections</a></div>
     <div class="tab"><a href="{{ url_for('stock') }}"><i class="fas fa-boxes"></i> Stock</a></div>
     <div class="tab"><a href="{{ url_for('hr_dashboard') }}"><i class="fas fa-users"></i> Human Resource</a></div>
-    <div class="tab"><a href="{{ url_for('whatsapp_complaints') }}"><i class="fab fa-whatsapp"></i> WhatsApp messages</a></div>
 {% endblock %}
 {% block content %}
     <div class="dashboard-wrapper">
@@ -133,13 +132,13 @@
             <div class="bulk-buttons recent-complaints-actions">
                 <button type="submit"
                         class="button bulk animated-button btn-resolve pulse-on-hover"
-                        formaction="{{ url_for('update_whatsapp_bulk') }}"
+                        formaction="{{ url_for('update_complaints_bulk') }}"
                         name="action" value="resolve">
                     Mark Resolved
                 </button>
                 <button type="submit"
                         class="button bulk danger animated-button btn-delete pulse-on-hover"
-                        formaction="{{ url_for('update_whatsapp_bulk') }}"
+                        formaction="{{ url_for('update_complaints_bulk') }}"
                         name="action" value="delete"
                         onclick="return confirm('Are you sure to delete selected complaints?')">
                     Delete
@@ -189,12 +188,8 @@
                             <td>{{ comp['status'] }}</td>
                             <td>{{ comp['priority'] }}</td>
                             <td>
-                                <span class="badge source-badge {{ 'whatsapp' if src == 'WhatsApp' else 'web' }}">
-                                    {% if src == 'WhatsApp' %}
-                                        <i class="fab fa-whatsapp"></i> <span>WhatsApp</span>
-                                    {% else %}
-                                        <i class="fas fa-globe"></i> <span>Web</span>
-                                    {% endif %}
+                                <span class="badge source-badge web">
+                                    <i class="fas fa-globe"></i> <span>{{ src or 'Web' }}</span>
                                 </span>
                             </td>
                             <td>

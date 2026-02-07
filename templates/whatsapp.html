@@ -1,0 +1,14 @@
+{% extends 'layout.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block tabs %}
+  <div class="tab"><a href="{{ url_for('dashboard') }}"><i class="fas fa-gauge"></i> Dashboard</a></div>
+  <div class="tab"><a href="{{ url_for('complaints_page') }}"><i class="fas fa-code-branch"></i> Complaints</a></div>
+  <div class="tab"><a href="{{ url_for('new_connections') }}"><i class="fas fa-user-plus"></i> New Connections</a></div>
+  <div class="tab"><a href="{{ url_for('stock') }}"><i class="fas fa-boxes"></i> Stock</a></div>
+  <div class="tab"><a href="{{ url_for('hr_dashboard') }}"><i class="fas fa-users"></i> Human Resource</a></div>
+{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <h2 class="mb-0">Messaging</h2>
+</div>
+{% endblock %}
