@@ -242,6 +242,7 @@
       <div class="chat-list" id="chatList">
         {% for contact in contacts %}
           <a class="chat-item {% if contact.mobile == active_mobile %}active{% endif %}" href="{{ url_for('whatsapp_complaints', mobile=contact.mobile) }}" data-mobile="{{ contact.mobile }}">
+          <a class="chat-item {% if contact.mobile == active_mobile %}active{% endif %}" href="{{ url_for('whatsapp_complaints', mobile=contact.mobile) }}">
             <div class="avatar">{{ contact.name[:1]|upper }}</div>
             <div class="chat-meta">
               <div class="chat-name">{{ contact.name }}</div>
@@ -326,6 +327,7 @@
 
       <form class="chat-input" id="chatForm">
         <input type="hidden" name="mobile" value="{{ active_mobile or '' }}">
+        <input type="hidden" name="mobile" value="{{ active_mobile }}">
         <input type="file" id="attachment" name="attachment" class="d-none">
         <button class="attach-btn" type="button" id="attachBtn" title="Attach file">
           <i class="fas fa-paperclip"></i>
