@@ -6,15 +6,11 @@ import pickle
 import socket
 import threading
 import time
-import mimetypes
-import uuid
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
-from werkzeug.utils import secure_filename
 import sqlite3
 from datetime import datetime
 from collections import defaultdict
 from functools import wraps
-import requests
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
@@ -30,10 +26,6 @@ if not DB_PATH:
 def get_db_connection():
     return sqlite3.connect(DB_PATH)
 
-WEBHOOK_VERIFY_TOKEN = os.environ.get('WEBHOOK_VERIFY_TOKEN')
-
-WHATSAPP_API_VERSION = os.environ.get('WHATSAPP_API_VERSION', 'v20.0')
-WHATSAPP_MEDIA_DIR = Path(app.root_path) / 'static' / 'uploads' / 'whatsapp'
 
 
 def ensure_provider_assets():
@@ -502,7 +494,6 @@ def dashboard():
     c.execute('''
     SELECT * FROM (
         SELECT * FROM complaints
-        WHERE source != 'WhatsApp' OR source IS NULL
         ORDER BY created_at DESC
     )
     GROUP BY mobile
@@ -761,7 +752,7 @@ def webhook():
 
 @app.after_request
 def set_default_json_header(response):
-    if request.path.startswith('/webhook') or request.path.startswith('/webhook/whatsapp') or request.path.startswith('/flow-endpoint'):
+    if request.path.startswith('/flow-endpoint'):
         response.headers['Content-Type'] = 'application/json'
     return response
 
@@ -797,7 +788,6 @@ def view_complaints():
     c.execute("""
         SELECT id, name, mobile, complaint, status, created_at, source 
         FROM complaints 
-        WHERE source != 'WhatsApp'
         ORDER BY created_at DESC LIMIT 100
     """)
     complaints = c.fetchall()
@@ -818,7 +808,6 @@ def view_complaints():
             ) AS count_prev_7d,
             MAX(created_at) AS last_seen
         FROM complaints
-        WHERE source != 'WhatsApp'
         GROUP BY mobile
     """)
     stats_rows = c.fetchall()
@@ -1251,9 +1240,20 @@ def staff_attendance_webhook():
     return jsonify({"status": "attendance saved"}), 200
 
 
-@app.route('/update_whatsapp_bulk', methods=['POST'])
+@app.route('/delete_complaint/<int:complaint_id>', methods=['DELETE'])
 @login_required
-def update_whatsapp_bulk():
+def delete_complaint(complaint_id):
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("DELETE FROM complaints WHERE id=?", (complaint_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "success"})
+
+
+@app.route('/update_complaints_bulk', methods=['POST'])
+@login_required
+def update_complaints_bulk():
     action = request.form.get('action')
     ids = request.form.getlist('selected_ids[]')
 
@@ -1271,17 +1271,6 @@ def update_whatsapp_bulk():
     conn.commit()
     conn.close()
     return redirect(url_for('dashboard'))
-
-
-@app.route('/delete_complaint/<int:complaint_id>', methods=['DELETE'])
-@login_required
-def delete_complaint(complaint_id):
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute("DELETE FROM complaints WHERE id=?", (complaint_id,))
-    conn.commit()
-    conn.close()
-    return jsonify({"status": "success"})
 
 
 @app.route('/ping')

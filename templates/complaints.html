@@ -30,11 +30,6 @@
     .search-input {
       max-width: 250px;
     }
-    .whatsapp-icon {
-      width: 16px;
-      margin-right: 4px;
-      vertical-align: text-bottom;
-    }
     .action-btn {
       font-size: 16px;
       margin-right: 8px;
@@ -88,7 +83,6 @@
   <div class="tab"><a href="{{ url_for('new_connections') }}"><i class="fas fa-user-plus"></i> New Connections</a></div>
   <div class="tab"><a href="{{ url_for('stock') }}"><i class="fas fa-boxes"></i> Stock</a></div>
   <div class="tab"><a href="{{ url_for('hr_dashboard') }}"><i class="fas fa-users"></i> Human Resource</a></div>
-  <div class="tab"><a href="{{ url_for('whatsapp_complaints') }}"><i class="fab fa-whatsapp"></i> WhatsApp messages</a></div>
 {% endblock %}
 {% block content %}
 <div class="container">
@@ -194,9 +188,6 @@
           <td>{{ c.id }}</td>
           <td>
             {% set source = c.source or 'Web' %}
-            {% if source == 'WhatsApp' %}
-              <img src="https://cdn-icons-png.flaticon.com/512/733/733585.png" alt="WA" class="whatsapp-icon">
-            {% endif %}
             {{ c.name }}
           </td>
           <td>{{ c.mobile }}</td>
@@ -293,7 +284,7 @@
       return;
     }
 
-    fetch('/update_whatsapp_bulk', {
+    fetch('/update_complaints_bulk', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -301,11 +292,7 @@
         'selected_ids[]': selected
       })
     })
-    .then(res => res.json())
-    .then(data => {
-      if (data.status === 'success') location.reload();
-      else alert('Bulk action failed: ' + data.message);
-    })
+    .then(() => location.reload())
     .catch(err => alert('Error: ' + err));
   }
 </script>
