@@ -30,6 +30,8 @@ if not DB_PATH:
 def get_db_connection():
     return sqlite3.connect(DB_PATH)
 
+WEBHOOK_VERIFY_TOKEN = os.environ.get('WEBHOOK_VERIFY_TOKEN')
+
 WHATSAPP_API_VERSION = os.environ.get('WHATSAPP_API_VERSION', 'v20.0')
 WHATSAPP_MEDIA_DIR = Path(app.root_path) / 'static' / 'uploads' / 'whatsapp'
 
@@ -558,9 +560,13 @@ def update_status(complaint_id, status):
 
 
 @app.route('/webhook', methods=['GET', 'POST'])
+@app.route('/webhook/whatsapp', methods=['GET', 'POST'])
 def webhook():
     if request.method == 'GET':
         challenge = request.args.get('hub.challenge')
+        verify_token = request.args.get('hub.verify_token')
+        if WEBHOOK_VERIFY_TOKEN and verify_token != WEBHOOK_VERIFY_TOKEN:
+            return 'Verification failed', 403
         return challenge or '', 200
 
     if request.method == 'POST':
@@ -658,7 +664,7 @@ def webhook():
 
 @app.after_request
 def set_default_json_header(response):
-    if request.path.startswith('/webhook') or request.path.startswith('/flow-endpoint'):
+    if request.path.startswith('/webhook') or request.path.startswith('/webhook/whatsapp') or request.path.startswith('/flow-endpoint'):
         response.headers['Content-Type'] = 'application/json'
     return response
 
