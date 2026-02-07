@@ -1,33 +1,222 @@
 {% extends 'layout.html' %}
-{% block title %}WhatsApp Complaints{% endblock %}
+{% block title %}WhatsApp Inbox{% endblock %}
 {% block extra_head %}
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
   <style>
     body {
-      background-color: #f4f6f9;
+      background-color: #f3f4f6;
       font-family: 'Segoe UI', sans-serif;
     }
-    .table thead {
-      background-color: #25d366;
-      color: white;
+    .whatsapp-wrapper {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 0;
+      height: calc(100vh - 140px);
+      background: #fff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
     }
-    .table tbody tr:hover {
-      background-color: #f1f1f1;
+    .chat-sidebar {
+      background: #f8fafc;
+      border-right: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
     }
-    .badge-status {
+    .sidebar-header {
+      padding: 18px 20px;
+      font-weight: 600;
+      font-size: 1.1rem;
+      color: #0f172a;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .chat-search {
+      padding: 12px 20px;
+    }
+    .chat-search input {
+      width: 100%;
+      border-radius: 999px;
+      border: 1px solid #e2e8f0;
+      padding: 8px 14px;
+      background: #fff;
+    }
+    .chat-list {
+      overflow-y: auto;
+      padding: 4px 0;
+    }
+    .chat-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 20px;
+      text-decoration: none;
+      color: inherit;
+      border-left: 3px solid transparent;
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+    .chat-item:hover {
+      background: #e2e8f0;
+    }
+    .chat-item.active {
+      background: #dbeafe;
+      border-left-color: #25d366;
+    }
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #25d366, #16a34a);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .chat-meta {
+      flex: 1;
+      min-width: 0;
+    }
+    .chat-name {
+      font-weight: 600;
+      color: #0f172a;
+    }
+    .chat-preview {
+      font-size: 0.85rem;
+      color: #64748b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .chat-time {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+    .chat-main {
+      display: flex;
+      flex-direction: column;
+      background: #f1f5f9;
+    }
+    .chat-header {
+      padding: 16px 24px;
+      background: #fff;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .chat-header .title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .chat-body {
+      flex: 1;
+      padding: 24px;
+      overflow-y: auto;
+      background-image: radial-gradient(circle at 1px 1px, #e2e8f0 1px, transparent 0);
+      background-size: 20px 20px;
+    }
+    .message-row {
+      display: flex;
+      margin-bottom: 16px;
+    }
+    .message-row.outgoing {
+      justify-content: flex-end;
+    }
+    .message-bubble {
+      max-width: 70%;
+      padding: 10px 14px;
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+      position: relative;
+    }
+    .message-row.outgoing .message-bubble {
+      background: #dcfce7;
+    }
+    .message-text {
+      margin: 0;
+      color: #0f172a;
+      font-size: 0.95rem;
+    }
+    .message-time {
+      margin-top: 6px;
+      font-size: 0.7rem;
+      color: #64748b;
+      text-align: right;
+    }
+    .media-preview {
+      width: 100%;
+      border-radius: 10px;
+      margin-bottom: 6px;
+    }
+    .doc-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #e2e8f0;
+      color: #1e293b;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .chat-input {
+      padding: 16px 20px;
+      background: #fff;
+      border-top: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .chat-input input[type="text"] {
+      flex: 1;
+      border-radius: 999px;
+      border: 1px solid #e2e8f0;
+      padding: 10px 16px;
+    }
+    .attach-btn {
+      border: none;
+      background: #e2e8f0;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .send-btn {
+      border: none;
+      background: #25d366;
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+    .empty-state {
+      text-align: center;
+      color: #94a3b8;
+      margin-top: 60px;
+    }
+    .warning-banner {
+      background: #fef3c7;
+      color: #92400e;
+      padding: 8px 14px;
+      border-radius: 10px;
       font-size: 0.85rem;
     }
-    .status-Pending {
-      background-color: #ffc107;
-    }
-    .status-Resolved {
-      background-color: #28a745;
-    }
-    .search-input {
-      max-width: 250px;
-    }
-    .bulk-actions {
-      margin-bottom: 15px;
+    @media (max-width: 992px) {
+      .whatsapp-wrapper {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .chat-sidebar {
+        max-height: 320px;
+      }
     }
   </style>
 {% endblock %}
@@ -40,110 +229,152 @@
   <div class="tab active"><a href="{{ url_for('whatsapp_complaints') }}"><i class="fab fa-whatsapp"></i> WhatsApp messages</a></div>
 {% endblock %}
 {% block content %}
-<div class="container">
-  <h2 class="mb-4 text-center">WhatsApp Complaints</h2>
+<div class="container py-4">
+  <div class="whatsapp-wrapper" data-phone-number-id="{{ phone_number_id or '' }}" data-waba-id="{{ waba_id or '' }}">
+    <aside class="chat-sidebar">
+      <div class="sidebar-header">
+        WhatsApp Inbox
+        <i class="fab fa-whatsapp"></i>
+      </div>
+      <div class="chat-search">
+        <input type="text" id="chatSearch" placeholder="Search or start new chat">
+      </div>
+      <div class="chat-list" id="chatList">
+        {% for contact in contacts %}
+          <a class="chat-item {% if contact.mobile == active_mobile %}active{% endif %}" href="{{ url_for('whatsapp_complaints', mobile=contact.mobile) }}">
+            <div class="avatar">{{ contact.name[:1]|upper }}</div>
+            <div class="chat-meta">
+              <div class="chat-name">{{ contact.name }}</div>
+              <div class="chat-preview">{{ contact.preview }}</div>
+            </div>
+            <div class="chat-time">{{ contact.created_at.split(' ')[1][:5] if contact.created_at }}</div>
+          </a>
+        {% else %}
+          <div class="p-4 text-center text-muted">No chats yet.</div>
+        {% endfor %}
+      </div>
+    </aside>
 
-  <!-- Bulk Action Section -->
-  <div class="bulk-actions d-flex justify-content-between align-items-center">
-    <div>
-      <button class="btn btn-success btn-sm" onclick="bulkAction('resolve')">Mark as Resolved</button>
-      <button class="btn btn-danger btn-sm" onclick="bulkAction('delete')">Delete Selected</button>
-    </div>
-    <input type="text" id="searchInput" class="form-control search-input" placeholder="Search by Name, Mobile or Complaint">
+    <section class="chat-main">
+      <div class="chat-header">
+        <div class="title">
+          <div class="avatar">{{ active_name[:1]|upper if active_name else '?' }}</div>
+          <div>
+            <div class="fw-semibold">{{ active_name or 'Select a chat' }}</div>
+            <div class="text-muted small">{{ active_mobile or 'No active conversation' }}</div>
+          </div>
+        </div>
+        {% if not config_ready %}
+          <div class="warning-banner">WhatsApp API credentials missing. Configure META_ACCESS_TOKEN, PHONE_NUMBER_ID, and WABA_ID.</div>
+        {% endif %}
+      </div>
+
+      <div class="chat-body" id="chatBody">
+        {% if messages %}
+          {% for msg in messages %}
+            <div class="message-row {{ 'outgoing' if msg['direction'] == 'outbound' else 'incoming' }}">
+              <div class="message-bubble">
+                {% if msg['message_type'] == 'text' %}
+                  <p class="message-text">{{ msg['text'] }}</p>
+                {% elif msg['message_type'] == 'image' %}
+                  {% if msg['media_url'] %}
+                    <img class="media-preview" src="{{ url_for('static', filename=msg['media_url']) }}" alt="Image">
+                  {% else %}
+                    <p class="message-text">Image unavailable.</p>
+                  {% endif %}
+                  {% if msg['text'] %}
+                    <p class="message-text">{{ msg['text'] }}</p>
+                  {% endif %}
+                {% elif msg['message_type'] == 'video' %}
+                  {% if msg['media_url'] %}
+                    <video class="media-preview" controls src="{{ url_for('static', filename=msg['media_url']) }}"></video>
+                  {% else %}
+                    <p class="message-text">Video unavailable.</p>
+                  {% endif %}
+                  {% if msg['text'] %}
+                    <p class="message-text">{{ msg['text'] }}</p>
+                  {% endif %}
+                {% elif msg['message_type'] == 'audio' %}
+                  {% if msg['media_url'] %}
+                    <audio controls src="{{ url_for('static', filename=msg['media_url']) }}"></audio>
+                  {% else %}
+                    <p class="message-text">Audio unavailable.</p>
+                  {% endif %}
+                {% elif msg['message_type'] == 'document' %}
+                  {% if msg['media_url'] %}
+                    <a class="doc-card" href="{{ url_for('static', filename=msg['media_url']) }}" target="_blank">
+                      <i class="fas fa-file-alt"></i>
+                      <span>{{ msg['file_name'] or 'Document' }}</span>
+                    </a>
+                  {% else %}
+                    <p class="message-text">Document unavailable.</p>
+                  {% endif %}
+                  {% if msg['text'] %}
+                    <p class="message-text">{{ msg['text'] }}</p>
+                  {% endif %}
+                {% else %}
+                  <p class="message-text">Unsupported message type.</p>
+                {% endif %}
+                <div class="message-time">{{ msg['created_at'].split(' ')[1][:5] if msg['created_at'] }}</div>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state">Select a chat to view messages.</div>
+        {% endif %}
+      </div>
+
+      <form class="chat-input" id="chatForm">
+        <input type="hidden" name="mobile" value="{{ active_mobile }}">
+        <input type="file" id="attachment" name="attachment" class="d-none">
+        <button class="attach-btn" type="button" id="attachBtn" title="Attach file">
+          <i class="fas fa-paperclip"></i>
+        </button>
+        <input type="text" name="message" placeholder="Type a message" autocomplete="off">
+        <button class="send-btn" type="submit">Send</button>
+      </form>
+    </section>
   </div>
-
-  <table class="table table-bordered table-hover">
-    <thead>
-      <tr>
-        <th><input type="checkbox" id="selectAll" onclick="toggleAll(this)"></th>
-        <th>Date</th>
-        <th>Name</th>
-        <th>Mobile</th>
-        <th>Complaints (Combined)</th>
-        <th>Status</th>
-        <th>Note</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody id="complaintTable">
-      {% for complaint in complaints %}
-        <tr>
-          <td><input type="checkbox" class="selectCheckbox" value="{{ complaint.ids | join(',') }}"></td>
-          <td>{{ complaint.date }}</td>
-          <td>{{ complaint.name }}</td>
-          <td>{{ complaint.mobile }}</td>
-          <td>
-            <ul class="mb-0 ps-3">
-              {% for entry in complaint.combined_entries %}
-                <li>{{ entry }}</li>
-              {% endfor %}
-            </ul>
-          </td>
-          <td><span class="badge badge-status status-{{ complaint.status }}">{{ complaint.status }}</span></td>
-          <td>{{ complaint.note or '' }}</td>
-          <td>
-            <a href="/complaints?mobile={{ complaint.mobile }}" class="btn btn-primary btn-sm">All Complaints</a>
-          </td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
 </div>
 
 <script>
-  // Search Filter
-  const searchInput = document.getElementById("searchInput");
-  const table = document.getElementById("complaintTable");
+  const chatSearch = document.getElementById('chatSearch');
+  const chatList = document.getElementById('chatList');
+  const attachBtn = document.getElementById('attachBtn');
+  const attachmentInput = document.getElementById('attachment');
+  const chatForm = document.getElementById('chatForm');
 
-  searchInput.addEventListener("input", function () {
-    const search = this.value.toLowerCase();
-    Array.from(table.rows).forEach(row => {
-      const text = row.innerText.toLowerCase();
-      row.style.display = text.includes(search) ? "" : "none";
+  if (chatSearch) {
+    chatSearch.addEventListener('input', () => {
+      const term = chatSearch.value.toLowerCase();
+      Array.from(chatList.querySelectorAll('.chat-item')).forEach(item => {
+        const text = item.innerText.toLowerCase();
+        item.style.display = text.includes(term) ? '' : 'none';
+      });
     });
-  });
-
-  // Select All
-  function toggleAll(source) {
-    document.querySelectorAll('.selectCheckbox').forEach(cb => cb.checked = source.checked);
   }
 
-  // Bulk Resolve or Delete
-  function bulkAction(action) {
-    const selectedCheckboxes = document.querySelectorAll('.selectCheckbox:checked');
-    if (selectedCheckboxes.length === 0) {
-      alert("Please select at least one complaint.");
-      return;
-    }
+  if (attachBtn && attachmentInput) {
+    attachBtn.addEventListener('click', () => attachmentInput.click());
+  }
 
-    let selectedIds = [];
-    selectedCheckboxes.forEach(cb => {
-      const ids = cb.value.split(',');
-      selectedIds = selectedIds.concat(ids);
-    });
-
-    const params = new URLSearchParams();
-    params.append('action', action);
-    selectedIds.forEach(id => params.append('selected_ids[]', id.trim()));
-
-    fetch('/update_whatsapp_bulk', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: params
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.status === "success") {
-        location.reload();
-      } else {
-        alert("Failed: " + data.message);
+  if (chatForm) {
+    chatForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const formData = new FormData(chatForm);
+      if (attachmentInput.files.length) {
+        formData.set('attachment', attachmentInput.files[0]);
       }
-    })
-    .catch(error => {
-      console.error("Error:", error);
-      alert("Something went wrong.");
+      const response = await fetch('{{ url_for('send_whatsapp') }}', {
+        method: 'POST',
+        body: formData
+      });
+      if (response.ok) {
+        window.location.href = '{{ url_for('whatsapp_complaints') }}?mobile={{ active_mobile }}';
+      } else {
+        const payload = await response.json();
+        alert(payload.error || 'Failed to send message.');
+      }
     });
   }
 </script>
