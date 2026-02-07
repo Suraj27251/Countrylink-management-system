@@ -6,17 +6,24 @@ import pickle
 import socket
 import threading
 import time
+import mimetypes
+import uuid
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
+from werkzeug.utils import secure_filename
 import sqlite3
 from datetime import datetime
 from collections import defaultdict
 from functools import wraps
+import requests
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me')
+
+WHATSAPP_API_VERSION = os.environ.get('WHATSAPP_API_VERSION', 'v20.0')
+WHATSAPP_MEDIA_DIR = Path(app.root_path) / 'static' / 'uploads' / 'whatsapp'
 
 
 def ensure_provider_assets():
@@ -33,6 +40,121 @@ def ensure_provider_assets():
 
 
 ensure_provider_assets()
+
+# ---- WhatsApp helpers ----
+def whatsapp_config_ready():
+    return bool(os.environ.get('WHATSAPP_TOKEN') and os.environ.get('WHATSAPP_PHONE_NUMBER_ID'))
+
+
+def get_whatsapp_headers():
+    token = os.environ.get('WHATSAPP_TOKEN')
+    if not token:
+        raise RuntimeError("Missing WHATSAPP_TOKEN")
+    return {"Authorization": f"Bearer {token}"}
+
+
+def get_whatsapp_phone_number_id():
+    phone_number_id = os.environ.get('WHATSAPP_PHONE_NUMBER_ID')
+    if not phone_number_id:
+        raise RuntimeError("Missing WHATSAPP_PHONE_NUMBER_ID")
+    return phone_number_id
+
+
+def detect_message_type(mime_type):
+    if mime_type and mime_type.startswith('image/'):
+        return 'image'
+    if mime_type and mime_type.startswith('video/'):
+        return 'video'
+    if mime_type and mime_type.startswith('audio/'):
+        return 'audio'
+    return 'document'
+
+
+def ensure_media_dir():
+    WHATSAPP_MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def save_media_file(file_storage, fallback_name=None):
+    ensure_media_dir()
+    original_name = secure_filename(file_storage.filename or '') or fallback_name or 'attachment'
+    unique_prefix = uuid.uuid4().hex
+    saved_name = f"{unique_prefix}_{original_name}"
+    file_path = WHATSAPP_MEDIA_DIR / saved_name
+    file_storage.save(file_path)
+    return file_path, saved_name
+
+
+def download_whatsapp_media(media_id, fallback_name=None):
+    headers = get_whatsapp_headers()
+    url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{media_id}"
+    response = requests.get(url, headers=headers, timeout=30)
+    response.raise_for_status()
+    payload = response.json()
+    download_url = payload.get('url')
+    mime_type = payload.get('mime_type')
+
+    if not download_url:
+        raise RuntimeError("Missing download URL from WhatsApp")
+
+    file_response = requests.get(download_url, headers=headers, timeout=60)
+    file_response.raise_for_status()
+
+    ensure_media_dir()
+    ext = mimetypes.guess_extension(mime_type or '') or ''
+    safe_name = secure_filename(fallback_name or '')
+    if safe_name:
+        filename = safe_name
+    else:
+        filename = f"{media_id}{ext or '.bin'}"
+    file_path = WHATSAPP_MEDIA_DIR / filename
+    if file_path.exists():
+        filename = f"{media_id}_{uuid.uuid4().hex}{ext or '.bin'}"
+        file_path = WHATSAPP_MEDIA_DIR / filename
+    with open(file_path, 'wb') as file_handle:
+        file_handle.write(file_response.content)
+    return file_path, filename, mime_type
+
+
+def upload_media_to_whatsapp(file_path, mime_type):
+    headers = get_whatsapp_headers()
+    phone_number_id = get_whatsapp_phone_number_id()
+    url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{phone_number_id}/media"
+    with open(file_path, 'rb') as file_handle:
+        response = requests.post(
+            url,
+            headers=headers,
+            files={'file': (file_path.name, file_handle, mime_type)},
+            data={'messaging_product': 'whatsapp', 'type': mime_type},
+            timeout=60,
+        )
+    response.raise_for_status()
+    return response.json().get('id')
+
+
+def send_whatsapp_message(to_number, message_type, text=None, media_id=None, file_name=None):
+    headers = get_whatsapp_headers()
+    phone_number_id = get_whatsapp_phone_number_id()
+    url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{phone_number_id}/messages"
+    payload = {
+        'messaging_product': 'whatsapp',
+        'to': to_number,
+        'type': message_type,
+    }
+    if message_type == 'text':
+        payload['text'] = {'body': text or ''}
+    elif message_type == 'document':
+        payload['document'] = {'id': media_id}
+        if file_name:
+            payload['document']['filename'] = file_name
+        if text:
+            payload['document']['caption'] = text
+    else:
+        payload[message_type] = {'id': media_id}
+        if text and message_type in {'image', 'video'}:
+            payload[message_type]['caption'] = text
+    response = requests.post(url, headers=headers, json=payload, timeout=30)
+    response.raise_for_status()
+    return response.json()
 
 # ---- AI categorization setup ----
 MODEL_PATH = 'complaint_model.pkl'
@@ -181,6 +303,22 @@ def init_db():
         c.execute("ALTER TABLE complaints ADD COLUMN category TEXT DEFAULT 'Other'")
     except sqlite3.OperationalError:
         pass
+
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS whatsapp_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            mobile TEXT NOT NULL,
+            direction TEXT NOT NULL,
+            message_type TEXT NOT NULL,
+            text TEXT,
+            media_id TEXT,
+            media_url TEXT,
+            media_mime_type TEXT,
+            file_name TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS connection_requests (
@@ -408,15 +546,64 @@ def webhook():
                     contacts = value.get('contacts', [])
                     messages = value.get('messages', [])
 
-                    if contacts and messages:
-                        name = contacts[0].get('profile', {}).get('name', 'Unknown')
-                        mobile = contacts[0].get('wa_id', '')
-                        message = messages[0].get('text', {}).get('body', '')
-                        timestamp_unix = messages[0].get('timestamp')
+                    if messages:
+                        name = contacts[0].get('profile', {}).get('name', 'Unknown') if contacts else 'Unknown'
+                        mobile = contacts[0].get('wa_id', '') if contacts else messages[0].get('from', '')
+                        msg = messages[0]
+                        message_type = msg.get('type', 'text')
+                        timestamp_unix = msg.get('timestamp')
                         created_at = datetime.fromtimestamp(int(timestamp_unix)).strftime('%Y-%m-%d %H:%M:%S') if timestamp_unix else datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-                        if name.strip() and name.strip() != '.' and mobile.strip() and message.strip():
-                            category = predict_category(message)
+                        text_body = ''
+                        media_id = None
+                        media_url = None
+                        media_mime_type = None
+                        file_name = None
+
+                        if message_type == 'text':
+                            text_body = msg.get('text', {}).get('body', '')
+                        elif message_type in {'image', 'video', 'audio', 'document'}:
+                            media_info = msg.get(message_type, {})
+                            media_id = media_info.get('id')
+                            text_body = media_info.get('caption', '')
+                            file_name = media_info.get('filename') if message_type == 'document' else None
+                            media_mime_type = media_info.get('mime_type')
+
+                            if media_id and whatsapp_config_ready():
+                                try:
+                                    downloaded_path, stored_name, mime_type = download_whatsapp_media(media_id, file_name)
+                                    media_url = f"uploads/whatsapp/{stored_name}"
+                                    media_mime_type = mime_type or media_mime_type
+                                except Exception:
+                                    media_url = None
+
+                        if mobile.strip():
+                            conn = sqlite3.connect('complaints.db')
+                            c = conn.cursor()
+                            c.execute(
+                                """
+                                INSERT INTO whatsapp_messages
+                                (name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, created_at)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                """,
+                                (
+                                    name.strip() if name else None,
+                                    mobile,
+                                    'inbound',
+                                    message_type,
+                                    text_body,
+                                    media_id,
+                                    media_url,
+                                    media_mime_type,
+                                    file_name,
+                                    created_at,
+                                ),
+                            )
+                            conn.commit()
+                            conn.close()
+
+                        if message_type == 'text' and name.strip() and name.strip() != '.' and mobile.strip() and text_body.strip():
+                            category = predict_category(text_body)
                             conn = sqlite3.connect('complaints.db')
                             c = conn.cursor()
                             c.execute(
@@ -424,7 +611,7 @@ def webhook():
                                 INSERT INTO complaints (name, mobile, complaint, category, status, created_at, source)
                                 VALUES (?, ?, ?, ?, ?, ?, ?)
                                 """,
-                                (name, mobile, message, category, 'Pending', created_at, 'WhatsApp')
+                                (name, mobile, text_body, category, 'Pending', created_at, 'WhatsApp')
                             )
                             conn.commit()
                             conn.close()
@@ -571,42 +758,124 @@ def view_complaints():
 @login_required
 def whatsapp_complaints():
     conn = sqlite3.connect('complaints.db')
+    conn.row_factory = sqlite3.Row
     c = conn.cursor()
     c.execute("""
-        SELECT id, name, mobile, complaint, status, created_at 
-        FROM complaints 
-        WHERE source = 'WhatsApp' 
-        ORDER BY created_at DESC
+        SELECT id, name, mobile, direction, message_type, text, media_url, file_name, created_at
+        FROM whatsapp_messages
+        ORDER BY datetime(created_at) DESC, id DESC
     """)
-    complaints = c.fetchall()
+    rows = c.fetchall()
+
+    latest_by_mobile = {}
+    for row in rows:
+        mobile = row["mobile"]
+        if mobile in latest_by_mobile:
+            continue
+        preview = row["text"] or ""
+        if not preview:
+            preview = {
+                "image": "📷 Photo",
+                "video": "🎥 Video",
+                "audio": "🎵 Audio",
+                "document": "📄 Document",
+            }.get(row["message_type"], "New message")
+        latest_by_mobile[mobile] = {
+            "mobile": mobile,
+            "name": row["name"] or mobile,
+            "preview": preview,
+            "created_at": row["created_at"],
+        }
+
+    contacts = sorted(latest_by_mobile.values(), key=lambda item: item["created_at"], reverse=True)
+    active_mobile = request.args.get("mobile") or (contacts[0]["mobile"] if contacts else None)
+
+    messages = []
+    active_name = None
+    if active_mobile:
+        c.execute("""
+            SELECT id, name, mobile, direction, message_type, text, media_url, file_name, media_mime_type, created_at
+            FROM whatsapp_messages
+            WHERE mobile = ?
+            ORDER BY datetime(created_at) ASC, id ASC
+        """, (active_mobile,))
+        messages = c.fetchall()
+        active_name = contacts[0]["name"] if contacts and contacts[0]["mobile"] == active_mobile else None
+        if not active_name and messages:
+            active_name = messages[0]["name"] or active_mobile
+
+    conn.close()
+    return render_template(
+        "WhatsApp.html",
+        contacts=contacts,
+        messages=messages,
+        active_mobile=active_mobile,
+        active_name=active_name or "",
+        config_ready=whatsapp_config_ready(),
+    )
+
+
+@app.route('/api/whatsapp/send', methods=['POST'])
+@login_required
+def send_whatsapp():
+    if not whatsapp_config_ready():
+        return jsonify({"error": "WhatsApp configuration missing."}), 400
+
+    mobile = request.form.get('mobile', '').strip()
+    message_text = request.form.get('message', '').strip()
+    attachment = request.files.get('attachment')
+
+    if not mobile:
+        return jsonify({"error": "Mobile number is required."}), 400
+    if not attachment and not message_text:
+        return jsonify({"error": "Message or attachment is required."}), 400
+
+    message_type = 'text'
+    media_id = None
+    media_url = None
+    media_mime_type = None
+    file_name = None
+
+    try:
+        if attachment:
+            file_path, stored_name = save_media_file(attachment)
+            file_name = attachment.filename or stored_name
+            media_mime_type = attachment.mimetype or mimetypes.guess_type(file_path.name)[0] or 'application/octet-stream'
+            message_type = detect_message_type(media_mime_type)
+            media_id = upload_media_to_whatsapp(file_path, media_mime_type)
+            send_whatsapp_message(mobile, message_type, text=message_text or None, media_id=media_id, file_name=file_name)
+            media_url = f"uploads/whatsapp/{stored_name}"
+        else:
+            send_whatsapp_message(mobile, 'text', text=message_text)
+    except Exception as exc:
+        return jsonify({"error": f"Failed to send message: {exc}"}), 500
+
+    created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    conn = sqlite3.connect('complaints.db')
+    c = conn.cursor()
+    c.execute(
+        """
+        INSERT INTO whatsapp_messages
+        (name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            session.get('user_name', 'Agent'),
+            mobile,
+            'outbound',
+            message_type,
+            message_text,
+            media_id,
+            media_url,
+            media_mime_type,
+            file_name,
+            created_at,
+        ),
+    )
+    conn.commit()
     conn.close()
 
-    grouped = defaultdict(list)
-    for row in complaints:
-        complaint_id, name, mobile, complaint_text, status, created_at = row
-        date_key = created_at.split(" ")[0]
-        grouped[(mobile, date_key)].append({
-            "id": complaint_id,
-            "name": name,
-            "complaint": complaint_text,
-            "status": status,
-            "created_at": created_at
-        })
-
-    merged_complaints = []
-    for (mobile, date), entries in grouped.items():
-        merged_complaints.append({
-            "id": entries[0]["id"],
-            "ids": [str(e["id"]) for e in entries],
-            "name": entries[0]["name"],
-            "mobile": mobile,
-            "date": date,
-            "status": entries[-1]["status"],
-            "combined_entries": [e["complaint"] for e in entries],
-            "note": ""
-        })
-
-    return render_template("WhatsApp.html", complaints=merged_complaints)
+    return jsonify({"status": "sent"}), 200
 
 
 @app.route('/new-connections')
