@@ -241,6 +241,7 @@
       </div>
       <div class="chat-list" id="chatList">
         {% for contact in contacts %}
+          <a class="chat-item {% if contact.mobile == active_mobile %}active{% endif %}" href="{{ url_for('whatsapp_complaints', mobile=contact.mobile) }}" data-mobile="{{ contact.mobile }}">
           <a class="chat-item {% if contact.mobile == active_mobile %}active{% endif %}" href="{{ url_for('whatsapp_complaints', mobile=contact.mobile) }}">
             <div class="avatar">{{ contact.name[:1]|upper }}</div>
             <div class="chat-meta">
@@ -325,6 +326,7 @@
       </div>
 
       <form class="chat-input" id="chatForm">
+        <input type="hidden" name="mobile" value="{{ active_mobile or '' }}">
         <input type="hidden" name="mobile" value="{{ active_mobile }}">
         <input type="file" id="attachment" name="attachment" class="d-none">
         <button class="attach-btn" type="button" id="attachBtn" title="Attach file">
@@ -352,6 +354,9 @@
   const staticBaseUrl = '{{ url_for('static', filename='') }}';
   let lastMessageId = chatBody ? Number(chatBody.dataset.lastMessageId || 0) : 0;
   let activeMobile = mobileInput ? mobileInput.value : '';
+  if (activeMobile && activeMobile.toLowerCase() === 'none') {
+    activeMobile = '';
+  }
 
   if (chatSearch) {
     chatSearch.addEventListener('input', () => {
@@ -528,6 +533,16 @@
         alert(payload.error || 'Failed to send message.');
       }
     });
+  }
+
+  if (!activeMobile && chatList) {
+    const firstContact = chatList.querySelector('.chat-item[data-mobile]');
+    if (firstContact) {
+      const firstMobile = firstContact.dataset.mobile;
+      if (firstMobile) {
+        window.location.href = `${pageUrl}?mobile=${encodeURIComponent(firstMobile)}`;
+      }
+    }
   }
 
   scrollToBottom();

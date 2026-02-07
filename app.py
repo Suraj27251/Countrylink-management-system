@@ -737,6 +737,7 @@ def webhook():
                                     )
                                 conn.commit()
                                 conn.close()
+                                app.logger.info("Stored inbound WhatsApp message %s for %s", message_id or "no-id", mobile)
 
                             if message_type == 'text' and name.strip() and name.strip() != '.' and mobile.strip() and text_body.strip():
                                 category = predict_category(text_body)
@@ -913,6 +914,7 @@ def whatsapp_complaints():
 
     contacts = sorted(latest_by_mobile.values(), key=lambda item: item["created_at"], reverse=True)
     active_mobile = normalize_mobile(request.args.get("mobile")) or (contacts[0]["mobile"] if contacts else None)
+    app.logger.info("WhatsApp inbox loaded with %s contacts. Active mobile: %s", len(contacts), active_mobile or "none")
 
     messages = []
     active_name = None
@@ -970,6 +972,9 @@ def whatsapp_messages_api():
         active_name = next((contact["name"] for contact in contacts if contact["mobile"] == mobile), "")
         if not active_name and messages:
             active_name = messages[0]["name"] or mobile
+    else:
+        if include_contacts:
+            app.logger.info("WhatsApp messages API called without mobile. Returning contacts only.")
 
     conn.close()
 
@@ -991,6 +996,7 @@ def whatsapp_messages_api():
     serialized_messages = [serialize_message(msg) for msg in messages]
     last_message_id = serialized_messages[-1]["id"] if serialized_messages else None
 
+    response_payload = {
     return jsonify({
         "contacts": contacts if include_contacts else [],
         "messages": serialized_messages,
@@ -998,6 +1004,15 @@ def whatsapp_messages_api():
         "active_name": active_name,
         "last_message_id": last_message_id,
         "legacy_mode": legacy_mode,
+    }
+    if mobile:
+        app.logger.debug(
+            "WhatsApp messages API: mobile=%s since_id=%s messages=%s",
+            mobile,
+            since_id,
+            len(serialized_messages),
+        )
+    return jsonify(response_payload)
     })
 
 
