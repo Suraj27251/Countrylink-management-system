@@ -22,6 +22,14 @@ from sklearn.naive_bayes import MultinomialNB
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me')
 
+DB_PATH = os.environ.get('DATABASE_PATH')
+if not DB_PATH:
+    default_path = Path(app.root_path) / 'database' / 'complaints.db'
+    DB_PATH = str(default_path if default_path.exists() else Path(app.root_path) / 'complaints.db')
+
+def get_db_connection():
+    return sqlite3.connect(DB_PATH)
+
 WHATSAPP_API_VERSION = os.environ.get('WHATSAPP_API_VERSION', 'v20.0')
 WHATSAPP_MEDIA_DIR = Path(app.root_path) / 'static' / 'uploads' / 'whatsapp'
 
@@ -124,6 +132,16 @@ def download_whatsapp_media(media_id, fallback_name=None):
     with open(file_path, 'wb') as file_handle:
         file_handle.write(file_response.content)
     return file_path, filename, mime_type
+
+
+def extract_text_body(message):
+    return (
+        message.get('text', {}).get('body')
+        or message.get('button', {}).get('text')
+        or message.get('interactive', {}).get('button_reply', {}).get('title')
+        or message.get('interactive', {}).get('list_reply', {}).get('title')
+        or ''
+    )
 
 
 def upload_media_to_whatsapp(file_path, mime_type):
@@ -280,7 +298,7 @@ app.register_blueprint(auth_bp)
 
 # Initialize DB
 def init_db():
-    conn = sqlite3.connect('complaints.db')
+    conn = get_db_connection()
     c = conn.cursor()
 
     # Users table
@@ -400,7 +418,7 @@ def landing():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    conn = sqlite3.connect('complaints.db')
+    conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
 
@@ -471,7 +489,7 @@ def submit():
     mobile = request.form['mobile']
     complaint = request.form['complaint']
     category = predict_category(complaint)
-    conn = sqlite3.connect('complaints.db')
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute(
         "INSERT INTO complaints (name, mobile, complaint, category, source) VALUES (?, ?, ?, ?, ?)",
@@ -491,7 +509,7 @@ def track():
         mobile = request.form.get('mobile', '').strip()
         name = request.form.get('name', '').strip()
 
-        conn = sqlite3.connect('complaints.db')
+        conn = get_db_connection()
         c = conn.cursor()
 
         if mobile and name:
@@ -531,7 +549,7 @@ def track():
 @app.route('/update_status/<int:complaint_id>/<status>')
 @login_required
 def update_status(complaint_id, status):
-    conn = sqlite3.connect('complaints.db')
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute("UPDATE complaints SET status = ? WHERE id = ?", (status, complaint_id))
     conn.commit()
@@ -558,74 +576,80 @@ def webhook():
                     messages = value.get('messages', [])
 
                     if messages:
-                        name = contacts[0].get('profile', {}).get('name', 'Unknown') if contacts else 'Unknown'
-                        mobile = contacts[0].get('wa_id', '') if contacts else messages[0].get('from', '')
-                        msg = messages[0]
-                        message_type = msg.get('type', 'text')
-                        timestamp_unix = msg.get('timestamp')
-                        created_at = datetime.fromtimestamp(int(timestamp_unix)).strftime('%Y-%m-%d %H:%M:%S') if timestamp_unix else datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        contacts_by_wa = {
+                            contact.get('wa_id'): contact
+                            for contact in contacts
+                            if contact.get('wa_id')
+                        }
+                        for msg in messages:
+                            message_type = msg.get('type', 'text')
+                            timestamp_unix = msg.get('timestamp')
+                            created_at = datetime.fromtimestamp(int(timestamp_unix)).strftime('%Y-%m-%d %H:%M:%S') if timestamp_unix else datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-                        text_body = ''
-                        media_id = None
-                        media_url = None
-                        media_mime_type = None
-                        file_name = None
+                            from_id = msg.get('from', '')
+                            contact = contacts_by_wa.get(from_id)
+                            name = contact.get('profile', {}).get('name', 'Unknown') if contact else 'Unknown'
+                            mobile = contact.get('wa_id', '') if contact else from_id
 
-                        if message_type == 'text':
-                            text_body = msg.get('text', {}).get('body', '')
-                        elif message_type in {'image', 'video', 'audio', 'document'}:
-                            media_info = msg.get(message_type, {})
-                            media_id = media_info.get('id')
-                            text_body = media_info.get('caption', '')
-                            file_name = media_info.get('filename') if message_type == 'document' else None
-                            media_mime_type = media_info.get('mime_type')
+                            text_body = extract_text_body(msg)
+                            media_id = None
+                            media_url = None
+                            media_mime_type = None
+                            file_name = None
 
-                            if media_id and whatsapp_config_ready():
-                                try:
-                                    downloaded_path, stored_name, mime_type = download_whatsapp_media(media_id, file_name)
-                                    media_url = f"uploads/whatsapp/{stored_name}"
-                                    media_mime_type = mime_type or media_mime_type
-                                except Exception:
-                                    media_url = None
+                            if message_type in {'image', 'video', 'audio', 'document'}:
+                                media_info = msg.get(message_type, {})
+                                media_id = media_info.get('id')
+                                text_body = media_info.get('caption', '') or text_body
+                                file_name = media_info.get('filename') if message_type == 'document' else None
+                                media_mime_type = media_info.get('mime_type')
 
-                        if mobile.strip():
-                            conn = sqlite3.connect('complaints.db')
-                            c = conn.cursor()
-                            c.execute(
-                                """
-                                INSERT INTO whatsapp_messages
-                                (name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, created_at)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                """,
-                                (
-                                    name.strip() if name else None,
-                                    mobile,
-                                    'inbound',
-                                    message_type,
-                                    text_body,
-                                    media_id,
-                                    media_url,
-                                    media_mime_type,
-                                    file_name,
-                                    created_at,
-                                ),
-                            )
-                            conn.commit()
-                            conn.close()
+                                if media_id and whatsapp_config_ready():
+                                    try:
+                                        downloaded_path, stored_name, mime_type = download_whatsapp_media(media_id, file_name)
+                                        media_url = f"uploads/whatsapp/{stored_name}"
+                                        media_mime_type = mime_type or media_mime_type
+                                    except Exception:
+                                        media_url = None
 
-                        if message_type == 'text' and name.strip() and name.strip() != '.' and mobile.strip() and text_body.strip():
-                            category = predict_category(text_body)
-                            conn = sqlite3.connect('complaints.db')
-                            c = conn.cursor()
-                            c.execute(
-                                """
-                                INSERT INTO complaints (name, mobile, complaint, category, status, created_at, source)
-                                VALUES (?, ?, ?, ?, ?, ?, ?)
-                                """,
-                                (name, mobile, text_body, category, 'Pending', created_at, 'WhatsApp')
-                            )
-                            conn.commit()
-                            conn.close()
+                            if mobile.strip():
+                                conn = get_db_connection()
+                                c = conn.cursor()
+                                c.execute(
+                                    """
+                                    INSERT INTO whatsapp_messages
+                                    (name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, created_at)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                    """,
+                                    (
+                                        name.strip() if name else None,
+                                        mobile,
+                                        'inbound',
+                                        message_type,
+                                        text_body,
+                                        media_id,
+                                        media_url,
+                                        media_mime_type,
+                                        file_name,
+                                        created_at,
+                                    ),
+                                )
+                                conn.commit()
+                                conn.close()
+
+                            if message_type == 'text' and name.strip() and name.strip() != '.' and mobile.strip() and text_body.strip():
+                                category = predict_category(text_body)
+                                conn = get_db_connection()
+                                c = conn.cursor()
+                                c.execute(
+                                    """
+                                    INSERT INTO complaints (name, mobile, complaint, category, status, created_at, source)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                                    """,
+                                    (name, mobile, text_body, category, 'Pending', created_at, 'WhatsApp')
+                                )
+                                conn.commit()
+                                conn.close()
             return jsonify({"status": "Message received"}), 200
 
         except Exception:
@@ -650,7 +674,7 @@ def flow_endpoint():
         return jsonify({"error": "Missing required fields"}), 400
 
     category = predict_category(complaint)
-    conn = sqlite3.connect('complaints.db')
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute(
         "INSERT INTO complaints (name, mobile, complaint, category) VALUES (?, ?, ?, ?)",
@@ -664,7 +688,7 @@ def flow_endpoint():
 @app.route('/complaints', endpoint='complaints_page')
 @login_required
 def view_complaints():
-    conn = sqlite3.connect('complaints.db')
+    conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     c.execute("""
@@ -768,7 +792,7 @@ def view_complaints():
 @app.route('/whatsapp')
 @login_required
 def whatsapp_complaints():
-    conn = sqlite3.connect('complaints.db')
+    conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     c.execute("""
@@ -777,6 +801,30 @@ def whatsapp_complaints():
         ORDER BY datetime(created_at) DESC, id DESC
     """)
     rows = c.fetchall()
+    legacy_mode = False
+    if not rows:
+        legacy_mode = True
+        c.execute("""
+            SELECT id, name, mobile, complaint AS text, created_at
+            FROM complaints
+            WHERE source = 'WhatsApp'
+            ORDER BY datetime(created_at) DESC, id DESC
+        """)
+        legacy_rows = c.fetchall()
+        rows = [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "mobile": row["mobile"],
+                "direction": "inbound",
+                "message_type": "text",
+                "text": row["text"],
+                "media_url": None,
+                "file_name": None,
+                "created_at": row["created_at"],
+            }
+            for row in legacy_rows
+        ]
 
     latest_by_mobile = {}
     for row in rows:
@@ -804,13 +852,16 @@ def whatsapp_complaints():
     messages = []
     active_name = None
     if active_mobile:
-        c.execute("""
-            SELECT id, name, mobile, direction, message_type, text, media_url, file_name, media_mime_type, created_at
-            FROM whatsapp_messages
-            WHERE mobile = ?
-            ORDER BY datetime(created_at) ASC, id ASC
-        """, (active_mobile,))
-        messages = c.fetchall()
+        if legacy_mode:
+            messages = [row for row in rows if row["mobile"] == active_mobile]
+        else:
+            c.execute("""
+                SELECT id, name, mobile, direction, message_type, text, media_url, file_name, media_mime_type, created_at
+                FROM whatsapp_messages
+                WHERE mobile = ?
+                ORDER BY datetime(created_at) ASC, id ASC
+            """, (active_mobile,))
+            messages = c.fetchall()
         active_name = contacts[0]["name"] if contacts and contacts[0]["mobile"] == active_mobile else None
         if not active_name and messages:
             active_name = messages[0]["name"] or active_mobile
@@ -864,7 +915,7 @@ def send_whatsapp():
         return jsonify({"error": f"Failed to send message: {exc}"}), 500
 
     created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    conn = sqlite3.connect('complaints.db')
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute(
         """
@@ -894,7 +945,7 @@ def send_whatsapp():
 @app.route('/new-connections')
 @login_required
 def new_connections():
-    conn = sqlite3.connect('complaints.db')
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute("SELECT id, name, mobile, area, status, created_at FROM connection_requests ORDER BY created_at DESC")
     connections = c.fetchall()
@@ -915,7 +966,7 @@ def api_new_connection_request():
     if not all([name, mobile]):
         return jsonify({"error": "Missing name or mobile"}), 400
 
-    conn = sqlite3.connect('complaints.db')
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute(
         "INSERT INTO connection_requests (name, mobile, area) VALUES (?, ?, ?)",
@@ -931,7 +982,7 @@ def api_new_connection_request():
 @login_required
 def update_connection_status(connection_id):
     new_status = request.form['status']
-    conn = sqlite3.connect('complaints.db')
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute("UPDATE connection_requests SET status = ? WHERE id = ?", (new_status, connection_id))
     conn.commit()
@@ -941,7 +992,7 @@ def update_connection_status(connection_id):
 @app.route('/stock', methods=['GET', 'POST'])
 @login_required
 def stock():
-    conn = sqlite3.connect('complaints.db')
+    conn = get_db_connection()
     c = conn.cursor()
 
     if request.method == 'POST':
@@ -995,7 +1046,7 @@ def stock():
 @app.route('/hr', endpoint='hr_dashboard')
 @login_required
 def hr_page():
-    conn = sqlite3.connect('complaints.db')
+    conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
 
@@ -1045,7 +1096,7 @@ def staff_attendance_webhook():
     if not all([first_name, last_name, date, time, action]):
         return jsonify({"error": "Missing required fields"}), 400
 
-    conn = sqlite3.connect('complaints.db')
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute('''
         INSERT INTO staff_attendance (first_name, last_name, date, time, action, note)
@@ -1066,7 +1117,7 @@ def update_whatsapp_bulk():
     if not ids:
         return redirect(url_for('dashboard'))
 
-    conn = sqlite3.connect('complaints.db')
+    conn = get_db_connection()
     c = conn.cursor()
 
     if action == 'resolve':
@@ -1082,7 +1133,7 @@ def update_whatsapp_bulk():
 @app.route('/delete_complaint/<int:complaint_id>', methods=['DELETE'])
 @login_required
 def delete_complaint(complaint_id):
-    conn = sqlite3.connect('complaints.db')
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute("DELETE FROM complaints WHERE id=?", (complaint_id,))
     conn.commit()

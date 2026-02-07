@@ -1,11 +1,24 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+import os
+from pathlib import Path
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 
 auth_bp = Blueprint('auth', __name__)
 
+BASE_DIR = Path(__file__).resolve().parent
+DB_PATH = os.environ.get('DATABASE_PATH')
+if not DB_PATH:
+    default_path = BASE_DIR / 'database' / 'complaints.db'
+    DB_PATH = str(default_path if default_path.exists() else BASE_DIR / 'complaints.db')
+
+
+def get_db_connection():
+    return sqlite3.connect(DB_PATH)
+
+
 def get_db():
-    return sqlite3.connect('complaints.db')
+    return get_db_connection()
 
 @auth_bp.route('/signup', methods=['GET', 'POST'])
 def signup():
