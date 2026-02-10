@@ -79,86 +79,60 @@
   </section>
 
   <!-- Packages -->
-<div class="container">
-  <div class="row text-center justify-content-center mt-5 mb-5">
-    <div class="col-lg-5">
-      <h1 class="title">Recommended Packages for You</h1>
-    </div>
-  </div>
-</div>
+  <section id="plans" class="plans-section">
+    <div class="container">
+      <div class="row text-center justify-content-center mt-5 mb-5">
+        <div class="col-lg-5">
+          <h1 class="title">Recommended Packages for You</h1>
+        </div>
+      </div>
 
-<div class="container flex-container">
-  <!-- Economy Plan -->
-  <div class="card">
-    <div class="header text-center">
-      <h1 class="title">Internet For Personal</h1>
-      <img src="{{ url_for('static', filename='img/eclipse_speed.png') }}" alt="speed"
-      <p class="title">50 MBPS</p>
-    </div>
-    <div class="content">
-      <ul>
-        <li>limited</li>
-        <li>Best for home use</li>
-        <li>100% fiber to home</li>
-      </ul>
-  <p><span style="font-size:1.2em">&#8377;</span> 499 / monthly</p>
-    </div>
-    <div class="text-center mt-4 content">
-      <a href="../internet plan.html" type="button" class="btn tombol-transparan">View plan</a>
-    </div>
-  </div>
+      <div class="plans-grid">
+        <article class="plan-card">
+          <h2>Internet For Personal</h2>
+          <img src="{{ url_for('static', filename='img/eclipse_speed.png') }}" alt="Personal plan speed meter" />
+          <p class="plan-speed"><strong>50 MBPS</strong></p>
+          <ul>
+            <li>limited</li>
+            <li>Best for home use</li>
+            <li>100% fiber to home</li>
+          </ul>
+          <p class="plan-price"><span aria-hidden="true">&#8377;</span> 499 / monthly</p>
+          <a href="../internet plan.html" class="btn tombol-transparan">View plan</a>
+        </article>
 
-  <!-- Standard Plan -->
-  <div class="card besar">
-    <div class="header text-center">
-      <h3 class="title">Internet for family</h3>
-      <img src="{{ url_for('static', filename='img/pas.png') }}" alt="pas"
-      <p class="title">200 MBPS</p>
-    </div>
-    <div class="content">
-      <ul>
-        <li>Unlimited</li>
-        <li>OTT subscriptions</li>
-        <li>100% fiber to home</li>
-      </ul>
-  <p><span style="font-size:1.2em">&#8377;</span> 999 / monthly</p>
-    </div>
-    <div class="text-center content mt-4">
-      <a href="../internet plan.html" type="button" class="btn tombol">View plan</a>
-    </div>
-  </div>
+        <article class="plan-card plan-card-featured">
+          <h2>Internet for family</h2>
+          <img src="{{ url_for('static', filename='img/pas.png') }}" alt="Family plan speed meter" />
+          <p class="plan-speed"><strong>200 MBPS</strong></p>
+          <ul>
+            <li>Unlimited</li>
+            <li>OTT subscriptions</li>
+            <li>100% fiber to home</li>
+          </ul>
+          <p class="plan-price"><span aria-hidden="true">&#8377;</span> 999 / monthly</p>
+          <a href="../internet plan.html" class="btn tombol">View plan</a>
+        </article>
 
-  <!-- Super Plan -->
-  <div class="card">
-    <div class="header text-center">
-      <h1 class="title">Internet For Corporate</h1>
-      <img src="{{ url_for('static', filename='img/super.png') }}" alt="super"
-      <p class="title">300 MBPS</p>
-    </div>
-    <div class="content">
-      <ul>
-        <li>Unlimited</li>
-        <li>100% fiber to home</li>
-        <li>Public & static ip</li>
-      </ul>
-  <p><span style="font-size:1.2em">&#8377;</span> 1099 / monthly</p>
-    </div>
-    <div class="text-center content mt-4">
-      <a href="../internet plan.html" type="button" class="btn tombol-transparan">View plan</a>
-    </div>
-  </div>
-</div>
+        <article class="plan-card">
+          <h2>Internet For Corporate</h2>
+          <img src="{{ url_for('static', filename='img/super.png') }}" alt="Corporate plan speed meter" />
+          <p class="plan-speed"><strong>300 MBPS</strong></p>
+          <ul>
+            <li>Unlimited</li>
+            <li>100% fiber to home</li>
+            <li>Public &amp; static ip</li>
+          </ul>
+          <p class="plan-price"><span aria-hidden="true">&#8377;</span> 1099 / monthly</p>
+          <a href="../internet plan.html" class="btn tombol-transparan">View plan</a>
+        </article>
+      </div>
 
-<!-- See All Packages -->
-<div class="container">
-  <div class="row mt-5">
-    <div class="col-lg">
-      <div class="text-center content out">
-        <a href="../internet plan.html" type="button" class="btn tombol-transparan">See All Packages</a>
+      <div class="text-center mt-5">
+        <a href="../internet plan.html" class="btn tombol-transparan see-all-packages">See All Packages</a>
       </div>
     </div>
-  </div>
-</div>
+  </section>
 
 <!-- Subscribe section-->
   <hr class="my-5" style="border-top: 1px solid #000000; width: 80%; margin: 0 auto;">

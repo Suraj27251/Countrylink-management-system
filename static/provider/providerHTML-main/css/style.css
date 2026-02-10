@@ -344,6 +344,148 @@ h1 {
   background-color: #ffffff ;
 }
 
+
+/* Plans section */
+.plans-section {
+  margin-top: 20px;
+}
+
+.plans-section .title {
+  line-height: 1.3;
+}
+
+.plans-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  align-items: stretch;
+}
+
+.plan-card {
+  border: 3px solid #4e9f3d;
+  border-radius: 30px;
+  background-color: #f7f6f2;
+  padding: 28px 24px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+}
+
+.plan-card h2 {
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  letter-spacing: 2px;
+  font-size: 26px;
+  line-height: 1.35;
+  margin-bottom: 14px;
+}
+
+.plan-card img {
+  width: 160px;
+  max-width: 100%;
+  margin: 0 auto 10px;
+}
+
+.plan-speed {
+  font-family: "Poppins", sans-serif;
+  margin-bottom: 12px;
+  color: #303030;
+}
+
+.plan-speed strong {
+  display: block;
+  margin-top: 0;
+  font-size: 24px;
+  letter-spacing: 2px;
+}
+
+.plan-card ul {
+  list-style: none;
+  text-align: left;
+  padding-left: 0;
+  margin: 0 0 14px;
+  font-family: "Poppins", sans-serif;
+  font-size: 18px;
+  line-height: 1.4;
+  letter-spacing: 1px;
+}
+
+.plan-card li::before {
+  content: "✓ ";
+}
+
+.plan-price {
+  font-family: "Poppins", sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  margin-top: auto;
+  margin-bottom: 18px;
+}
+
+.plan-card .btn {
+  width: 100%;
+  max-width: 240px;
+  margin: 0 auto;
+  font-family: "Poppins", sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  padding: 13px 28px;
+}
+
+.plan-card-featured {
+  background-color: #4e9f3d;
+  transform: scale(1.05);
+  box-shadow: 0px 14px 40px rgba(0, 0, 0, 0.18);
+}
+
+.plan-card-featured h2,
+.plan-card-featured .plan-speed,
+.plan-card-featured .plan-price,
+.plan-card-featured ul {
+  color: #ffffff;
+}
+
+.plan-card-featured .tombol {
+  color: #ffffff;
+}
+
+.see-all-packages {
+  min-width: 360px;
+  box-shadow: none;
+}
+
+@media (max-width: 1200.98px) {
+  .plans-grid {
+    grid-template-columns: 1fr;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  .plan-card-featured {
+    transform: none;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .plan-card h2 {
+    font-size: 24px;
+  }
+
+  .plan-card ul {
+    font-size: 16px;
+  }
+
+  .plan-price {
+    font-size: 22px;
+  }
+
+  .see-all-packages {
+    min-width: 100%;
+  }
+}
+
 /* Bagian Konsultasi */
 
 .konsul img {
