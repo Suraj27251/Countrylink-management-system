@@ -69,7 +69,7 @@
               </div>
             </div>
             <div class="col-lg-6 ">
-              <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Countrylink"
+              <img src="{{ url_for('static', filename='img/sally1.png') }}" alt="Countrylink"
                 class="img" />
             </div>
           </div>
@@ -78,97 +78,107 @@
     </div>
   </section>
 
-  <div class="container" id="plans">
-    <div class="row text-center justify-content-center mt-5 mb-5">
-      <div class="col-lg-6">
-        <h1 class="title">Countrylink Internet-Only Plans</h1>
-      </div>
+  <!-- Packages -->
+<div class="container">
+  <div class="row text-center justify-content-center mt-5 mb-5">
+    <div class="col-lg-5">
+      <h1 class="title">Recommended Packages for You</h1>
     </div>
   </div>
-  <div class="container flex-container">
-    <div class="card">
-      <div class="header text-center">
-        <h1 class="title">Limited 50 Mbps</h1>
-        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="speed"
-          class="img" />
-        <p class="title">500 GB</p>
-      </div>
-      <div class="content">
-        <ul class="">
-          <li>Free 5G WiFi router*</li>
-          <li>Free installation*</li>
-        </ul>
-        <p>₹499/-</p>
-      </div>
-      <div class="text-center mt-4 content">
-        <a href="#contact" type="button" class=" btn tombol-transparan ">Get Started</a>
-      </div>
+</div>
+
+<div class="container flex-container">
+  <!-- Economy Plan -->
+  <div class="card">
+    <div class="header text-center">
+      <h1 class="title">Internet For Personal</h1>
+      <img src="../img/eclipse_speed.png" alt="speed-bar" class="img" />
+      <p class="title">50 MBPS</p>
     </div>
-    <div class="card besar">
-      <div class="header text-center">
-        <h1 class="title">Unlimited 100 Mbps</h1>
-        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="speed" class="img" />
-        <p class="title">Fiber Connectivity</p>
-      </div>
-      <div class="content">
-        <ul class="">
-          <li>Unlimited data</li>
-          <li>Free 5G WiFi router*</li>
-        </ul>
-        <p>₹900/-</p>
-      </div>
-      <div class="text-center content mt-4">
-        <a href="#contact" type="button" class=" btn tombol ">Get Started</a>
-      </div>
+    <div class="content">
+      <ul>
+        <li>limited</li>
+        <li>Best for home use</li>
+        <li>100% fiber to home</li>
+      </ul>
+  <p><span style="font-size:1.2em">&#8377;</span> 499 / monthly</p>
     </div>
-    <div class="card">
-      <div class="header text-center">
-        <h1 class="title">Unlimited 300 Mbps</h1>
-        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="speed" class="img" />
-        <p class="title">Best for OTT</p>
-      </div>
-      <div class="content">
-        <ul class="">
-          <li>Unlimited data</li>
-          <li>Premium streaming ready</li>
-        </ul>
-        <p>₹1099/-</p>
-      </div>
-      <div class="text-center content mt-4">
-        <a href="#contact" type="button" class=" btn tombol-transparan">Get Started</a>
-      </div>
-    </div>
-  </div>
-  <div class="container">
-    <div class="row mt-5">
-      <div class="col-lg">
-        <div class="text-center content out">
-          <a href="#contact" type="button" class=" btn tombol-transparan">Ask for Full Plan List</a>
-        </div>
-      </div>
+    <div class="text-center mt-4 content">
+      <a href="../internet plan.html" type="button" class="btn tombol-transparan">View plan</a>
     </div>
   </div>
 
-  <div class="about-bg" id="about"></div>
-  <div class="about">
-    <div class="container flex-container mt-5">
-      <div class="row">
-        <div class="col-lg-7 pb-5">
-          <h1 class="title">Why Choose Countrylink?</h1>
-        </div>
+  <!-- Standard Plan -->
+  <div class="card besar">
+    <div class="header text-center">
+      <h3 class="title">Internet for family</h3>
+      <img src="../img/pas.png" alt="speed-bar" class="img" />
+      <p class="title">200 MBPS</p>
+    </div>
+    <div class="content">
+      <ul>
+        <li>Unlimited</li>
+        <li>OTT subscriptions</li>
+        <li>100% fiber to home</li>
+      </ul>
+  <p><span style="font-size:1.2em">&#8377;</span> 999 / monthly</p>
+    </div>
+    <div class="text-center content mt-4">
+      <a href="../internet plan.html" type="button" class="btn tombol">View plan</a>
+    </div>
+  </div>
+
+  <!-- Super Plan -->
+  <div class="card">
+    <div class="header text-center">
+      <h1 class="title">Internet For Corporate</h1>
+      <img src="../img/super.png" alt="speed-bar" class="img" />
+      <p class="title">300 MBPS</p>
+    </div>
+    <div class="content">
+      <ul>
+        <li>Unlimited</li>
+        <li>100% fiber to home</li>
+        <li>Public & static ip</li>
+      </ul>
+  <p><span style="font-size:1.2em">&#8377;</span> 1099 / monthly</p>
+    </div>
+    <div class="text-center content mt-4">
+      <a href="../internet plan.html" type="button" class="btn tombol-transparan">View plan</a>
+    </div>
+  </div>
+</div>
+
+<!-- See All Packages -->
+<div class="container">
+  <div class="row mt-5">
+    <div class="col-lg">
+      <div class="text-center content out">
+        <a href="../internet plan.html" type="button" class="btn tombol-transparan">See All Packages</a>
       </div>
-      <div class="row">
-        <div class="col-lg-6 align-self-center">
-          <h1 class="title-brand ">Countrylink</h1>
+    </div>
+  </div>
+</div>
+
+<!-- Subscribe section-->
+  <hr class="my-5" style="border-top: 1px solid #000000; width: 80%; margin: 0 auto;">
+  <section class="subscribe-section py-5">
+    <div class="container">
+      <div class="row align-items-center">
+        <div class="col-md-6 mb-4 mb-md-0 text-center">
+          <img src="../img/subscribe_tv.png" alt="Subscribe TV" class="img-fluid" style="max-width: 400px;">
         </div>
-        <div class="col-lg-6">
-          <p class="info">Countrylink brings high-speed fiber internet with OTT bundles to keep your home connected and
-            entertained. Enjoy stable speeds, easy onboarding, and plans designed for every household.</p>
-          <div class="text-center">
-            <a href="#plans" type="button" class=" btn tombol">See All Plans</a>
-          </div>
+        <div class="col-md-6">
+          <h2 class="mb-3">Subscribe to Countrylink TV</h2>
+          <p class="mb-4">Enjoy 350+ live TV channels, exclusive OTT content, and superfast internet all in one plan. Stay entertained and connected with Countrylink's unbeatable combo offers!</p>
+          <a href="#" class="btn tombol btn-lg">Subscribe Now</a>
         </div>
-      </div>
+	  </div>
+    </div>
+  </section>
+  <hr class="my-5" style="border-top: 1px solid #000000; width: 80%; margin: 0 auto;">
+
+  <!-- about section -->
       <div class="row">
         <div class="card-about">
           <div class="card-featured text-lg-center">
