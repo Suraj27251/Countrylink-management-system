@@ -89,7 +89,7 @@
       </div>
 
       <div class="plans-grid">
-        <article class="plan-card">
+        <article class="plan-card plan-card-animated">
           <h2>Internet For Personal</h2>
           <img src="{{ url_for('static', filename='img/eclipse_speed.png') }}" alt="Personal plan speed meter" />
           <p class="plan-speed"><strong>50 MBPS</strong></p>
@@ -102,7 +102,7 @@
           <a href="../internet plan.html" class="btn tombol-transparan">View plan</a>
         </article>
 
-        <article class="plan-card plan-card-featured">
+        <article class="plan-card plan-card-featured plan-card-animated">
           <h2>Internet for family</h2>
           <img src="{{ url_for('static', filename='img/pas.png') }}" alt="Family plan speed meter" />
           <p class="plan-speed"><strong>200 MBPS</strong></p>
@@ -115,7 +115,7 @@
           <a href="../internet plan.html" class="btn tombol">View plan</a>
         </article>
 
-        <article class="plan-card">
+        <article class="plan-card plan-card-animated">
           <h2>Internet For Corporate</h2>
           <img src="{{ url_for('static', filename='img/super.png') }}" alt="Corporate plan speed meter" />
           <p class="plan-speed"><strong>300 MBPS</strong></p>
@@ -141,7 +141,7 @@
     <div class="container">
       <div class="row align-items-center">
         <div class="col-md-6 mb-4 mb-md-0 text-center">
-          <img src="../img/subscribe_tv.png" alt="Subscribe TV" class="img-fluid" style="max-width: 400px;">
+          <img src="{{ url_for('static', filename='img/subscribe_tv.png') }}" alt="Subscribe TV" class="img-fluid" style="max-width: 400px;">
         </div>
         <div class="col-md-6">
           <h2 class="mb-3">Subscribe to Countrylink TV</h2>
@@ -154,8 +154,11 @@
   <hr class="my-5" style="border-top: 1px solid #000000; width: 80%; margin: 0 auto;">
 
   <!-- about section -->
-      <div class="row">
-        <div class="card-about">
+  <section id="about" class="about-features-section">
+    <div class="container">
+      <div class="row justify-content-center">
+        <div class="col-12">
+          <div class="card-about">
           <div class="card-featured text-lg-center">
             <div class="rectangle text-center  ">
               <img src="{{ url_for('static', filename='img/rocket.png') }}" alt="fast"
@@ -188,10 +191,11 @@
             <h1>Ai enhanced customer Support</h1>
             <p>Reach Countrylink support whenever you need assistance.</p>
           </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
+  </section>
   <div class="konsul">
     <div class="container flex-container">
       <div class="row">
