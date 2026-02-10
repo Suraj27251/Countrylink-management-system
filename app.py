@@ -968,7 +968,6 @@ def whatsapp_messages_api():
     last_message_id = serialized_messages[-1]["id"] if serialized_messages else None
 
     response_payload = {
-    return jsonify({
         "contacts": contacts if include_contacts else [],
         "messages": serialized_messages,
         "active_mobile": mobile,
@@ -976,6 +975,7 @@ def whatsapp_messages_api():
         "last_message_id": last_message_id,
         "legacy_mode": legacy_mode,
     }
+
     if mobile:
         app.logger.debug(
             "WhatsApp messages API: mobile=%s since_id=%s messages=%s",
@@ -983,8 +983,8 @@ def whatsapp_messages_api():
             since_id,
             len(serialized_messages),
         )
+
     return jsonify(response_payload)
-    })
 
 
 @app.route('/api/whatsapp/send', methods=['POST'])
