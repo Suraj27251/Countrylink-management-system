@@ -1,5 +1,4 @@
 import os
-import zipfile
 from pathlib import Path
 import csv
 import pickle
@@ -25,23 +24,6 @@ if not DB_PATH:
 
 def get_db_connection():
     return sqlite3.connect(DB_PATH)
-
-
-
-def ensure_provider_assets():
-    base_dir = Path(app.root_path)
-    zip_path = base_dir / 'providerHTML-main.zip'
-    target_dir = base_dir / 'static' / 'provider' / 'providerHTML-main'
-    if target_dir.exists():
-        return
-    if not zip_path.exists():
-        return
-    target_dir.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(zip_path) as archive:
-        archive.extractall(target_dir.parent)
-
-
-ensure_provider_assets()
 
 # ---- WhatsApp helpers ----
 def normalize_mobile(raw_mobile):
@@ -986,7 +968,6 @@ def whatsapp_messages_api():
     last_message_id = serialized_messages[-1]["id"] if serialized_messages else None
 
     response_payload = {
-    return jsonify({
         "contacts": contacts if include_contacts else [],
         "messages": serialized_messages,
         "active_mobile": mobile,
@@ -994,6 +975,7 @@ def whatsapp_messages_api():
         "last_message_id": last_message_id,
         "legacy_mode": legacy_mode,
     }
+
     if mobile:
         app.logger.debug(
             "WhatsApp messages API: mobile=%s since_id=%s messages=%s",
@@ -1001,8 +983,8 @@ def whatsapp_messages_api():
             since_id,
             len(serialized_messages),
         )
+
     return jsonify(response_payload)
-    })
 
 
 @app.route('/api/whatsapp/send', methods=['POST'])
