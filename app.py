@@ -1,5 +1,4 @@
 import os
-import zipfile
 from pathlib import Path
 import csv
 import pickle
@@ -25,23 +24,6 @@ if not DB_PATH:
 
 def get_db_connection():
     return sqlite3.connect(DB_PATH)
-
-
-
-def ensure_provider_assets():
-    base_dir = Path(app.root_path)
-    zip_path = base_dir / 'providerHTML-main.zip'
-    target_dir = base_dir / 'static' / 'provider' / 'providerHTML-main'
-    if target_dir.exists():
-        return
-    if not zip_path.exists():
-        return
-    target_dir.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(zip_path) as archive:
-        archive.extractall(target_dir.parent)
-
-
-ensure_provider_assets()
 
 # ---- WhatsApp helpers ----
 def normalize_mobile(raw_mobile):
