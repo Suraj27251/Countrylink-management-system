@@ -120,11 +120,13 @@ h1 {
   font-weight: 600;
   color: #5b5b5b;
   font-size: 24px;
+  padding: 0;
 }
 
-.navbar-brand::after {
-  content: "net ";
-  color: green;
+.navbar .brand-logo {
+  width: 190px;
+  height: auto;
+  display: block;
 }
 
 .nav-item>a {
@@ -514,6 +516,12 @@ footer .row.title-brand-footer {
   margin-top: 50px;
 }
 
+footer .footer-logo {
+  width: 220px;
+  height: auto;
+  display: block;
+}
+
 footer>* {
   color: #ffffff;
 }
@@ -677,6 +685,10 @@ footer .row.icon-awesome i {
     padding-left: 20px;
     display: block;
     font-size: 20px;
+  }
+
+  .navbar .brand-logo {
+    width: 155px;
   }
 
   .nav-item>a {
