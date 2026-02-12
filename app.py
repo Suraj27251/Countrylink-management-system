@@ -335,6 +335,47 @@ def load_whatsapp_rows(conn):
     return rows, legacy_mode
 
 
+def _is_usable_contact_name(name):
+    normalized = (name or '').strip().lower()
+    return bool(normalized and normalized not in {'unknown', '.', 'agent'})
+
+
+def build_whatsapp_contacts(rows):
+    latest_by_mobile = {}
+    preferred_name_by_mobile = {}
+
+    def value(row, key, default=None):
+        if isinstance(row, dict):
+            return row.get(key, default)
+        try:
+            return row[key]
+        except Exception:
+            return default
+
+    for row in rows:
+        mobile = normalize_mobile(value(row, "mobile", ''))
+        if not mobile:
+            continue
+
+        if mobile not in latest_by_mobile:
+            latest_by_mobile[mobile] = {
+                "mobile": mobile,
+                "name": value(row, "name") or mobile,
+                "preview": safe_message_preview(value(row, "message_type", 'unknown'), value(row, "text")),
+                "created_at": value(row, "created_at"),
+            }
+
+        row_name = value(row, "name")
+        if value(row, "direction") == 'inbound' and _is_usable_contact_name(row_name):
+            preferred_name_by_mobile[mobile] = row_name
+
+    for mobile, contact in latest_by_mobile.items():
+        if preferred_name_by_mobile.get(mobile):
+            contact["name"] = preferred_name_by_mobile[mobile]
+
+    return sorted(latest_by_mobile.values(), key=lambda item: item["created_at"], reverse=True)
+
+
 def upload_media_to_whatsapp(file_path, mime_type):
     headers = get_whatsapp_headers()
     phone_number_id = get_whatsapp_phone_number_id()
@@ -1032,21 +1073,7 @@ def whatsapp_complaints():
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     rows, legacy_mode = load_whatsapp_rows(conn)
-
-    latest_by_mobile = {}
-    for row in rows:
-        mobile = normalize_mobile(row["mobile"])
-        if mobile in latest_by_mobile:
-            continue
-        preview = safe_message_preview(row["message_type"], row["text"])
-        latest_by_mobile[mobile] = {
-            "mobile": mobile,
-            "name": row["name"] or mobile,
-            "preview": preview,
-            "created_at": row["created_at"],
-        }
-
-    contacts = sorted(latest_by_mobile.values(), key=lambda item: item["created_at"], reverse=True)
+    contacts = build_whatsapp_contacts(rows)
     active_mobile = normalize_mobile(request.args.get("mobile")) or (contacts[0]["mobile"] if contacts else None)
     app.logger.info("WhatsApp inbox loaded with %s contacts. Active mobile: %s", len(contacts), active_mobile or "none")
 
@@ -1082,19 +1109,7 @@ def whatsapp_messages_api():
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     rows, legacy_mode = load_whatsapp_rows(conn)
-
-    latest_by_mobile = {}
-    for row in rows:
-        row_mobile = normalize_mobile(row["mobile"])
-        if row_mobile in latest_by_mobile:
-            continue
-        latest_by_mobile[row_mobile] = {
-            "mobile": row_mobile,
-            "name": row["name"] or row_mobile,
-            "preview": safe_message_preview(row["message_type"], row["text"]),
-            "created_at": row["created_at"],
-        }
-    contacts = sorted(latest_by_mobile.values(), key=lambda item: item["created_at"], reverse=True)
+    contacts = build_whatsapp_contacts(rows)
 
     messages = []
     active_name = ""
