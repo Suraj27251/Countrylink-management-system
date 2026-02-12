@@ -221,6 +221,75 @@ def send_whatsapp_message(to_number, message_type, text=None, media_id=None, fil
     response.raise_for_status()
     return response.json()
 
+
+def send_whatsapp_template_message(to_number, template_name, language_code, components=None):
+    headers = get_whatsapp_headers()
+    phone_number_id = get_whatsapp_phone_number_id()
+    url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{phone_number_id}/messages"
+    payload = {
+        'messaging_product': 'whatsapp',
+        'to': to_number,
+        'type': 'template',
+        'template': {
+            'name': template_name,
+            'language': {'code': language_code},
+        }
+    }
+    if components:
+        payload['template']['components'] = components
+    response = requests.post(url, headers=headers, json=payload, timeout=30)
+    response.raise_for_status()
+    return response.json()
+
+
+def send_whatsapp_interactive_message(to_number, body_text, buttons, header_text=None):
+    headers = get_whatsapp_headers()
+    phone_number_id = get_whatsapp_phone_number_id()
+    url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{phone_number_id}/messages"
+    payload = {
+        'messaging_product': 'whatsapp',
+        'to': to_number,
+        'type': 'interactive',
+        'interactive': {
+            'type': 'button',
+            'body': {'text': body_text},
+            'action': {
+                'buttons': [
+                    {
+                        'type': 'reply',
+                        'reply': {
+                            'id': button['id'],
+                            'title': button['title'],
+                        }
+                    }
+                    for button in buttons
+                ]
+            }
+        }
+    }
+    if header_text:
+        payload['interactive']['header'] = {'type': 'text', 'text': header_text}
+    response = requests.post(url, headers=headers, json=payload, timeout=30)
+    response.raise_for_status()
+    return response.json()
+
+
+def fetch_whatsapp_templates(limit=100):
+    headers = get_whatsapp_headers()
+    waba_id = get_whatsapp_waba_id()
+    url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{waba_id}/message_templates"
+    response = requests.get(
+        url,
+        headers=headers,
+        params={
+            'limit': limit,
+            'fields': 'name,language,status,category,components',
+        },
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json().get('data', [])
+
 # ---- AI categorization setup ----
 MODEL_PATH = 'complaint_model.pkl'
 CATEGORIES = ["Speed Issue", "Connection Down", "Billing", "Installation", "Other"]
@@ -1053,6 +1122,142 @@ def send_whatsapp():
     conn.commit()
     conn.close()
 
+    return jsonify({"status": "sent"}), 200
+
+
+@app.route('/api/whatsapp/templates')
+@login_required
+def whatsapp_templates_api():
+    if not whatsapp_config_ready():
+        return jsonify({"error": "WhatsApp configuration missing."}), 400
+
+    try:
+        templates = fetch_whatsapp_templates(limit=100)
+        return jsonify({"data": templates}), 200
+    except Exception as exc:
+        app.logger.error("Failed to load WhatsApp templates: %s", exc)
+        return jsonify({"error": f"Failed to fetch templates: {exc}"}), 500
+
+
+@app.route('/api/whatsapp/send-template', methods=['POST'])
+@login_required
+def send_whatsapp_template_api():
+    if not whatsapp_config_ready():
+        return jsonify({"error": "WhatsApp configuration missing."}), 400
+
+    payload = request.get_json(silent=True) or {}
+    mobile = normalize_mobile((payload.get('mobile') or '').strip())
+    template_name = (payload.get('template_name') or '').strip()
+    language_code = (payload.get('language_code') or 'en_US').strip()
+    components = payload.get('components') or []
+
+    if not mobile or not template_name:
+        return jsonify({"error": "mobile and template_name are required."}), 400
+
+    try:
+        result = send_whatsapp_template_message(
+            mobile,
+            template_name,
+            language_code,
+            components=components if isinstance(components, list) else [],
+        )
+        message_id = (result.get('messages') or [{}])[0].get('id')
+    except Exception as exc:
+        app.logger.error("Failed to send WhatsApp template to %s: %s", mobile, exc)
+        return jsonify({"error": f"Failed to send template: {exc}"}), 500
+
+    created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute(
+        """
+        INSERT INTO whatsapp_messages
+        (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            message_id,
+            session.get('user_name', 'Agent'),
+            mobile,
+            'outbound',
+            'template',
+            f"Template: {template_name}",
+            None,
+            None,
+            None,
+            None,
+            created_at,
+        ),
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "sent"}), 200
+
+
+@app.route('/api/whatsapp/send-interactive', methods=['POST'])
+@login_required
+def send_whatsapp_interactive_api():
+    if not whatsapp_config_ready():
+        return jsonify({"error": "WhatsApp configuration missing."}), 400
+
+    payload = request.get_json(silent=True) or {}
+    mobile = normalize_mobile((payload.get('mobile') or '').strip())
+    header = (payload.get('header') or '').strip()
+    body_text = (payload.get('body') or '').strip()
+    buttons = payload.get('buttons') or []
+
+    if not mobile or not body_text:
+        return jsonify({"error": "mobile and body are required."}), 400
+    if not isinstance(buttons, list) or not 1 <= len(buttons) <= 3:
+        return jsonify({"error": "buttons must be an array with 1 to 3 items."}), 400
+
+    normalized_buttons = []
+    for idx, button in enumerate(buttons):
+        title = (button.get('title') or '').strip()[:20]
+        if not title:
+            return jsonify({"error": f"Button {idx + 1} title is required."}), 400
+        normalized_buttons.append({
+            'id': (button.get('id') or f'btn_{idx + 1}').strip()[:256],
+            'title': title,
+        })
+
+    try:
+        result = send_whatsapp_interactive_message(
+            mobile,
+            body_text,
+            normalized_buttons,
+            header_text=header or None,
+        )
+        message_id = (result.get('messages') or [{}])[0].get('id')
+    except Exception as exc:
+        app.logger.error("Failed to send WhatsApp interactive message to %s: %s", mobile, exc)
+        return jsonify({"error": f"Failed to send interactive message: {exc}"}), 500
+
+    created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute(
+        """
+        INSERT INTO whatsapp_messages
+        (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            message_id,
+            session.get('user_name', 'Agent'),
+            mobile,
+            'outbound',
+            'interactive',
+            body_text,
+            None,
+            None,
+            None,
+            None,
+            created_at,
+        ),
+    )
+    conn.commit()
+    conn.close()
     return jsonify({"status": "sent"}), 200
 
 
