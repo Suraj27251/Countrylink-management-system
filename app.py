@@ -5,11 +5,15 @@ import pickle
 import socket
 import threading
 import time
+import mimetypes
+import uuid
+import requests
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
 import sqlite3
 from datetime import datetime
 from collections import defaultdict
 from functools import wraps
+from werkzeug.utils import secure_filename
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
@@ -24,6 +28,10 @@ if not DB_PATH:
 
 def get_db_connection():
     return sqlite3.connect(DB_PATH)
+
+WHATSAPP_API_VERSION = os.environ.get('WHATSAPP_API_VERSION', 'v20.0')
+WEBHOOK_VERIFY_TOKEN = os.environ.get('WEBHOOK_VERIFY_TOKEN', '')
+WHATSAPP_MEDIA_DIR = Path(app.root_path) / 'static' / 'uploads' / 'whatsapp'
 
 # ---- WhatsApp helpers ----
 def normalize_mobile(raw_mobile):
@@ -676,6 +684,7 @@ def webhook():
         if WEBHOOK_VERIFY_TOKEN and verify_token != WEBHOOK_VERIFY_TOKEN:
             app.logger.warning("Webhook verification failed: invalid token.")
             return 'Verification failed', 403
+        app.logger.info("Webhook verification handshake accepted.")
         return challenge or '', 200
 
     if request.method == 'POST':
@@ -684,6 +693,8 @@ def webhook():
             if not data:
                 app.logger.warning("Webhook received no JSON payload.")
                 return jsonify({"error": "No JSON data received"}), 400
+
+            app.logger.info("Webhook POST received: object=%s entries=%s", data.get('object'), len(data.get('entry', [])))
 
             for entry in data.get('entry', []):
                 for change in entry.get('changes', []):
