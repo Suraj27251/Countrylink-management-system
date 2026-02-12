@@ -199,31 +199,15 @@
   };
 
   async function poll() {
-    const q = new URLSearchParams({ include_contacts: '1' });
-    if (activeMobile) {
-      q.set('mobile', activeMobile);
-      q.set('since_id', String(lastMessageId || 0));
-    }
-
+    if (!activeMobile) return;
+    const q = new URLSearchParams({mobile: activeMobile, since_id: String(lastMessageId || 0), include_contacts: '1'});
     const res = await fetch(`${apiUrl}?${q.toString()}`, {headers: {'X-Requested-With':'XMLHttpRequest'}});
     if (!res.ok) return;
     const data = await res.json();
-
-    if (data.contacts) {
-      renderContacts(data.contacts);
-      if (!activeMobile && data.contacts.length) {
-        const firstMobile = data.contacts[0].mobile;
-        if (firstMobile) {
-          window.location.href = `${pageUrl}?mobile=${encodeURIComponent(firstMobile)}`;
-          return;
-        }
-      }
-    }
-
+    if (data.contacts) renderContacts(data.contacts);
     if (data.active_name) activeNameEl.textContent = data.active_name;
     if (data.active_mobile) activeMobileEl.textContent = data.active_mobile;
-
-    if (activeMobile && data.messages?.length) {
+    if (data.messages?.length) {
       const auto = autoscroll();
       data.messages.forEach((m) => {
         if (!chatBody.querySelector(`[data-message-id="${m.id}"]`)) chatBody.appendChild(renderMessage(m));
@@ -339,7 +323,7 @@
   });
 
   scrollBottom();
-  setInterval(() => poll().catch((error) => console.error('WhatsApp poll failed', error)), 5000);
+  if (activeMobile) setInterval(() => poll().catch(() => {}), 5000);
 })();
 </script>
 {% endblock %}
