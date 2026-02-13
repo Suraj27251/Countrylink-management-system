@@ -99,6 +99,8 @@
               <a class="btn btn-sm btn-light" href="{{ url_for('static', filename=msg['media_url']) }}" target="_blank"><i class="fas fa-file"></i> {{ msg['file_name'] or 'Document' }}</a>
             {% endif %}
             <p class="msg-text">{{ msg['text'] or ('Template message' if msg['message_type'] == 'template' else 'Interactive message') }}</p>
+            {% if msg['error_reason'] %}<div class="msg-error">{{ msg['error_reason'] }}</div>{% endif %}
+            {% if msg['delivery_status'] %}<div class="msg-status {{ 'failed' if msg['delivery_status'] == 'failed' else '' }}">{{ msg['delivery_status']|upper }}</div>{% endif %}
             <div class="msg-time">{{ msg['created_at'].split(' ')[1][:5] if msg['created_at'] else '' }}</div>
           </div>
         </div>
@@ -185,7 +187,11 @@
     if (m.message_type === 'audio') html += media ? `<audio class="msg-audio" controls src="${media}"></audio>` : '';
     if (m.message_type === 'document') html += media ? `<a target="_blank" class="btn btn-sm btn-light" href="${media}"><i class="fas fa-file"></i> ${esc(m.file_name || 'Document')}</a>` : '';
     const text = esc(m.text || (m.message_type === 'template' ? 'Template message' : m.message_type === 'interactive' ? 'Interactive message' : ''));
-    html += `<p class="msg-text">${text}</p><div class="msg-time">${fmt(m.created_at)}</div>`;
+    const status = esc((m.delivery_status || '').toUpperCase());
+    const statusClass = (m.delivery_status || '').toLowerCase() === 'failed' ? 'failed' : '';
+    const errorText = m.error_reason ? `<div class="msg-error">${esc(m.error_reason)}</div>` : '';
+    const statusHtml = status ? `<div class="msg-status ${statusClass}">${status}</div>` : '';
+    html += `<p class="msg-text">${text}</p>${errorText}${statusHtml}<div class="msg-time">${fmt(m.created_at)}</div>`;
     row.innerHTML = `<div class="msg-bubble">${html}</div>`;
     return row;
   };
@@ -297,6 +303,7 @@
       mobile: activeMobile,
       template_name: tName,
       language_code: language,
+      template_preview: buildTemplatePreview(t || {}, values),
       components: bodyParams.length ? [{type:'body', parameters: bodyParams}] : []
     };
     const res = await fetch(sendTemplateUrl, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});

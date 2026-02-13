@@ -301,7 +301,7 @@ def safe_message_preview(message_type, text):
 def load_whatsapp_rows(conn):
     c = conn.cursor()
     c.execute("""
-        SELECT id, message_id, name, mobile, direction, message_type, text, media_url, file_name, media_mime_type, created_at
+        SELECT id, message_id, name, mobile, direction, message_type, text, media_url, file_name, media_mime_type, delivery_status, error_reason, created_at
         FROM whatsapp_messages
         ORDER BY datetime(created_at) DESC, id DESC
     """)
@@ -328,6 +328,8 @@ def load_whatsapp_rows(conn):
                 "media_url": None,
                 "file_name": None,
                 "media_mime_type": None,
+                "delivery_status": None,
+                "error_reason": None,
                 "created_at": row["created_at"],
             }
             for row in legacy_rows
@@ -647,6 +649,8 @@ def init_db():
             media_url TEXT,
             media_mime_type TEXT,
             file_name TEXT,
+            delivery_status TEXT,
+            error_reason TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -1139,6 +1143,8 @@ def whatsapp_messages_api():
             "media_url": msg["media_url"],
             "file_name": msg["file_name"],
             "media_mime_type": msg.get("media_mime_type") if isinstance(msg, dict) else msg["media_mime_type"],
+            "delivery_status": msg.get("delivery_status") if isinstance(msg, dict) else msg["delivery_status"],
+            "error_reason": msg.get("error_reason") if isinstance(msg, dict) else msg["error_reason"],
             "created_at": msg["created_at"],
         }
 
@@ -1259,6 +1265,7 @@ def send_whatsapp_template_api():
     template_name = (payload.get('template_name') or '').strip()
     language_code = (payload.get('language_code') or 'en_US').strip()
     components = payload.get('components') or []
+    template_preview = (payload.get('template_preview') or '').strip()
 
     if not mobile or not template_name:
         return jsonify({"error": "mobile and template_name are required."}), 400
@@ -1271,9 +1278,13 @@ def send_whatsapp_template_api():
             components=components if isinstance(components, list) else [],
         )
         message_id = (result.get('messages') or [{}])[0].get('id')
+        send_status = 'accepted'
+        send_error_reason = None
     except Exception as exc:
         app.logger.error("Failed to send WhatsApp template to %s: %s", mobile, exc)
-        return jsonify({"error": f"Failed to send template: {exc}"}), 500
+        message_id = None
+        send_status = 'failed'
+        send_error_reason = str(exc)
 
     created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     conn = get_db_connection()
@@ -1281,8 +1292,8 @@ def send_whatsapp_template_api():
     c.execute(
         """
         INSERT INTO whatsapp_messages
-        (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, delivery_status, error_reason, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             message_id,
@@ -1290,16 +1301,20 @@ def send_whatsapp_template_api():
             mobile,
             'outbound',
             'template',
-            f"Template: {template_name}",
+            template_preview or f"Template: {template_name}",
             None,
             None,
             None,
             None,
+            send_status,
+            send_error_reason,
             created_at,
         ),
     )
     conn.commit()
     conn.close()
+    if send_status == 'failed':
+        return jsonify({"error": f"Failed to send template: {send_error_reason}"}), 500
     return jsonify({"status": "sent"}), 200
 
 
