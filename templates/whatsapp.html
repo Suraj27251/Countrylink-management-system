@@ -6,6 +6,7 @@
   .wa-shell {height: calc(100vh - 140px); background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 24px rgba(15,23,42,.08); display:grid; grid-template-columns:330px 1fr;}
   .wa-sidebar {background:#f8fafc; border-right:1px solid #e2e8f0; display:flex; flex-direction:column;}
   .wa-sidebar-header {padding:14px 18px; border-bottom:1px solid #e2e8f0; font-weight:700; display:flex; align-items:center; justify-content:space-between;}
+  .wa-new-chat-btn {border-radius:8px;}
   .wa-search {padding:12px 16px;}
   .wa-search input {border-radius:999px;}
   .wa-list {overflow-y:auto;}
@@ -17,17 +18,90 @@
   .wa-name {font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .wa-preview {font-size:.82rem; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .wa-time {font-size:.72rem; color:#94a3b8;}
-  .wa-main {display:flex; flex-direction:column; background:#f1f5f9;}
+  .wa-main {display:flex; flex-direction:column; background:#f1f5f9; min-height:0;}
   .wa-head {background:#fff; border-bottom:1px solid #e2e8f0; padding:12px 16px; display:flex; gap:12px; align-items:center; justify-content:space-between;}
-  .wa-head-actions {display:flex; gap:8px;}
-  .wa-body {flex:1; overflow-y:auto; padding:22px; background-image:radial-gradient(circle at 1px 1px,#e2e8f0 1px,transparent 0); background-size:20px 20px;}
+  .wa-head-actions {display:flex; gap:8px; align-items:center;}
+  .volume {
+    --line: #0f172a;
+    --line-width: 5px;
+    --duration: .5s;
+    position: relative;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    margin: 0;
+    padding: 0;
+    width: 34px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .volume input {display:none;}
+  .volume svg {
+    display:block;
+    fill:none;
+    stroke:var(--line);
+    stroke-linecap:round;
+    stroke-linejoin:round;
+    stroke-width:var(--line-width);
+    width:30px;
+    height:26px;
+  }
+  .volume svg path {animation:var(--name) var(--duration) ease forwards;}
+  .volume svg path:nth-child(2), .volume svg path:nth-child(3) {stroke-dashoffset:1px;}
+  .volume input:checked + svg path:nth-child(1) {--name:shape;}
+  .volume input:checked + svg path:nth-child(2) {--name:small;}
+  .volume input:checked + svg path:nth-child(3) {--name:large;}
+  .volume input:not(:checked) + svg path:nth-child(1) {--name:shape-r;}
+  .volume input:not(:checked) + svg path:nth-child(2) {--name:small-r;}
+  .volume input:not(:checked) + svg path:nth-child(3) {--name:large-r;}
+  @keyframes small {
+    0%, 30% {stroke-dasharray:0 0 30px 64px;}
+    40% {stroke-dashoffset:16px;}
+    80%, 100% {stroke-dashoffset:1px;}
+    70% {stroke-dasharray:0 43px 30px 64px;}
+    100% {stroke-dasharray:0 39px 30px 64px;}
+  }
+  @keyframes small-r {
+    0% {stroke-dasharray:0 39px 30px 64px;}
+    0%, 40% {stroke-dashoffset:1px;}
+    70% {stroke-dashoffset:16px;}
+    70%, 100% {stroke-dasharray:0 0 30px 64px;}
+  }
+  @keyframes large {
+    0%, 30% {stroke-dasharray:0 0 50px 84px;}
+    40% {stroke-dashoffset:16px;}
+    80%, 100% {stroke-dashoffset:1px;}
+    70% {stroke-dasharray:0 82px 32px 84px;}
+    100% {stroke-dasharray:0 78px 32px 84px;}
+  }
+  @keyframes large-r {
+    0% {stroke-dasharray:0 78px 32px 84px;}
+    0%, 40% {stroke-dashoffset:1px;}
+    70% {stroke-dashoffset:16px;}
+    70%, 100% {stroke-dasharray:0 0 50px 84px;}
+  }
+  @keyframes shape {
+    0% {stroke-dasharray:60px 0 184px;stroke-dashoffset:0;}
+    70% {stroke-dasharray:63px 51px 184px;stroke-dashoffset:21px;}
+    100% {stroke-dasharray:59px 47px 184px;stroke-dashoffset:17px;}
+  }
+  @keyframes shape-r {
+    0% {stroke-dasharray:59px 47px 184px;stroke-dashoffset:17px;}
+    100% {stroke-dasharray:60px 0 184px;stroke-dashoffset:0;}
+  }
+  .wa-body {flex:1; min-height:0; overflow-y:auto; padding:22px; background-image:radial-gradient(circle at 1px 1px,#e2e8f0 1px,transparent 0); background-size:20px 20px;}
   .msg-row {display:flex; margin-bottom:14px;}
   .msg-row.outbound {justify-content:flex-end;}
   .msg-bubble {max-width:75%; background:#fff; border-radius:14px; padding:10px 12px; box-shadow:0 4px 10px rgba(15,23,42,.08);}
   .msg-row.outbound .msg-bubble {background:#dcfce7;}
   .msg-text {margin:0; white-space:pre-wrap;}
   .msg-time {font-size:.7rem; color:#64748b; margin-top:4px; text-align:right;}
-  .msg-media {max-width:100%; border-radius:8px; margin-bottom:6px;}
+  .msg-status {font-size:.72rem; margin-top:4px; color:#475569; text-align:right;}
+  .msg-status.failed {color:#b91c1c; font-weight:600;}
+  .msg-error {font-size:.74rem; margin-top:3px; color:#b91c1c;}
+  .msg-media {display:block; width:100%; max-width:420px; max-height:320px; object-fit:contain; border-radius:8px; margin-bottom:6px; background:#fff;}
+  .msg-audio {max-width:320px; width:100%; margin-bottom:6px;}
   .wa-compose {background:#fff; border-top:1px solid #e2e8f0; padding:12px 16px;}
   .warn {background:#fef3c7; color:#92400e; padding:6px 10px; border-radius:8px; font-size:.82rem;}
   .modal .btn-outline-secondary {border-color:#cbd5e1;}
@@ -48,7 +122,12 @@
 <div class="container py-4" id="waRoot">
   <div class="wa-shell">
     <aside class="wa-sidebar">
-      <div class="wa-sidebar-header">WhatsApp Inbox <i class="fab fa-whatsapp text-success"></i></div>
+      <div class="wa-sidebar-header">
+        <span>WhatsApp Inbox</span>
+        <button class="btn btn-sm btn-outline-success wa-new-chat-btn" id="newConversationBtn" title="New conversation">
+          <i class="fas fa-pen-to-square"></i>
+        </button>
+      </div>
       <div class="wa-search"><input id="chatSearch" class="form-control form-control-sm" type="text" placeholder="Search chats"></div>
       <div class="wa-list" id="chatList">
         {% for contact in contacts %}
@@ -76,6 +155,14 @@
           </div>
         </div>
         <div class="wa-head-actions">
+          <label class="volume" id="notifyToggle" title="Notification sound: ON" aria-label="Toggle notification sound">
+            <input type="checkbox" id="notifyToggleInput" checked>
+            <svg viewBox="0 0 108 96">
+              <path d="M7,28 L35,28 L35,28 L59,8 L59,88 L35,68 L7,68 C4.790861,68 3,66.209139 3,64 L3,32 C3,29.790861 4.790861,28 7,28 Z"></path>
+              <path d="M79,62 C83,57.3333333 85,52.6666667 85,48 C85,43.3333333 83,38.6666667 79,34 L49,3"></path>
+              <path d="M95,69 C101.666667,61.6666667 105,54.3333333 105,47 C105,39.6666667 101.666667,32.3333333 95,25 L75.5,6 L49,33"></path>
+            </svg>
+          </label>
           <button class="btn btn-sm btn-outline-success" id="templateBtn" {% if not active_mobile %}disabled{% endif %}><i class="fas fa-file-alt"></i> Template</button>
           <button class="btn btn-sm btn-outline-primary" id="interactiveBtn" {% if not active_mobile %}disabled{% endif %}><i class="fas fa-hand-pointer"></i> Interactive</button>
         </div>
@@ -93,24 +180,26 @@
           <div class="msg-bubble">
             {% if msg['message_type'] == 'image' and msg['media_url'] %}<img class="msg-media" src="{{ url_for('static', filename=msg['media_url']) }}" alt="image">{% endif %}
             {% if msg['message_type'] == 'video' and msg['media_url'] %}<video class="msg-media" controls src="{{ url_for('static', filename=msg['media_url']) }}"></video>{% endif %}
-            {% if msg['message_type'] == 'audio' and msg['media_url'] %}<audio controls src="{{ url_for('static', filename=msg['media_url']) }}"></audio>{% endif %}
+            {% if msg['message_type'] == 'audio' and msg['media_url'] %}<audio class="msg-audio" controls src="{{ url_for('static', filename=msg['media_url']) }}"></audio>{% endif %}
             {% if msg['message_type'] == 'document' and msg['media_url'] %}
               <a class="btn btn-sm btn-light" href="{{ url_for('static', filename=msg['media_url']) }}" target="_blank"><i class="fas fa-file"></i> {{ msg['file_name'] or 'Document' }}</a>
             {% endif %}
             <p class="msg-text">{{ msg['text'] or ('Template message' if msg['message_type'] == 'template' else 'Interactive message') }}</p>
+            {% if msg['error_reason'] %}<div class="msg-error">{{ msg['error_reason'] }}</div>{% endif %}
+            {% if msg['delivery_status'] %}<div class="msg-status {{ 'failed' if msg['delivery_status'] == 'failed' else '' }}">{{ msg['delivery_status']|upper }}</div>{% endif %}
             <div class="msg-time">{{ msg['created_at'].split(' ')[1][:5] if msg['created_at'] else '' }}</div>
           </div>
         </div>
         {% else %}
-          <div class="text-center text-muted mt-5">No messages in this conversation yet.</div>
+          <div class="text-center text-muted mt-5" id="emptyConversationHint">No messages in this conversation yet.</div>
         {% endfor %}
       </div>
 
       <div class="wa-compose">
         <form id="chatForm" class="row g-2 align-items-center">
           <input type="hidden" name="mobile" value="{{ active_mobile or '' }}">
-          <div class="col-auto"><input type="file" class="form-control form-control-sm" name="attachment" id="attachment"></div>
-          <div class="col"><input class="form-control" type="text" name="message" placeholder="Type a message" {% if not active_mobile %}disabled{% endif %}></div>
+          <div class="col-12 col-md-auto"><input type="file" class="form-control form-control-sm" name="attachment" id="attachment"></div>
+          <div class="col-12 col-md"><input class="form-control" type="text" name="message" placeholder="Type a message" {% if not active_mobile %}disabled{% endif %}></div>
           <div class="col-auto"><button class="btn btn-success" {% if not active_mobile or not config_ready %}disabled{% endif %}>Send</button></div>
         </form>
       </div>
@@ -128,6 +217,20 @@
       <div class="small text-muted mt-2">Supports body placeholders like <code>{% raw %}{{1}}{% endraw %}</code>, <code>{% raw %}{{2}}{% endraw %}</code> and named placeholders from template components.</div>
     </div>
     <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success" id="sendTemplateConfirm">Send template</button></div>
+  </div></div>
+</div>
+
+<div class="modal fade" id="newConversationModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">New conversation</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div class="small text-muted mb-3">Start a conversation by sending a WhatsApp template message.</div>
+      <div class="mb-3"><label class="form-label">Recipient phone number</label><input id="newConvMobile" class="form-control" placeholder="+1234567890"></div>
+      <div class="mb-3"><label class="form-label">Template</label><select id="newConvTemplateSelect" class="form-select"></select></div>
+      <div class="mb-3"><label class="form-label">Language</label><input id="newConvTemplateLanguage" class="form-control" value="en_US"></div>
+      <div id="newConvTemplateParams" class="row g-2"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success" id="startConversationConfirm"><i class="fas fa-paper-plane"></i> Start conversation</button></div>
   </div></div>
 </div>
 
@@ -160,13 +263,35 @@
   const chatBody = document.getElementById('chatBody');
   const chatList = document.getElementById('chatList');
   const chatForm = document.getElementById('chatForm');
+  const emptyConversationHint = document.getElementById('emptyConversationHint');
   const search = document.getElementById('chatSearch');
   const activeNameEl = document.getElementById('activeName');
   const activeMobileEl = document.getElementById('activeMobile');
+  const notifyToggle = document.getElementById('notifyToggle');
+  const notifyToggleInput = document.getElementById('notifyToggleInput');
+  const newConversationBtn = document.getElementById('newConversationBtn');
   const templateBtn = document.getElementById('templateBtn');
   const interactiveBtn = document.getElementById('interactiveBtn');
   let lastMessageId = Number(chatBody?.dataset.lastMessageId || 0);
   let templates = [];
+  const notificationStorageKey = 'wa_sound_notifications_enabled';
+  const initialPref = localStorage.getItem(notificationStorageKey);
+  let notificationsEnabled = initialPref === null ? true : initialPref === '1';
+  const knownMessageIds = new Set([...document.querySelectorAll('#chatBody [data-message-id]')].map((el) => el.dataset.messageId));
+  const notificationSound = new Audio();
+  notificationSound.preload = 'none';
+
+  const setNotifyUi = () => {
+    if (!notifyToggle || !notifyToggleInput) return;
+    notifyToggleInput.checked = notificationsEnabled;
+    notifyToggle.title = notificationsEnabled ? 'Notification sound: ON' : 'Notification sound: OFF';
+  };
+  setNotifyUi();
+  notifyToggleInput?.addEventListener('change', () => {
+    notificationsEnabled = notifyToggleInput.checked;
+    localStorage.setItem(notificationStorageKey, notificationsEnabled ? '1' : '0');
+    setNotifyUi();
+  });
 
   const esc = (v) => String(v || '').replace(/[&<>'"]/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));
   const fmt = (ts) => (ts && ts.includes(' ')) ? ts.split(' ')[1].slice(0,5) : '';
@@ -181,12 +306,38 @@
     let html = '';
     if (m.message_type === 'image') html += media ? `<img class="msg-media" src="${media}" alt="image">` : '';
     if (m.message_type === 'video') html += media ? `<video class="msg-media" controls src="${media}"></video>` : '';
-    if (m.message_type === 'audio') html += media ? `<audio controls src="${media}"></audio>` : '';
+    if (m.message_type === 'audio') html += media ? `<audio class="msg-audio" controls src="${media}"></audio>` : '';
     if (m.message_type === 'document') html += media ? `<a target="_blank" class="btn btn-sm btn-light" href="${media}"><i class="fas fa-file"></i> ${esc(m.file_name || 'Document')}</a>` : '';
     const text = esc(m.text || (m.message_type === 'template' ? 'Template message' : m.message_type === 'interactive' ? 'Interactive message' : ''));
-    html += `<p class="msg-text">${text}</p><div class="msg-time">${fmt(m.created_at)}</div>`;
+    const status = esc((m.delivery_status || '').toUpperCase());
+    const statusClass = (m.delivery_status || '').toLowerCase() === 'failed' ? 'failed' : '';
+    const errorText = m.error_reason ? `<div class="msg-error">${esc(m.error_reason)}</div>` : '';
+    const statusHtml = status ? `<div class="msg-status ${statusClass}">${status}</div>` : '';
+    html += `<p class="msg-text">${text}</p>${errorText}${statusHtml}<div class="msg-time">${fmt(m.created_at)}</div>`;
     row.innerHTML = `<div class="msg-bubble">${html}</div>`;
     return row;
+  };
+
+  const upsertMessage = (m) => {
+    const existing = chatBody?.querySelector(`[data-message-id="${m.id}"]`);
+    const freshRow = renderMessage(m);
+    if (!existing) {
+      emptyConversationHint?.remove();
+      chatBody.appendChild(freshRow);
+      const msgId = String(m.id || '');
+      const isNew = msgId && !knownMessageIds.has(msgId);
+      knownMessageIds.add(msgId);
+      if (isNew && notificationsEnabled && m.direction !== 'outbound') {
+        if (!notificationSound.src) {
+          notificationSound.src = `${staticBase}audio/whatsapp_notification.wav`;
+        }
+        notificationSound.currentTime = 0;
+        notificationSound.play().catch(() => {});
+      }
+      return;
+    }
+    existing.className = freshRow.className;
+    existing.innerHTML = freshRow.innerHTML;
   };
 
   const renderContacts = (contacts) => {
@@ -210,7 +361,7 @@
     if (data.messages?.length) {
       const auto = autoscroll();
       data.messages.forEach((m) => {
-        if (!chatBody.querySelector(`[data-message-id="${m.id}"]`)) chatBody.appendChild(renderMessage(m));
+        upsertMessage(m);
       });
       lastMessageId = data.last_message_id || lastMessageId;
       if (auto) scrollBottom();
@@ -236,13 +387,65 @@
 
   const templateModal = new bootstrap.Modal(document.getElementById('templateModal'));
   const interactiveModal = new bootstrap.Modal(document.getElementById('interactiveModal'));
+  const newConversationModal = new bootstrap.Modal(document.getElementById('newConversationModal'));
+
+  function extractPlaceholderVars(text) {
+    if (!text) return [];
+    const seen = new Set();
+    const regex = /\{\{\s*([^}]+?)\s*\}\}/g;
+    return [...String(text).matchAll(regex)]
+      .map((m) => m[1].trim())
+      .filter((v) => (v && !seen.has(v) ? (seen.add(v), true) : false));
+  }
 
   function getTemplateBodyVars(template) {
-    const bodyComp = (template.components || []).find((c) => c.type === 'BODY');
-    if (!bodyComp?.text) return [];
-    const seen = new Set();
-    const regex = new RegExp('\\\\{\\\\{\\s*([^}]+)\\s*\\\\}\\\\}', 'g');
-    return [...bodyComp.text.matchAll(regex)].map((m) => m[1].trim()).filter((v) => (seen.has(v) ? false : (seen.add(v), true)));
+    const components = template?.components || [];
+    const bodyComp = components.find((c) => String(c?.type || '').toUpperCase() === 'BODY');
+    const candidateTexts = [
+      bodyComp?.text,
+      bodyComp?.body_text,
+      ...(Array.isArray(bodyComp?.example?.body_text) ? bodyComp.example.body_text : []),
+      ...(Array.isArray(template?.example?.body_text) ? template.example.body_text : []),
+    ].filter(Boolean);
+    const merged = [];
+    candidateTexts.forEach((txt) => merged.push(...extractPlaceholderVars(txt)));
+    return [...new Set(merged)];
+  }
+
+  function getTemplateBodyText(template) {
+    const components = template?.components || [];
+    const bodyComp = components.find((c) => String(c?.type || '').toUpperCase() === 'BODY');
+    return bodyComp?.text || bodyComp?.body_text || '';
+  }
+
+  function buildTemplatePreview(template, values) {
+    const bodyText = getTemplateBodyText(template);
+    if (!bodyText) return `Template: ${template?.name || ''}`.trim();
+    let rendered = String(bodyText);
+    values.forEach((value, idx) => {
+      const slotIndex = idx + 1;
+      rendered = rendered.replace(new RegExp(`\\\\{\\\\{\\\\s*${slotIndex}\\\\s*\\\\}\\\\}`, 'g'), value);
+    });
+    return rendered;
+  }
+
+  const normalizePhone = (value) => String(value || '').replace(/[^\d]/g, '');
+
+  function renderTemplateOptions(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    select.innerHTML = templates.map((t) => `<option value="${esc(t.name)}">${esc(t.name)} (${esc(t.language || 'en_US')})</option>`).join('') || '<option value="">No approved templates</option>';
+  }
+
+  function fillTemplateParamForm({ templateSelectId, languageInputId, paramsWrapId }) {
+    const templateSelect = document.getElementById(templateSelectId);
+    const t = templates.find((x) => x.name === templateSelect.value);
+    const params = getTemplateBodyVars(t || {});
+    const wrap = document.getElementById(paramsWrapId);
+    wrap.innerHTML = params.length
+      ? params.map((p, i) => `<div class="col-md-6"><label class="form-label">Param ${i+1} (${esc(p)})</label><input class="form-control" data-param="${esc(p)}"></div>`).join('')
+      : '<div class="text-muted small">No body parameters detected.</div>';
+    document.getElementById(languageInputId).value = t?.language || 'en_US';
   }
 
   async function loadTemplates() {
@@ -251,31 +454,52 @@
     if (!res.ok) return;
     const payload = await res.json();
     templates = (payload.data || []).filter((t) => (t.status || '').toUpperCase() === 'APPROVED');
-    const select = document.getElementById('templateSelect');
-    select.innerHTML = templates.map((t) => `<option value="${esc(t.name)}">${esc(t.name)} (${esc(t.language || 'en_US')})</option>`).join('') || '<option value="">No approved templates</option>';
-    select.dispatchEvent(new Event('change'));
+    renderTemplateOptions('templateSelect');
+    renderTemplateOptions('newConvTemplateSelect');
+    document.getElementById('templateSelect').dispatchEvent(new Event('change'));
+    document.getElementById('newConvTemplateSelect').dispatchEvent(new Event('change'));
   }
 
   document.getElementById('templateSelect').addEventListener('change', (e) => {
-    const t = templates.find((x) => x.name === e.target.value);
-    const params = getTemplateBodyVars(t || {});
-    const wrap = document.getElementById('templateParams');
-    wrap.innerHTML = params.length ? params.map((p, i) => `<div class="col-md-6"><label class="form-label">Param ${i+1} (${esc(p)})</label><input class="form-control" data-param="${esc(p)}"></div>`).join('') : '<div class="text-muted small">No body parameters detected.</div>';
-    document.getElementById('templateLanguage').value = t?.language || 'en_US';
+    fillTemplateParamForm({
+      templateSelectId: 'templateSelect',
+      languageInputId: 'templateLanguage',
+      paramsWrapId: 'templateParams',
+    });
+  });
+
+  document.getElementById('newConvTemplateSelect').addEventListener('change', () => {
+    fillTemplateParamForm({
+      templateSelectId: 'newConvTemplateSelect',
+      languageInputId: 'newConvTemplateLanguage',
+      paramsWrapId: 'newConvTemplateParams',
+    });
   });
 
   templateBtn?.addEventListener('click', async () => { await loadTemplates(); templateModal.show(); });
+  newConversationBtn?.addEventListener('click', async () => {
+    await loadTemplates();
+    document.getElementById('newConvMobile').value = '';
+    newConversationModal.show();
+  });
 
   document.getElementById('sendTemplateConfirm').addEventListener('click', async () => {
     const tName = document.getElementById('templateSelect').value;
     if (!tName) return;
     const language = document.getElementById('templateLanguage').value || 'en_US';
     const inputs = [...document.querySelectorAll('#templateParams [data-param]')];
-    const bodyParams = inputs.map((input) => ({type:'text', text: input.value || ''})).filter((p) => p.text.trim());
+    const values = inputs.map((input) => (input.value || '').trim());
+    if (values.some((v) => !v)) {
+      alert('Please fill all required template parameters.');
+      return;
+    }
+    const bodyParams = values.map((value) => ({type:'text', text: value}));
+    const t = templates.find((x) => x.name === tName);
     const payload = {
       mobile: activeMobile,
       template_name: tName,
       language_code: language,
+      template_preview: buildTemplatePreview(t || {}, values),
       components: bodyParams.length ? [{type:'body', parameters: bodyParams}] : []
     };
     const res = await fetch(sendTemplateUrl, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
@@ -283,6 +507,48 @@
     if (!res.ok) { alert(data.error || 'Failed to send template'); return; }
     templateModal.hide();
     await poll();
+  });
+
+  document.getElementById('startConversationConfirm').addEventListener('click', async () => {
+    const mobile = normalizePhone(document.getElementById('newConvMobile').value);
+    const tName = document.getElementById('newConvTemplateSelect').value;
+    if (!mobile) {
+      alert('Recipient phone number is required.');
+      return;
+    }
+    if (!tName) {
+      alert('Template is required.');
+      return;
+    }
+    const language = document.getElementById('newConvTemplateLanguage').value || 'en_US';
+    const inputs = [...document.querySelectorAll('#newConvTemplateParams [data-param]')];
+    const values = inputs.map((input) => (input.value || '').trim());
+    if (values.some((v) => !v)) {
+      alert('Please fill all required template parameters.');
+      return;
+    }
+    const t = templates.find((x) => x.name === tName);
+    const payload = {
+      mobile,
+      template_name: tName,
+      language_code: language,
+      template_preview: buildTemplatePreview(t || {}, values),
+      components: values.length ? [{type:'body', parameters: values.map((value) => ({type:'text', text: value}))}] : []
+    };
+    const res = await fetch(sendTemplateUrl, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    const data = await res.json();
+    if (!res.ok) {
+      if (data?.stored) {
+        alert((data.error || 'Template send failed') + '. Opening conversation for status tracking.');
+        newConversationModal.hide();
+        window.location.href = `${pageUrl}?mobile=${encodeURIComponent(data.mobile || mobile)}`;
+        return;
+      }
+      alert(data.error || 'Failed to start conversation');
+      return;
+    }
+    newConversationModal.hide();
+    window.location.href = `${pageUrl}?mobile=${encodeURIComponent(mobile)}`;
   });
 
   const buttonsWrap = document.getElementById('interactiveButtons');
