@@ -236,14 +236,41 @@
 </div>
 
 <div class="modal fade" id="interactiveModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog"><div class="modal-content">
-    <div class="modal-header"><h5 class="modal-title">Send interactive buttons</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Send interactive message</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
     <div class="modal-body">
+      <ul class="nav nav-pills nav-fill mb-3" id="interactiveTypeTabs">
+        <li class="nav-item"><button class="nav-link active" type="button" data-type="button">Buttons</button></li>
+        <li class="nav-item"><button class="nav-link" type="button" data-type="list">List</button></li>
+        <li class="nav-item"><button class="nav-link" type="button" data-type="cta_url">CTA URL</button></li>
+        <li class="nav-item"><button class="nav-link" type="button" data-type="flow">Flow</button></li>
+      </ul>
       <div class="mb-2"><label class="form-label">Header (optional)</label><input id="interactiveHeader" class="form-control" maxlength="60"></div>
       <div class="mb-2"><label class="form-label">Body</label><textarea id="interactiveBody" class="form-control" rows="3" maxlength="1024"></textarea></div>
-      <div id="interactiveButtons"></div>
-      <button class="btn btn-sm btn-outline-secondary mt-2" id="addBtnRow" type="button">+ Add button</button>
-      <div class="small text-muted mt-2">1-3 buttons, each title max 20 chars.</div>
+      <div class="mb-2"><label class="form-label">Footer (optional)</label><input id="interactiveFooter" class="form-control" maxlength="60"></div>
+
+      <div id="interactiveButtonsPane" class="interactive-pane">
+        <div id="interactiveButtons"></div>
+        <button class="btn btn-sm btn-outline-secondary mt-2" id="addBtnRow" type="button">+ Add button</button>
+        <div class="small text-muted mt-2">1-3 buttons, each title max 20 chars.</div>
+      </div>
+
+      <div id="interactiveListPane" class="interactive-pane d-none">
+        <div class="mb-2"><label class="form-label">List button text</label><input id="listButtonText" class="form-control" maxlength="20" placeholder="View options"></div>
+        <div id="listSectionsWrap"></div>
+        <button class="btn btn-sm btn-outline-secondary mt-2" id="addSectionBtn" type="button">+ Add section</button>
+        <div class="small text-muted mt-2">Max 10 rows across all sections.</div>
+      </div>
+
+      <div id="interactiveCtaPane" class="interactive-pane d-none">
+        <div class="mb-2"><label class="form-label">Button text</label><input id="ctaButtonText" class="form-control" maxlength="20" placeholder="Visit website"></div>
+        <div class="mb-2"><label class="form-label">Button URL</label><input id="ctaButtonUrl" class="form-control" placeholder="https://example.com"></div>
+      </div>
+
+      <div id="interactiveFlowPane" class="interactive-pane d-none">
+        <div class="mb-2"><label class="form-label">Flow ID</label><input id="flowId" class="form-control" placeholder="Enter flow id"></div>
+        <div class="mb-2"><label class="form-label">Button text</label><input id="flowButtonText" class="form-control" maxlength="20" value="Open"></div>
+      </div>
     </div>
     <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" id="sendInteractiveConfirm">Send interactive</button></div>
   </div></div>
@@ -607,39 +634,149 @@
   });
 
   const buttonsWrap = document.getElementById('interactiveButtons');
+  const listSectionsWrap = document.getElementById('listSectionsWrap');
+  let interactiveType = 'button';
+
+  const reindexButtonRows = () => {
+    [...buttonsWrap.querySelectorAll('.btn-row')].forEach((row, idx) => {
+      row.querySelector('.input-group-text').textContent = String(idx + 1);
+    });
+  };
+
   const addButtonRow = (title = '') => {
     if (buttonsWrap.querySelectorAll('.btn-row').length >= 3) return;
-    const idx = buttonsWrap.querySelectorAll('.btn-row').length + 1;
     const row = document.createElement('div');
     row.className = 'input-group mb-2 btn-row';
-    row.innerHTML = `<span class="input-group-text">${idx}</span><input class="form-control btn-title" maxlength="20" placeholder="Button title" value="${esc(title)}"><button class="btn btn-outline-danger" type="button">×</button>`;
-    row.querySelector('button').addEventListener('click', () => row.remove());
+    row.innerHTML = `<span class="input-group-text"></span><input class="form-control btn-title" maxlength="20" placeholder="Button title" value="${esc(title)}"><button class="btn btn-outline-danger" type="button">×</button>`;
+    row.querySelector('button').addEventListener('click', () => { row.remove(); reindexButtonRows(); });
     buttonsWrap.appendChild(row);
+    reindexButtonRows();
   };
+
+  const getTotalListRows = () => document.querySelectorAll('.list-row').length;
+  const addListRow = (rowsWrap, title = '', description = '') => {
+    if (getTotalListRows() >= 10) return;
+    const row = document.createElement('div');
+    row.className = 'border rounded p-2 mb-2 list-row';
+    row.innerHTML = `
+      <input class="form-control form-control-sm mb-2 list-row-title" maxlength="24" placeholder="Row title" value="${esc(title)}">
+      <input class="form-control form-control-sm list-row-description" maxlength="72" placeholder="Description (optional)" value="${esc(description)}">
+      <button class="btn btn-sm btn-outline-danger mt-2" type="button">Remove row</button>
+    `;
+    row.querySelector('button').addEventListener('click', () => row.remove());
+    rowsWrap.appendChild(row);
+  };
+
+  const addSection = (title = 'Options') => {
+    const card = document.createElement('div');
+    card.className = 'border rounded p-2 mb-2 list-section';
+    card.innerHTML = `
+      <div class="d-flex gap-2 mb-2">
+        <input class="form-control form-control-sm list-section-title" maxlength="24" placeholder="Section title" value="${esc(title)}">
+        <button class="btn btn-sm btn-outline-danger" type="button">Remove section</button>
+      </div>
+      <div class="list-rows-wrap"></div>
+      <button class="btn btn-sm btn-outline-secondary mt-2" type="button">+ Add row</button>
+    `;
+    const removeBtn = card.querySelector('.btn-outline-danger');
+    const addRowBtn = card.querySelector('.btn-outline-secondary');
+    const rowsWrap = card.querySelector('.list-rows-wrap');
+    removeBtn.addEventListener('click', () => card.remove());
+    addRowBtn.addEventListener('click', () => addListRow(rowsWrap));
+    listSectionsWrap.appendChild(card);
+    addListRow(rowsWrap, 'Option 1', '');
+  };
+
+  const setInteractiveType = (type) => {
+    interactiveType = type;
+    document.querySelectorAll('#interactiveTypeTabs .nav-link').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.type === type);
+    });
+    document.querySelectorAll('.interactive-pane').forEach((pane) => pane.classList.add('d-none'));
+    if (type === 'button') document.getElementById('interactiveButtonsPane').classList.remove('d-none');
+    if (type === 'list') document.getElementById('interactiveListPane').classList.remove('d-none');
+    if (type === 'cta_url') document.getElementById('interactiveCtaPane').classList.remove('d-none');
+    if (type === 'flow') document.getElementById('interactiveFlowPane').classList.remove('d-none');
+  };
+
+  const resetInteractiveForm = () => {
+    document.getElementById('interactiveHeader').value = '';
+    document.getElementById('interactiveBody').value = '';
+    document.getElementById('interactiveFooter').value = '';
+    buttonsWrap.innerHTML = '';
+    addButtonRow('Yes');
+    addButtonRow('No');
+
+    document.getElementById('listButtonText').value = 'View options';
+    listSectionsWrap.innerHTML = '';
+    addSection('Options');
+
+    document.getElementById('ctaButtonText').value = 'Visit website';
+    document.getElementById('ctaButtonUrl').value = '';
+    document.getElementById('flowId').value = '';
+    document.getElementById('flowButtonText').value = 'Open';
+    setInteractiveType('button');
+  };
+
   document.getElementById('addBtnRow').addEventListener('click', () => addButtonRow());
+  document.getElementById('addSectionBtn').addEventListener('click', () => addSection('Section'));
+  document.querySelectorAll('#interactiveTypeTabs .nav-link').forEach((tabBtn) => {
+    tabBtn.addEventListener('click', () => setInteractiveType(tabBtn.dataset.type));
+  });
+
   interactiveBtn?.addEventListener('click', () => {
-    if (!buttonsWrap.children.length) { addButtonRow('Yes'); addButtonRow('No'); }
+    resetInteractiveForm();
     interactiveModal.show();
   });
 
   document.getElementById('sendInteractiveConfirm').addEventListener('click', async () => {
     const body = document.getElementById('interactiveBody').value.trim();
     const header = document.getElementById('interactiveHeader').value.trim();
-    const titles = [...document.querySelectorAll('.btn-title')].map((el) => el.value.trim()).filter(Boolean).slice(0,3);
-    if (!body || titles.length < 1) { alert('Body and at least one button are required.'); return; }
-    const payload = {
-      mobile: activeMobile,
-      header,
-      body,
-      buttons: titles.map((title, i) => ({id: `btn_${Date.now()}_${i+1}`, title}))
-    };
+    const footer = document.getElementById('interactiveFooter').value.trim();
+    if (!body) { alert('Body is required.'); return; }
+
+    const payload = { mobile: activeMobile, interactive_type: interactiveType, header, body, footer };
+
+    if (interactiveType === 'button') {
+      const titles = [...document.querySelectorAll('.btn-title')].map((el) => el.value.trim()).filter(Boolean).slice(0, 3);
+      if (titles.length < 1) { alert('Add at least one button title.'); return; }
+      payload.buttons = titles.map((title, i) => ({id: `btn_${Date.now()}_${i + 1}`, title}));
+    } else if (interactiveType === 'list') {
+      const listButtonText = document.getElementById('listButtonText').value.trim();
+      const sections = [...document.querySelectorAll('.list-section')].map((section, sectionIdx) => {
+        const rows = [...section.querySelectorAll('.list-row')].map((row, rowIdx) => ({
+          id: `sec_${sectionIdx + 1}_row_${rowIdx + 1}_${Date.now()}`,
+          title: row.querySelector('.list-row-title').value.trim(),
+          description: row.querySelector('.list-row-description').value.trim(),
+        })).filter((row) => row.title);
+        return {
+          title: section.querySelector('.list-section-title').value.trim(),
+          rows,
+        };
+      }).filter((section) => section.rows.length);
+      const totalRows = sections.reduce((sum, section) => sum + section.rows.length, 0);
+      if (!listButtonText || !sections.length || totalRows < 1) { alert('List button text and at least one row are required.'); return; }
+      if (totalRows > 10) { alert('Total list rows cannot exceed 10.'); return; }
+      payload.list_button_text = listButtonText;
+      payload.sections = sections;
+    } else if (interactiveType === 'cta_url') {
+      const buttonText = document.getElementById('ctaButtonText').value.trim();
+      const buttonUrl = document.getElementById('ctaButtonUrl').value.trim();
+      if (!buttonText || !buttonUrl) { alert('Button text and URL are required for CTA URL.'); return; }
+      payload.button_text = buttonText;
+      payload.button_url = buttonUrl;
+    } else if (interactiveType === 'flow') {
+      const flowId = document.getElementById('flowId').value.trim();
+      const buttonText = document.getElementById('flowButtonText').value.trim();
+      if (!flowId || !buttonText) { alert('Flow ID and button text are required for Flow.'); return; }
+      payload.flow_id = flowId;
+      payload.button_text = buttonText;
+    }
+
     const res = await fetch(sendInteractiveUrl, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
     const data = await res.json();
     if (!res.ok) { alert(data.error || 'Failed to send interactive message'); return; }
     interactiveModal.hide();
-    document.getElementById('interactiveBody').value = '';
-    document.getElementById('interactiveHeader').value = '';
-    buttonsWrap.innerHTML = '';
     await poll();
   });
 
