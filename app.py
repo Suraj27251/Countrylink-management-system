@@ -264,7 +264,6 @@ def process_whatsapp_webhook_payload(data):
                 value = change.get('value', {})
                 contacts = value.get('contacts', [])
                 messages = value.get('messages', [])
-                statuses = value.get('statuses', [])
                 metadata = {
                     'display_phone_number': value.get('metadata', {}).get('display_phone_number', ''),
                     'contacts_by_wa': {
@@ -279,44 +278,8 @@ def process_whatsapp_webhook_payload(data):
                         process_incoming_message(message, metadata)
                     except Exception:
                         app.logger.exception("Failed processing incoming message event.")
-
-                for status_event in statuses:
-                    try:
-                        process_message_status_event(status_event)
-                    except Exception:
-                        app.logger.exception("Failed processing message status event.")
     except Exception:
         app.logger.exception("Webhook payload parsing failed.")
-
-
-def process_message_status_event(status_event):
-    message_id = status_event.get('id')
-    status = (status_event.get('status') or '').strip().lower() or 'unknown'
-    timestamp_unix = status_event.get('timestamp')
-    status_time = datetime.fromtimestamp(int(timestamp_unix)).strftime('%Y-%m-%d %H:%M:%S') if timestamp_unix else datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-    errors = status_event.get('errors') or []
-    reason = ''
-    if errors:
-        first_error = errors[0] or {}
-        reason = first_error.get('details') or first_error.get('title') or first_error.get('message') or ''
-
-    app.logger.info("Message status update received: message_id=%s status=%s", message_id or 'no-id', status)
-    if not message_id:
-        return
-
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute(
-        """
-        UPDATE whatsapp_messages
-        SET delivery_status = ?, error_reason = ?, created_at = CASE WHEN created_at IS NULL THEN ? ELSE created_at END
-        WHERE message_id = ?
-        """,
-        (status, reason or None, status_time, message_id),
-    )
-    conn.commit()
-    conn.close()
 
 
 def safe_message_preview(message_type, text):
@@ -704,8 +667,6 @@ def init_db():
         "media_url TEXT",
         "file_name TEXT",
         "media_mime_type TEXT",
-        "delivery_status TEXT",
-        "error_reason TEXT",
         "created_at TEXT DEFAULT CURRENT_TIMESTAMP",
     ]:
         try:

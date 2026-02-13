@@ -27,9 +27,6 @@
   .msg-row.outbound .msg-bubble {background:#dcfce7;}
   .msg-text {margin:0; white-space:pre-wrap;}
   .msg-time {font-size:.7rem; color:#64748b; margin-top:4px; text-align:right;}
-  .msg-status {font-size:.72rem; margin-top:4px; color:#475569; text-align:right;}
-  .msg-status.failed {color:#b91c1c; font-weight:600;}
-  .msg-error {font-size:.74rem; margin-top:3px; color:#b91c1c;}
   .msg-media {display:block; width:100%; max-width:420px; max-height:320px; object-fit:contain; border-radius:8px; margin-bottom:6px; background:#fff;}
   .msg-audio {max-width:320px; width:100%; margin-bottom:6px;}
   .wa-compose {background:#fff; border-top:1px solid #e2e8f0; padding:12px 16px;}
@@ -270,23 +267,6 @@
     return [...new Set(merged)];
   }
 
-  function getTemplateBodyText(template) {
-    const components = template?.components || [];
-    const bodyComp = components.find((c) => String(c?.type || '').toUpperCase() === 'BODY');
-    return bodyComp?.text || bodyComp?.body_text || '';
-  }
-
-  function buildTemplatePreview(template, values) {
-    const bodyText = getTemplateBodyText(template);
-    if (!bodyText) return `Template: ${template?.name || ''}`.trim();
-    let rendered = String(bodyText);
-    values.forEach((value, idx) => {
-      const slotIndex = idx + 1;
-      rendered = rendered.replace(new RegExp(`\\\\{\\\\{\\\\s*${slotIndex}\\\\s*\\\\}\\\\}`, 'g'), value);
-    });
-    return rendered;
-  }
-
   async function loadTemplates() {
     if (templates.length) return;
     const res = await fetch(templateListUrl);
@@ -319,7 +299,6 @@
       return;
     }
     const bodyParams = values.map((value) => ({type:'text', text: value}));
-    const t = templates.find((x) => x.name === tName);
     const payload = {
       mobile: activeMobile,
       template_name: tName,
