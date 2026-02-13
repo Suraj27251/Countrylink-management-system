@@ -477,7 +477,7 @@ def send_whatsapp_template_message(to_number, template_name, language_code, comp
     return response.json()
 
 
-def send_whatsapp_interactive_message(to_number, body_text, buttons, header_text=None):
+def send_whatsapp_interactive_message(to_number, interactive_payload):
     headers = get_whatsapp_headers()
     phone_number_id = get_whatsapp_phone_number_id()
     url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{phone_number_id}/messages"
@@ -485,25 +485,8 @@ def send_whatsapp_interactive_message(to_number, body_text, buttons, header_text
         'messaging_product': 'whatsapp',
         'to': to_number,
         'type': 'interactive',
-        'interactive': {
-            'type': 'button',
-            'body': {'text': body_text},
-            'action': {
-                'buttons': [
-                    {
-                        'type': 'reply',
-                        'reply': {
-                            'id': button['id'],
-                            'title': button['title'],
-                        }
-                    }
-                    for button in buttons
-                ]
-            }
-        }
+        'interactive': interactive_payload,
     }
-    if header_text:
-        payload['interactive']['header'] = {'type': 'text', 'text': header_text}
     response = requests.post(url, headers=headers, json=payload, timeout=30)
     response.raise_for_status()
     return response.json()
@@ -1371,32 +1354,131 @@ def send_whatsapp_interactive_api():
 
     payload = request.get_json(silent=True) or {}
     mobile = normalize_mobile((payload.get('mobile') or '').strip())
+    interactive_type = (payload.get('interactive_type') or 'button').strip().lower()
     header = (payload.get('header') or '').strip()
     body_text = (payload.get('body') or '').strip()
-    buttons = payload.get('buttons') or []
+    footer = (payload.get('footer') or '').strip()
+    interactive_payload = {}
 
     if not mobile or not body_text:
         return jsonify({"error": "mobile and body are required."}), 400
-    if not isinstance(buttons, list) or not 1 <= len(buttons) <= 3:
-        return jsonify({"error": "buttons must be an array with 1 to 3 items."}), 400
 
-    normalized_buttons = []
-    for idx, button in enumerate(buttons):
-        title = (button.get('title') or '').strip()[:20]
-        if not title:
-            return jsonify({"error": f"Button {idx + 1} title is required."}), 400
-        normalized_buttons.append({
-            'id': (button.get('id') or f'btn_{idx + 1}').strip()[:256],
-            'title': title,
-        })
+    if interactive_type == 'button':
+        buttons = payload.get('buttons') or []
+        if not isinstance(buttons, list) or not 1 <= len(buttons) <= 3:
+            return jsonify({"error": "buttons must be an array with 1 to 3 items."}), 400
+
+        normalized_buttons = []
+        for idx, button in enumerate(buttons):
+            title = (button.get('title') or '').strip()[:20]
+            if not title:
+                return jsonify({"error": f"Button {idx + 1} title is required."}), 400
+            normalized_buttons.append({
+                'type': 'reply',
+                'reply': {
+                    'id': (button.get('id') or f'btn_{idx + 1}').strip()[:256],
+                    'title': title,
+                }
+            })
+
+        interactive_payload = {
+            'type': 'button',
+            'body': {'text': body_text[:1024]},
+            'action': {'buttons': normalized_buttons}
+        }
+    elif interactive_type == 'list':
+        list_button_text = (payload.get('list_button_text') or '').strip()[:20]
+        sections = payload.get('sections') or []
+        if not list_button_text:
+            return jsonify({"error": "list_button_text is required for list interactive messages."}), 400
+        if not isinstance(sections, list) or not sections:
+            return jsonify({"error": "sections must be a non-empty array for list interactive messages."}), 400
+
+        normalized_sections = []
+        total_rows = 0
+        for section_idx, section in enumerate(sections):
+            rows = section.get('rows') or []
+            if not isinstance(rows, list) or not rows:
+                return jsonify({"error": f"Section {section_idx + 1} must have at least one row."}), 400
+
+            normalized_rows = []
+            for row_idx, row in enumerate(rows):
+                row_title = (row.get('title') or '').strip()[:24]
+                if not row_title:
+                    return jsonify({"error": f"Section {section_idx + 1}, row {row_idx + 1} title is required."}), 400
+                normalized_row = {
+                    'id': (row.get('id') or f'row_{section_idx + 1}_{row_idx + 1}').strip()[:200],
+                    'title': row_title,
+                }
+                row_description = (row.get('description') or '').strip()[:72]
+                if row_description:
+                    normalized_row['description'] = row_description
+                normalized_rows.append(normalized_row)
+                total_rows += 1
+
+            section_title = (section.get('title') or '').strip()[:24]
+            normalized_section = {'rows': normalized_rows}
+            if section_title:
+                normalized_section['title'] = section_title
+            normalized_sections.append(normalized_section)
+
+        if total_rows > 10:
+            return jsonify({"error": "Total rows across sections cannot exceed 10."}), 400
+
+        interactive_payload = {
+            'type': 'list',
+            'body': {'text': body_text[:1024]},
+            'action': {
+                'button': list_button_text,
+                'sections': normalized_sections,
+            }
+        }
+    elif interactive_type == 'cta_url':
+        button_text = (payload.get('button_text') or '').strip()[:20]
+        button_url = (payload.get('button_url') or '').strip()
+        if not button_text or not button_url:
+            return jsonify({"error": "button_text and button_url are required for CTA URL messages."}), 400
+        interactive_payload = {
+            'type': 'cta_url',
+            'body': {'text': body_text[:1024]},
+            'action': {
+                'name': 'cta_url',
+                'parameters': {
+                    'display_text': button_text,
+                    'url': button_url,
+                }
+            }
+        }
+    elif interactive_type == 'flow':
+        flow_id = (payload.get('flow_id') or '').strip()
+        button_text = (payload.get('button_text') or '').strip()[:20]
+        if not flow_id:
+            return jsonify({"error": "flow_id is required for flow interactive messages."}), 400
+        if not button_text:
+            return jsonify({"error": "button_text is required for flow interactive messages."}), 400
+        interactive_payload = {
+            'type': 'flow',
+            'body': {'text': body_text[:1024]},
+            'action': {
+                'name': 'flow',
+                'parameters': {
+                    'flow_message_version': '3',
+                    'flow_id': flow_id,
+                    'flow_cta': button_text,
+                    'mode': 'published',
+                }
+            }
+        }
+    else:
+        return jsonify({"error": "Unsupported interactive_type. Use button, list, cta_url, or flow."}), 400
+
+    if header:
+        interactive_payload['header'] = {'type': 'text', 'text': header[:60]}
+    if footer:
+        interactive_payload['footer'] = {'text': footer[:60]}
 
     try:
-        result = send_whatsapp_interactive_message(
-            mobile,
-            body_text,
-            normalized_buttons,
-            header_text=header or None,
-        )
+        result = send_whatsapp_interactive_message(mobile, interactive_payload)
         message_id = (result.get('messages') or [{}])[0].get('id')
     except Exception as exc:
         app.logger.error("Failed to send WhatsApp interactive message to %s: %s", mobile, exc)
