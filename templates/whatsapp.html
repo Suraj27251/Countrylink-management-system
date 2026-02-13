@@ -108,7 +108,7 @@
           </div>
         </div>
         {% else %}
-          <div class="text-center text-muted mt-5">No messages in this conversation yet.</div>
+          <div class="text-center text-muted mt-5" id="emptyConversationHint">No messages in this conversation yet.</div>
         {% endfor %}
       </div>
 
@@ -166,6 +166,7 @@
   const chatBody = document.getElementById('chatBody');
   const chatList = document.getElementById('chatList');
   const chatForm = document.getElementById('chatForm');
+  const emptyConversationHint = document.getElementById('emptyConversationHint');
   const search = document.getElementById('chatSearch');
   const activeNameEl = document.getElementById('activeName');
   const activeMobileEl = document.getElementById('activeMobile');
@@ -203,6 +204,7 @@
     const existing = chatBody?.querySelector(`[data-message-id="${m.id}"]`);
     const freshRow = renderMessage(m);
     if (!existing) {
+      emptyConversationHint?.remove();
       chatBody.appendChild(freshRow);
       return;
     }
