@@ -6,6 +6,7 @@
   .wa-shell {height: calc(100vh - 140px); background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 24px rgba(15,23,42,.08); display:grid; grid-template-columns:330px 1fr;}
   .wa-sidebar {background:#f8fafc; border-right:1px solid #e2e8f0; display:flex; flex-direction:column;}
   .wa-sidebar-header {padding:14px 18px; border-bottom:1px solid #e2e8f0; font-weight:700; display:flex; align-items:center; justify-content:space-between;}
+  .wa-new-chat-btn {border-radius:8px;}
   .wa-search {padding:12px 16px;}
   .wa-search input {border-radius:999px;}
   .wa-list {overflow-y:auto;}
@@ -53,7 +54,12 @@
 <div class="container py-4" id="waRoot">
   <div class="wa-shell">
     <aside class="wa-sidebar">
-      <div class="wa-sidebar-header">WhatsApp Inbox <i class="fab fa-whatsapp text-success"></i></div>
+      <div class="wa-sidebar-header">
+        <span>WhatsApp Inbox</span>
+        <button class="btn btn-sm btn-outline-success wa-new-chat-btn" id="newConversationBtn" title="New conversation">
+          <i class="fas fa-pen-to-square"></i>
+        </button>
+      </div>
       <div class="wa-search"><input id="chatSearch" class="form-control form-control-sm" type="text" placeholder="Search chats"></div>
       <div class="wa-list" id="chatList">
         {% for contact in contacts %}
@@ -139,6 +145,20 @@
   </div></div>
 </div>
 
+<div class="modal fade" id="newConversationModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">New conversation</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <div class="small text-muted mb-3">Start a conversation by sending a WhatsApp template message.</div>
+      <div class="mb-3"><label class="form-label">Recipient phone number</label><input id="newConvMobile" class="form-control" placeholder="+1234567890"></div>
+      <div class="mb-3"><label class="form-label">Template</label><select id="newConvTemplateSelect" class="form-select"></select></div>
+      <div class="mb-3"><label class="form-label">Language</label><input id="newConvTemplateLanguage" class="form-control" value="en_US"></div>
+      <div id="newConvTemplateParams" class="row g-2"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success" id="startConversationConfirm"><i class="fas fa-paper-plane"></i> Start conversation</button></div>
+  </div></div>
+</div>
+
 <div class="modal fade" id="interactiveModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog"><div class="modal-content">
     <div class="modal-header"><h5 class="modal-title">Send interactive buttons</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
@@ -173,6 +193,7 @@
   const activeNameEl = document.getElementById('activeName');
   const activeMobileEl = document.getElementById('activeMobile');
   const notifyToggle = document.getElementById('notifyToggle');
+  const newConversationBtn = document.getElementById('newConversationBtn');
   const templateBtn = document.getElementById('templateBtn');
   const interactiveBtn = document.getElementById('interactiveBtn');
   let lastMessageId = Number(chatBody?.dataset.lastMessageId || 0);
@@ -293,6 +314,7 @@
 
   const templateModal = new bootstrap.Modal(document.getElementById('templateModal'));
   const interactiveModal = new bootstrap.Modal(document.getElementById('interactiveModal'));
+  const newConversationModal = new bootstrap.Modal(document.getElementById('newConversationModal'));
 
   function extractPlaceholderVars(text) {
     if (!text) return [];
@@ -334,26 +356,59 @@
     return rendered;
   }
 
+  const normalizePhone = (value) => String(value || '').replace(/[^\d]/g, '');
+
+  function renderTemplateOptions(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    select.innerHTML = templates.map((t) => `<option value="${esc(t.name)}">${esc(t.name)} (${esc(t.language || 'en_US')})</option>`).join('') || '<option value="">No approved templates</option>';
+  }
+
+  function fillTemplateParamForm({ templateSelectId, languageInputId, paramsWrapId }) {
+    const templateSelect = document.getElementById(templateSelectId);
+    const t = templates.find((x) => x.name === templateSelect.value);
+    const params = getTemplateBodyVars(t || {});
+    const wrap = document.getElementById(paramsWrapId);
+    wrap.innerHTML = params.length
+      ? params.map((p, i) => `<div class="col-md-6"><label class="form-label">Param ${i+1} (${esc(p)})</label><input class="form-control" data-param="${esc(p)}"></div>`).join('')
+      : '<div class="text-muted small">No body parameters detected.</div>';
+    document.getElementById(languageInputId).value = t?.language || 'en_US';
+  }
+
   async function loadTemplates() {
     if (templates.length) return;
     const res = await fetch(templateListUrl);
     if (!res.ok) return;
     const payload = await res.json();
     templates = (payload.data || []).filter((t) => (t.status || '').toUpperCase() === 'APPROVED');
-    const select = document.getElementById('templateSelect');
-    select.innerHTML = templates.map((t) => `<option value="${esc(t.name)}">${esc(t.name)} (${esc(t.language || 'en_US')})</option>`).join('') || '<option value="">No approved templates</option>';
-    select.dispatchEvent(new Event('change'));
+    renderTemplateOptions('templateSelect');
+    renderTemplateOptions('newConvTemplateSelect');
+    document.getElementById('templateSelect').dispatchEvent(new Event('change'));
+    document.getElementById('newConvTemplateSelect').dispatchEvent(new Event('change'));
   }
 
   document.getElementById('templateSelect').addEventListener('change', (e) => {
-    const t = templates.find((x) => x.name === e.target.value);
-    const params = getTemplateBodyVars(t || {});
-    const wrap = document.getElementById('templateParams');
-    wrap.innerHTML = params.length ? params.map((p, i) => `<div class="col-md-6"><label class="form-label">Param ${i+1} (${esc(p)})</label><input class="form-control" data-param="${esc(p)}"></div>`).join('') : '<div class="text-muted small">No body parameters detected.</div>';
-    document.getElementById('templateLanguage').value = t?.language || 'en_US';
+    fillTemplateParamForm({
+      templateSelectId: 'templateSelect',
+      languageInputId: 'templateLanguage',
+      paramsWrapId: 'templateParams',
+    });
+  });
+
+  document.getElementById('newConvTemplateSelect').addEventListener('change', () => {
+    fillTemplateParamForm({
+      templateSelectId: 'newConvTemplateSelect',
+      languageInputId: 'newConvTemplateLanguage',
+      paramsWrapId: 'newConvTemplateParams',
+    });
   });
 
   templateBtn?.addEventListener('click', async () => { await loadTemplates(); templateModal.show(); });
+  newConversationBtn?.addEventListener('click', async () => {
+    await loadTemplates();
+    document.getElementById('newConvMobile').value = '';
+    newConversationModal.show();
+  });
 
   document.getElementById('sendTemplateConfirm').addEventListener('click', async () => {
     const tName = document.getElementById('templateSelect').value;
@@ -379,6 +434,48 @@
     if (!res.ok) { alert(data.error || 'Failed to send template'); return; }
     templateModal.hide();
     await poll();
+  });
+
+  document.getElementById('startConversationConfirm').addEventListener('click', async () => {
+    const mobile = normalizePhone(document.getElementById('newConvMobile').value);
+    const tName = document.getElementById('newConvTemplateSelect').value;
+    if (!mobile) {
+      alert('Recipient phone number is required.');
+      return;
+    }
+    if (!tName) {
+      alert('Template is required.');
+      return;
+    }
+    const language = document.getElementById('newConvTemplateLanguage').value || 'en_US';
+    const inputs = [...document.querySelectorAll('#newConvTemplateParams [data-param]')];
+    const values = inputs.map((input) => (input.value || '').trim());
+    if (values.some((v) => !v)) {
+      alert('Please fill all required template parameters.');
+      return;
+    }
+    const t = templates.find((x) => x.name === tName);
+    const payload = {
+      mobile,
+      template_name: tName,
+      language_code: language,
+      template_preview: buildTemplatePreview(t || {}, values),
+      components: values.length ? [{type:'body', parameters: values.map((value) => ({type:'text', text: value}))}] : []
+    };
+    const res = await fetch(sendTemplateUrl, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+    const data = await res.json();
+    if (!res.ok) {
+      if (data?.stored) {
+        alert((data.error || 'Template send failed') + '. Opening conversation for status tracking.');
+        newConversationModal.hide();
+        window.location.href = `${pageUrl}?mobile=${encodeURIComponent(data.mobile || mobile)}`;
+        return;
+      }
+      alert(data.error || 'Failed to start conversation');
+      return;
+    }
+    newConversationModal.hide();
+    window.location.href = `${pageUrl}?mobile=${encodeURIComponent(mobile)}`;
   });
 
   const buttonsWrap = document.getElementById('interactiveButtons');

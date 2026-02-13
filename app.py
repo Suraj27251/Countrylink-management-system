@@ -1355,7 +1355,11 @@ def send_whatsapp_template_api():
     conn.commit()
     conn.close()
     if send_status == 'failed':
-        return jsonify({"error": f"Failed to send template: {send_error_reason}"}), 500
+        return jsonify({
+            "error": f"Failed to send template: {send_error_reason}",
+            "stored": True,
+            "mobile": mobile,
+        }), 500
     return jsonify({"status": "sent"}), 200
 
 
