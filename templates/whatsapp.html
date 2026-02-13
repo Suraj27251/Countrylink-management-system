@@ -238,12 +238,27 @@
   const templateModal = new bootstrap.Modal(document.getElementById('templateModal'));
   const interactiveModal = new bootstrap.Modal(document.getElementById('interactiveModal'));
 
-  function getTemplateBodyVars(template) {
-    const bodyComp = (template.components || []).find((c) => c.type === 'BODY');
-    if (!bodyComp?.text) return [];
+  function extractPlaceholderVars(text) {
+    if (!text) return [];
     const seen = new Set();
-    const regex = new RegExp('\\\\{\\\\{\\s*([^}]+)\\s*\\\\}\\\\}', 'g');
-    return [...bodyComp.text.matchAll(regex)].map((m) => m[1].trim()).filter((v) => (seen.has(v) ? false : (seen.add(v), true)));
+    const regex = /\{\{\s*([^}]+?)\s*\}\}/g;
+    return [...String(text).matchAll(regex)]
+      .map((m) => m[1].trim())
+      .filter((v) => (v && !seen.has(v) ? (seen.add(v), true) : false));
+  }
+
+  function getTemplateBodyVars(template) {
+    const components = template?.components || [];
+    const bodyComp = components.find((c) => String(c?.type || '').toUpperCase() === 'BODY');
+    const candidateTexts = [
+      bodyComp?.text,
+      bodyComp?.body_text,
+      ...(Array.isArray(bodyComp?.example?.body_text) ? bodyComp.example.body_text : []),
+      ...(Array.isArray(template?.example?.body_text) ? template.example.body_text : []),
+    ].filter(Boolean);
+    const merged = [];
+    candidateTexts.forEach((txt) => merged.push(...extractPlaceholderVars(txt)));
+    return [...new Set(merged)];
   }
 
   async function loadTemplates() {
@@ -272,7 +287,12 @@
     if (!tName) return;
     const language = document.getElementById('templateLanguage').value || 'en_US';
     const inputs = [...document.querySelectorAll('#templateParams [data-param]')];
-    const bodyParams = inputs.map((input) => ({type:'text', text: input.value || ''})).filter((p) => p.text.trim());
+    const values = inputs.map((input) => (input.value || '').trim());
+    if (values.some((v) => !v)) {
+      alert('Please fill all required template parameters.');
+      return;
+    }
+    const bodyParams = values.map((value) => ({type:'text', text: value}));
     const payload = {
       mobile: activeMobile,
       template_name: tName,
