@@ -17,17 +17,18 @@
   .wa-name {font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .wa-preview {font-size:.82rem; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .wa-time {font-size:.72rem; color:#94a3b8;}
-  .wa-main {display:flex; flex-direction:column; background:#f1f5f9;}
+  .wa-main {display:flex; flex-direction:column; background:#f1f5f9; min-height:0;}
   .wa-head {background:#fff; border-bottom:1px solid #e2e8f0; padding:12px 16px; display:flex; gap:12px; align-items:center; justify-content:space-between;}
   .wa-head-actions {display:flex; gap:8px;}
-  .wa-body {flex:1; overflow-y:auto; padding:22px; background-image:radial-gradient(circle at 1px 1px,#e2e8f0 1px,transparent 0); background-size:20px 20px;}
+  .wa-body {flex:1; min-height:0; overflow-y:auto; padding:22px; background-image:radial-gradient(circle at 1px 1px,#e2e8f0 1px,transparent 0); background-size:20px 20px;}
   .msg-row {display:flex; margin-bottom:14px;}
   .msg-row.outbound {justify-content:flex-end;}
   .msg-bubble {max-width:75%; background:#fff; border-radius:14px; padding:10px 12px; box-shadow:0 4px 10px rgba(15,23,42,.08);}
   .msg-row.outbound .msg-bubble {background:#dcfce7;}
   .msg-text {margin:0; white-space:pre-wrap;}
   .msg-time {font-size:.7rem; color:#64748b; margin-top:4px; text-align:right;}
-  .msg-media {max-width:100%; border-radius:8px; margin-bottom:6px;}
+  .msg-media {display:block; width:100%; max-width:420px; max-height:320px; object-fit:contain; border-radius:8px; margin-bottom:6px; background:#fff;}
+  .msg-audio {max-width:320px; width:100%; margin-bottom:6px;}
   .wa-compose {background:#fff; border-top:1px solid #e2e8f0; padding:12px 16px;}
   .warn {background:#fef3c7; color:#92400e; padding:6px 10px; border-radius:8px; font-size:.82rem;}
   .modal .btn-outline-secondary {border-color:#cbd5e1;}
@@ -93,7 +94,7 @@
           <div class="msg-bubble">
             {% if msg['message_type'] == 'image' and msg['media_url'] %}<img class="msg-media" src="{{ url_for('static', filename=msg['media_url']) }}" alt="image">{% endif %}
             {% if msg['message_type'] == 'video' and msg['media_url'] %}<video class="msg-media" controls src="{{ url_for('static', filename=msg['media_url']) }}"></video>{% endif %}
-            {% if msg['message_type'] == 'audio' and msg['media_url'] %}<audio controls src="{{ url_for('static', filename=msg['media_url']) }}"></audio>{% endif %}
+            {% if msg['message_type'] == 'audio' and msg['media_url'] %}<audio class="msg-audio" controls src="{{ url_for('static', filename=msg['media_url']) }}"></audio>{% endif %}
             {% if msg['message_type'] == 'document' and msg['media_url'] %}
               <a class="btn btn-sm btn-light" href="{{ url_for('static', filename=msg['media_url']) }}" target="_blank"><i class="fas fa-file"></i> {{ msg['file_name'] or 'Document' }}</a>
             {% endif %}
@@ -109,8 +110,8 @@
       <div class="wa-compose">
         <form id="chatForm" class="row g-2 align-items-center">
           <input type="hidden" name="mobile" value="{{ active_mobile or '' }}">
-          <div class="col-auto"><input type="file" class="form-control form-control-sm" name="attachment" id="attachment"></div>
-          <div class="col"><input class="form-control" type="text" name="message" placeholder="Type a message" {% if not active_mobile %}disabled{% endif %}></div>
+          <div class="col-12 col-md-auto"><input type="file" class="form-control form-control-sm" name="attachment" id="attachment"></div>
+          <div class="col-12 col-md"><input class="form-control" type="text" name="message" placeholder="Type a message" {% if not active_mobile %}disabled{% endif %}></div>
           <div class="col-auto"><button class="btn btn-success" {% if not active_mobile or not config_ready %}disabled{% endif %}>Send</button></div>
         </form>
       </div>
@@ -181,7 +182,7 @@
     let html = '';
     if (m.message_type === 'image') html += media ? `<img class="msg-media" src="${media}" alt="image">` : '';
     if (m.message_type === 'video') html += media ? `<video class="msg-media" controls src="${media}"></video>` : '';
-    if (m.message_type === 'audio') html += media ? `<audio controls src="${media}"></audio>` : '';
+    if (m.message_type === 'audio') html += media ? `<audio class="msg-audio" controls src="${media}"></audio>` : '';
     if (m.message_type === 'document') html += media ? `<a target="_blank" class="btn btn-sm btn-light" href="${media}"><i class="fas fa-file"></i> ${esc(m.file_name || 'Document')}</a>` : '';
     const text = esc(m.text || (m.message_type === 'template' ? 'Template message' : m.message_type === 'interactive' ? 'Interactive message' : ''));
     html += `<p class="msg-text">${text}</p><div class="msg-time">${fmt(m.created_at)}</div>`;
@@ -237,12 +238,27 @@
   const templateModal = new bootstrap.Modal(document.getElementById('templateModal'));
   const interactiveModal = new bootstrap.Modal(document.getElementById('interactiveModal'));
 
-  function getTemplateBodyVars(template) {
-    const bodyComp = (template.components || []).find((c) => c.type === 'BODY');
-    if (!bodyComp?.text) return [];
+  function extractPlaceholderVars(text) {
+    if (!text) return [];
     const seen = new Set();
-    const regex = new RegExp('\\\\{\\\\{\\s*([^}]+)\\s*\\\\}\\\\}', 'g');
-    return [...bodyComp.text.matchAll(regex)].map((m) => m[1].trim()).filter((v) => (seen.has(v) ? false : (seen.add(v), true)));
+    const regex = /\{\{\s*([^}]+?)\s*\}\}/g;
+    return [...String(text).matchAll(regex)]
+      .map((m) => m[1].trim())
+      .filter((v) => (v && !seen.has(v) ? (seen.add(v), true) : false));
+  }
+
+  function getTemplateBodyVars(template) {
+    const components = template?.components || [];
+    const bodyComp = components.find((c) => String(c?.type || '').toUpperCase() === 'BODY');
+    const candidateTexts = [
+      bodyComp?.text,
+      bodyComp?.body_text,
+      ...(Array.isArray(bodyComp?.example?.body_text) ? bodyComp.example.body_text : []),
+      ...(Array.isArray(template?.example?.body_text) ? template.example.body_text : []),
+    ].filter(Boolean);
+    const merged = [];
+    candidateTexts.forEach((txt) => merged.push(...extractPlaceholderVars(txt)));
+    return [...new Set(merged)];
   }
 
   async function loadTemplates() {
@@ -271,7 +287,12 @@
     if (!tName) return;
     const language = document.getElementById('templateLanguage').value || 'en_US';
     const inputs = [...document.querySelectorAll('#templateParams [data-param]')];
-    const bodyParams = inputs.map((input) => ({type:'text', text: input.value || ''})).filter((p) => p.text.trim());
+    const values = inputs.map((input) => (input.value || '').trim());
+    if (values.some((v) => !v)) {
+      alert('Please fill all required template parameters.');
+      return;
+    }
+    const bodyParams = values.map((value) => ({type:'text', text: value}));
     const payload = {
       mobile: activeMobile,
       template_name: tName,
