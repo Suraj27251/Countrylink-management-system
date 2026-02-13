@@ -278,17 +278,20 @@
   const initialPref = localStorage.getItem(notificationStorageKey);
   let notificationsEnabled = initialPref === null ? true : initialPref === '1';
   const knownMessageIds = new Set([...document.querySelectorAll('#chatBody [data-message-id]')].map((el) => el.dataset.messageId));
+  let contactSnapshot = new Map();
+  let contactsInitialized = false;
   const notificationSound = new Audio();
   notificationSound.preload = 'none';
 
   const setNotifyUi = () => {
     if (!notifyToggle || !notifyToggleInput) return;
-    notifyToggleInput.checked = notificationsEnabled;
+    // For this SVG animation, checked state visually represents muted.
+    notifyToggleInput.checked = !notificationsEnabled;
     notifyToggle.title = notificationsEnabled ? 'Notification sound: ON' : 'Notification sound: OFF';
   };
   setNotifyUi();
   notifyToggleInput?.addEventListener('change', () => {
-    notificationsEnabled = notifyToggleInput.checked;
+    notificationsEnabled = !notifyToggleInput.checked;
     localStorage.setItem(notificationStorageKey, notificationsEnabled ? '1' : '0');
     setNotifyUi();
   });
@@ -341,6 +344,22 @@
   };
 
   const renderContacts = (contacts) => {
+    const nextSnapshot = new Map();
+    contacts.forEach((c) => nextSnapshot.set(String(c.mobile), String(c.created_at || '')));
+    if (contactsInitialized && notificationsEnabled) {
+      for (const [mobile, createdAt] of nextSnapshot.entries()) {
+        const previousCreatedAt = contactSnapshot.get(mobile);
+        if (previousCreatedAt && previousCreatedAt !== createdAt) {
+          if (!notificationSound.src) notificationSound.src = `${staticBase}audio/whatsapp_notification.wav`;
+          notificationSound.currentTime = 0;
+          notificationSound.play().catch(() => {});
+          break;
+        }
+      }
+    }
+    contactSnapshot = nextSnapshot;
+    contactsInitialized = true;
+
     chatList.innerHTML = contacts.length ? contacts.map(c => `
       <a class="wa-item ${c.mobile === activeMobile ? 'active' : ''}" href="${pageUrl}?mobile=${encodeURIComponent(c.mobile)}" data-mobile="${esc(c.mobile)}" data-name="${esc((c.name || '').toLowerCase())}">
         <div class="wa-avatar">${esc((c.name || c.mobile || '?').slice(0,1).toUpperCase())}</div>
@@ -350,8 +369,11 @@
   };
 
   async function poll() {
-    if (!activeMobile) return;
-    const q = new URLSearchParams({mobile: activeMobile, since_id: String(lastMessageId || 0), include_contacts: '1'});
+    const q = new URLSearchParams({include_contacts: '1'});
+    if (activeMobile) {
+      q.set('mobile', activeMobile);
+      q.set('since_id', String(lastMessageId || 0));
+    }
     const res = await fetch(`${apiUrl}?${q.toString()}`, {headers: {'X-Requested-With':'XMLHttpRequest'}});
     if (!res.ok) return;
     const data = await res.json();
@@ -589,7 +611,7 @@
   });
 
   scrollBottom();
-  if (activeMobile) setInterval(() => poll().catch(() => {}), 5000);
+  setInterval(() => poll().catch(() => {}), 5000);
 })();
 </script>
 {% endblock %}
