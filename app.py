@@ -1130,6 +1130,7 @@ def whatsapp_complaints():
 def whatsapp_messages_api():
     mobile = normalize_mobile(request.args.get('mobile', ''))
     since_id = request.args.get('since_id', type=int)
+    since_inbox_id = request.args.get('since_inbox_id', type=int)
     include_contacts = request.args.get('include_contacts', '0') == '1'
 
     conn = get_db_connection()
@@ -1138,7 +1139,12 @@ def whatsapp_messages_api():
     contacts = build_whatsapp_contacts(rows)
 
     messages = []
+    inbox_messages = []
     active_name = ""
+    if since_inbox_id:
+        inbox_messages = [row for row in rows if row["id"] > since_inbox_id]
+        inbox_messages = sorted(inbox_messages, key=lambda item: item["id"])
+
     if mobile:
         messages = [row for row in rows if normalize_mobile(row["mobile"]) == mobile]
         if since_id:
@@ -1162,6 +1168,7 @@ def whatsapp_messages_api():
             "name": msg["name"],
             "mobile": normalize_mobile(msg["mobile"]),
             "direction": msg["direction"],
+            "from_me": msg["direction"] == "outbound",
             "message_type": msg["message_type"],
             "text": msg["text"],
             "media_url": msg["media_url"],
@@ -1173,14 +1180,25 @@ def whatsapp_messages_api():
         }
 
     serialized_messages = [serialize_message(msg) for msg in messages]
+    serialized_inbox_messages = [
+        {
+            "id": msg["id"],
+            "direction": msg["direction"],
+            "from_me": msg["direction"] == "outbound",
+        }
+        for msg in inbox_messages
+    ]
     last_message_id = serialized_messages[-1]["id"] if serialized_messages else None
+    last_inbox_message_id = serialized_inbox_messages[-1]["id"] if serialized_inbox_messages else None
 
     response_payload = {
         "contacts": contacts if include_contacts else [],
         "messages": serialized_messages,
+        "inbox_messages": serialized_inbox_messages,
         "active_mobile": mobile,
         "active_name": active_name,
         "last_message_id": last_message_id,
+        "last_inbox_message_id": last_inbox_message_id,
         "legacy_mode": legacy_mode,
     }
 

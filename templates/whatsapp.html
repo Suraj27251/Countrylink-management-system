@@ -301,13 +301,18 @@
   const templateBtn = document.getElementById('templateBtn');
   const interactiveBtn = document.getElementById('interactiveBtn');
   let lastMessageId = Number(chatBody?.dataset.lastMessageId || 0);
+  let lastInboxMessageId = lastMessageId;
   let templates = [];
   const notificationStorageKey = 'wa_sound_notifications_enabled';
   const initialPref = localStorage.getItem(notificationStorageKey);
   let notificationsEnabled = initialPref === null ? true : initialPref === '1';
   const knownMessageIds = new Set([...document.querySelectorAll('#chatBody [data-message-id]')].map((el) => el.dataset.messageId));
-  let contactSnapshot = new Map();
-  let contactsInitialized = false;
+  knownMessageIds.forEach((id) => {
+    const asNumber = Number(id);
+    if (!Number.isNaN(asNumber)) {
+      lastInboxMessageId = Math.max(lastInboxMessageId, asNumber);
+    }
+  });
   let hasUserInteracted = false;
   const notificationSound = new Audio();
   notificationSound.preload = 'none';
@@ -345,6 +350,13 @@
     notificationSound.play().catch(() => {
       fallbackBeep();
     });
+  };
+
+  const isInboundMessage = (message) => {
+    if (typeof message?.from_me === 'boolean') {
+      return !message.from_me;
+    }
+    return message?.direction !== 'outbound';
   };
 
   const setNotifyUi = () => {
@@ -394,8 +406,8 @@
       const msgId = String(m.id || '');
       const isNew = msgId && !knownMessageIds.has(msgId);
       knownMessageIds.add(msgId);
-      if (isNew && notificationsEnabled && m.direction !== 'outbound') {
-        playNotificationSound();
+      if (isNew) {
+        lastInboxMessageId = Math.max(lastInboxMessageId, Number(m.id) || 0);
       }
       return;
     }
@@ -404,22 +416,6 @@
   };
 
   const renderContacts = (contacts) => {
-    const nextSnapshot = new Map();
-    contacts.forEach((c) => nextSnapshot.set(String(c.mobile), `${String(c.created_at || '')}|${String(c.preview || '')}`));
-    if (contactsInitialized && notificationsEnabled) {
-      for (const [mobile, signature] of nextSnapshot.entries()) {
-        const previousSignature = contactSnapshot.get(mobile);
-        const isNewContact = previousSignature === undefined;
-        const isUpdatedContact = previousSignature && previousSignature !== signature;
-        if ((isNewContact && contactSnapshot.size > 0) || isUpdatedContact) {
-          playNotificationSound();
-          break;
-        }
-      }
-    }
-    contactSnapshot = nextSnapshot;
-    contactsInitialized = true;
-
     chatList.innerHTML = contacts.length ? contacts.map(c => `
       <a class="wa-item ${c.mobile === activeMobile ? 'active' : ''}" href="${pageUrl}?mobile=${encodeURIComponent(c.mobile)}" data-mobile="${esc(c.mobile)}" data-name="${esc((c.name || '').toLowerCase())}">
         <div class="wa-avatar">${esc((c.name || c.mobile || '?').slice(0,1).toUpperCase())}</div>
@@ -430,6 +426,7 @@
 
   async function poll() {
     const q = new URLSearchParams({include_contacts: '1'});
+    q.set('since_inbox_id', String(lastInboxMessageId || 0));
     if (activeMobile) {
       q.set('mobile', activeMobile);
       q.set('since_id', String(lastMessageId || 0));
@@ -438,6 +435,20 @@
     if (!res.ok) return;
     const data = await res.json();
     if (data.contacts) renderContacts(data.contacts);
+    if (data.inbox_messages?.length) {
+      data.inbox_messages.forEach((m) => {
+        const msgId = String(m.id || '');
+        if (!msgId || knownMessageIds.has(msgId)) return;
+        knownMessageIds.add(msgId);
+        lastInboxMessageId = Math.max(lastInboxMessageId, Number(m.id) || 0);
+        if (isInboundMessage(m)) {
+          playNotificationSound();
+        }
+      });
+    }
+    if (data.last_inbox_message_id) {
+      lastInboxMessageId = Math.max(lastInboxMessageId, Number(data.last_inbox_message_id) || 0);
+    }
     if (data.active_name) activeNameEl.textContent = data.active_name;
     if (data.active_mobile) activeMobileEl.textContent = data.active_mobile;
     if (data.messages?.length) {
