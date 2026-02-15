@@ -32,6 +32,9 @@ def get_db_connection():
 WHATSAPP_API_VERSION = os.environ.get('WHATSAPP_API_VERSION', 'v20.0')
 WEBHOOK_VERIFY_TOKEN = os.environ.get('WEBHOOK_VERIFY_TOKEN', '')
 WHATSAPP_MEDIA_DIR = Path(app.root_path) / 'static' / 'uploads' / 'whatsapp'
+AUTO_NOTIFICATION_TEMPLATE_NAME = 'notification_team'
+AUTO_NOTIFICATION_TEMPLATE_LANGUAGE = 'en'
+AUTO_NOTIFICATION_RECIPIENTS = ['8149912379', '8055782345']
 REQUIRED_WHATSAPP_ENV_VARS = (
     'META_ACCESS_TOKEN',
     'PHONE_NUMBER_ID',
@@ -195,6 +198,7 @@ def process_incoming_message(message, metadata):
 
     conn = get_db_connection()
     c = conn.cursor()
+    inserted_new_message = False
     if message_id:
         c.execute(
             """
@@ -216,6 +220,7 @@ def process_incoming_message(message, metadata):
                 created_at,
             ),
         )
+        inserted_new_message = c.rowcount > 0
     else:
         c.execute(
             """
@@ -237,9 +242,22 @@ def process_incoming_message(message, metadata):
                 created_at,
             ),
         )
+        inserted_new_message = True
     conn.commit()
     conn.close()
     app.logger.info("Stored inbound WhatsApp message id=%s mobile=%s", message_id or 'no-id', mobile)
+
+    if inserted_new_message:
+        send_auto_notification_templates(
+            inbound_message_id=message_id,
+            sender_mobile=mobile,
+            received_at=created_at,
+        )
+    else:
+        app.logger.info(
+            "Skipping auto-template trigger for duplicate inbound message id=%s",
+            message_id or 'no-id',
+        )
 
     if message_type == 'text' and name and name != '.' and text_body.strip():
         category = predict_category(text_body)
@@ -315,6 +333,102 @@ def process_message_status_event(status_event):
         """,
         (status, reason or None, status_time, message_id),
     )
+    conn.commit()
+    conn.close()
+
+
+def send_auto_notification_templates(inbound_message_id, sender_mobile, received_at):
+    if not whatsapp_config_ready():
+        app.logger.warning(
+            "Skipping auto template send for inbound message id=%s because WhatsApp configuration is incomplete.",
+            inbound_message_id or 'no-id',
+        )
+        return
+
+    event_key = inbound_message_id or f"{sender_mobile}:{received_at}"
+
+    conn = get_db_connection()
+    c = conn.cursor()
+    for raw_mobile in AUTO_NOTIFICATION_RECIPIENTS:
+        target_mobile = normalize_mobile(raw_mobile)
+        if not target_mobile:
+            app.logger.warning("Skipping invalid auto template recipient mobile=%s", raw_mobile)
+            continue
+
+        c.execute(
+            """
+            INSERT OR IGNORE INTO whatsapp_template_notifications
+            (inbound_message_id, target_mobile, template_name, language_code, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                event_key,
+                target_mobile,
+                AUTO_NOTIFICATION_TEMPLATE_NAME,
+                AUTO_NOTIFICATION_TEMPLATE_LANGUAGE,
+                'pending',
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            ),
+        )
+
+        if c.rowcount == 0:
+            app.logger.info(
+                "Auto template already handled for inbound message id=%s to mobile=%s",
+                event_key,
+                target_mobile,
+            )
+            continue
+
+        try:
+            result = send_whatsapp_template_message(
+                target_mobile,
+                AUTO_NOTIFICATION_TEMPLATE_NAME,
+                AUTO_NOTIFICATION_TEMPLATE_LANGUAGE,
+            )
+            outbound_message_id = (result.get('messages') or [{}])[0].get('id')
+            sent_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            c.execute(
+                """
+                UPDATE whatsapp_template_notifications
+                SET status = ?, outbound_message_id = ?, error_reason = ?, sent_at = ?
+                WHERE inbound_message_id = ? AND target_mobile = ?
+                """,
+                ('sent', outbound_message_id, None, sent_at, event_key, target_mobile),
+            )
+            c.execute(
+                """
+                INSERT INTO whatsapp_messages
+                (message_id, name, mobile, direction, message_type, text, delivery_status, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    outbound_message_id,
+                    'System',
+                    target_mobile,
+                    'outbound',
+                    'template',
+                    f"Template: {AUTO_NOTIFICATION_TEMPLATE_NAME}",
+                    'accepted',
+                    sent_at,
+                ),
+            )
+        except Exception as exc:
+            error_reason = str(exc)
+            c.execute(
+                """
+                UPDATE whatsapp_template_notifications
+                SET status = ?, error_reason = ?, sent_at = ?
+                WHERE inbound_message_id = ? AND target_mobile = ?
+                """,
+                ('failed', error_reason, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), event_key, target_mobile),
+            )
+            app.logger.error(
+                "Failed auto template send for inbound message id=%s to %s: %s",
+                event_key,
+                target_mobile,
+                exc,
+            )
+
     conn.commit()
     conn.close()
 
@@ -695,6 +809,22 @@ def init_db():
             c.execute(f"ALTER TABLE whatsapp_messages ADD COLUMN {column_def}")
         except sqlite3.OperationalError:
             pass
+
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS whatsapp_template_notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            inbound_message_id TEXT NOT NULL,
+            target_mobile TEXT NOT NULL,
+            template_name TEXT NOT NULL,
+            language_code TEXT NOT NULL,
+            outbound_message_id TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            error_reason TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            sent_at TEXT,
+            UNIQUE (inbound_message_id, target_mobile)
+        )
+    ''')
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS connection_requests (
