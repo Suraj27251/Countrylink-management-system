@@ -19,7 +19,7 @@
   .wa-name {font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .wa-preview {font-size:.82rem; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .wa-time {font-size:.72rem; color:#94a3b8;}
-  .wa-main {display:flex; flex-direction:column; background:#f1f5f9; min-height:0;}
+  .wa-main {display:flex; flex-direction:column; background:#f1f5f9; min-height:0; position:relative;}
   .wa-head {background:#fff; border-bottom:1px solid #e2e8f0; padding:12px 16px; display:flex; gap:12px; align-items:center; justify-content:space-between;}
   .wa-head-actions {display:flex; gap:8px; align-items:center;}
   .volume {
@@ -106,7 +106,41 @@
   .wa-compose {background:#fff; border-top:1px solid #e2e8f0; padding:12px 16px;}
   .warn {background:#fef3c7; color:#92400e; padding:6px 10px; border-radius:8px; font-size:.82rem;}
   .modal .btn-outline-secondary {border-color:#cbd5e1;}
+  .info-panel-overlay {position:absolute; inset:0; background:rgba(15,23,42,.35); opacity:0; visibility:hidden; transition:opacity .25s ease; z-index:20;}
+  .info-panel-overlay.open {opacity:1; visibility:visible;}
+  .support-panel {position:absolute; right:0; top:0; bottom:0; width:min(440px,100%); background:#fff; border-left:1px solid #e2e8f0; transform:translateX(102%); transition:transform .3s ease; z-index:25; display:flex; flex-direction:column; box-shadow:-10px 0 30px rgba(2,6,23,.12);}
+  .support-panel.open {transform:translateX(0);}
+  .support-panel-body {overflow-y:auto; padding:14px;}
+  .panel-header-title {font-size:1rem; font-weight:700;}
+  .panel-section {border:1px solid #e2e8f0; border-radius:12px; margin-bottom:12px; overflow:hidden; background:#fff;}
+  .panel-section-head {display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 12px; background:#f8fafc; cursor:pointer;}
+  .panel-section-body {padding:12px;}
+  .panel-section.collapsed .panel-section-body {display:none;}
+  .support-grid {display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;}
+  .support-grid button,.support-grid select {font-size:.78rem;}
+  .meta-list {display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:.82rem;}
+  .meta-label {color:#64748b; display:block;}
+  .meta-value {font-weight:600;}
+  .status-badge-online,.status-badge-offline {padding:2px 8px; border-radius:999px; font-size:.7rem; font-weight:700;}
+  .status-badge-online {background:#dcfce7; color:#166534;}
+  .status-badge-offline {background:#fee2e2; color:#991b1b;}
+  .timeline-list, .simple-list {list-style:none; margin:0; padding:0;}
+  .timeline-list li, .simple-list li {padding:8px 0; border-bottom:1px dashed #e2e8f0;}
+  .timeline-list li:last-child, .simple-list li:last-child {border-bottom:none;}
+  .tag-badge {display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:3px 10px; font-size:.74rem; background:#e2e8f0; margin:3px 4px 0 0;}
+  .tag-badge button {border:none; background:transparent; color:#334155; padding:0; line-height:1;}
+  .install-photos {display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px;}
+  .install-photos img {width:100%; height:80px; object-fit:cover; border-radius:8px; border:1px solid #cbd5e1;}
+  .section-loading {font-size:.82rem; color:#64748b;}
+  .section-error {font-size:.82rem; color:#b91c1c;}
+  .panel-anim-slide-in {animation:panelSlideIn .3s ease both;}
+  @keyframes panelSlideIn {from {transform:translateX(102%);} to {transform:translateX(0);}}
   @media (max-width: 992px) {.wa-shell {grid-template-columns:1fr; height:auto;} .wa-sidebar {max-height:300px;}}
+  @media (max-width: 768px) {
+    .support-panel {width:100%;}
+    .support-grid {grid-template-columns:1fr;}
+    .install-photos {grid-template-columns:repeat(2,minmax(0,1fr));}
+  }
 </style>
 {% endblock %}
 
@@ -166,6 +200,7 @@
           </label>
           <button class="btn btn-sm btn-outline-success" id="templateBtn" {% if not active_mobile %}disabled{% endif %}><i class="fas fa-file-alt"></i> Template</button>
           <button class="btn btn-sm btn-outline-primary" id="interactiveBtn" {% if not active_mobile %}disabled{% endif %}><i class="fas fa-hand-pointer"></i> Interactive</button>
+          <button class="btn btn-sm btn-outline-dark" id="infoPanelBtn" {% if not active_mobile %}disabled{% endif %}><i class="fas fa-address-card"></i> Customer</button>
         </div>
       </div>
 
@@ -204,6 +239,17 @@
           <div class="col-auto"><button class="btn btn-success" {% if not active_mobile or not config_ready %}disabled{% endif %}>Send</button></div>
         </form>
       </div>
+
+      <div class="info-panel-overlay" id="infoPanelOverlay"></div>
+      <aside class="support-panel" id="supportPanel" aria-hidden="true">
+        <div class="d-flex justify-content-between align-items-center border-bottom p-3">
+          <div class="panel-header-title">Customer Support Dashboard</div>
+          <button class="btn btn-sm btn-outline-secondary" id="closeInfoPanelBtn"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="support-panel-body" id="supportPanelBody">
+          <div class="section-loading">Open a customer chat to load dashboard details.</div>
+        </div>
+      </aside>
     </section>
   </div>
 </div>
@@ -790,6 +836,352 @@
     interactiveModal.hide();
     await poll();
   });
+
+
+  const infoPanelBtn = document.getElementById('infoPanelBtn');
+  const closeInfoPanelBtn = document.getElementById('closeInfoPanelBtn');
+  const infoPanelOverlay = document.getElementById('infoPanelOverlay');
+  const supportPanel = document.getElementById('supportPanel');
+  const supportPanelBody = document.getElementById('supportPanelBody');
+  const apiForContact = (contactId, resource) => `/api/contact/${encodeURIComponent(contactId)}/${resource}`;
+
+  const quickTemplates = {
+    router_restart: 'router_restart_instructions',
+    troubleshooting: 'troubleshooting_guide',
+    payment_link: 'payment_link'
+  };
+
+  async function fetchJson(url, options = {}) {
+    const response = await fetch(url, options);
+    const contentType = response.headers.get('content-type') || '';
+    const payload = contentType.includes('application/json') ? await response.json() : null;
+    if (!response.ok) {
+      let message = payload?.error || payload?.message || `Request failed (${response.status})`;
+      if (response.status === 403) message = 'Permission denied for this action.';
+      if (response.status === 404) message = 'Requested data is not available for this customer.';
+      const err = new Error(message);
+      err.status = response.status;
+      throw err;
+    }
+    return payload;
+  }
+
+  const sectionShell = (title, id, body = '<div class="section-loading">Loading...</div>') => `
+    <section class="panel-section" data-section="${id}">
+      <header class="panel-section-head" data-collapse-target="${id}">
+        <strong>${title}</strong>
+        <i class="fas fa-chevron-down small text-muted"></i>
+      </header>
+      <div class="panel-section-body" id="${id}">${body}</div>
+    </section>`;
+
+  function renderHeader(data = {}, contactId) {
+    const statusClass = data.connection_status === 'Online' ? 'status-badge-online' : 'status-badge-offline';
+    const lastActive = data.last_active || 'Not available';
+    return sectionShell('Customer Overview', 'sectionHeader', `
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+          <div class="fw-bold">${esc(data.name || activeNameEl.textContent || 'Unknown customer')}</div>
+          <div class="small text-muted">${esc(data.phone || contactId || activeMobileEl.textContent)}</div>
+          <div class="small">Customer ID: <span class="text-muted">${esc(data.customer_id || 'N/A')}</span></div>
+        </div>
+        <span class="${statusClass}">${esc(data.connection_status || 'Offline')}</span>
+      </div>
+      <div class="small text-muted mb-2">Last active: ${esc(lastActive)}</div>
+      <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-sm btn-outline-primary" data-info-action="view-conversations">View Conversations</button>
+        <button class="btn btn-sm btn-outline-success" data-info-action="focus-note">Add Note</button>
+        <button class="btn btn-sm btn-outline-danger" onclick="openComplaintForm('${esc(contactId)}')">Quick Complaint</button>
+      </div>
+    `);
+  }
+
+  function renderQuickActions(contactId) {
+    return sectionShell('Quick Actions', 'sectionQuickActions', `
+      <div class="support-grid">
+        <button class="btn btn-outline-danger btn-sm" onclick="openComplaintForm('${esc(contactId)}')">Raise Complaint</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="assignTechnician('${esc(contactId)}')">Assign Technician</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="sendTemplate('${quickTemplates.router_restart}')">Send Router Restart Instructions</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="sendTemplate('${quickTemplates.troubleshooting}')">Send Troubleshooting Guide</button>
+        <button class="btn btn-outline-success btn-sm" onclick="sendTemplate('${quickTemplates.payment_link}')">Send Payment Link</button>
+        <button class="btn btn-outline-dark btn-sm" onclick="openComplaintForm('${esc(contactId)}', true)">Close Complaint</button>
+        <select class="form-select form-select-sm" id="quickTagSelect">
+          <option value="">Tag Customer</option>
+          <option value="VIP">VIP</option>
+          <option value="Payment Risk">Payment Risk</option>
+          <option value="Frequent Complaint">Frequent Complaint</option>
+        </select>
+      </div>
+      <div class="small text-muted mt-2">Templates map to API-friendly names for sendTemplate(templateName).</div>
+    `);
+  }
+
+  function renderServiceStatus(status = {}) {
+    return sectionShell('Service Status', 'sectionServiceStatus', `
+      <div class="meta-list">
+        <div><span class="meta-label">Service</span><span class="meta-value">${esc(status.service_status || 'Unknown')}</span></div>
+        <div><span class="meta-label">Router last seen</span><span class="meta-value">${esc(status.router_last_seen || 'N/A')}</span></div>
+        <div><span class="meta-label">Signal</span><span class="meta-value">${esc(status.signal_strength || 'N/A')}</span></div>
+        <div><span class="meta-label">IP / Device</span><span class="meta-value">${esc(status.device_status || 'N/A')}</span></div>
+        <div><span class="meta-label">Outage</span><span class="meta-value">${esc(status.outage_indicator || 'No outage')}</span></div>
+      </div>
+    `);
+  }
+
+  function renderComplaintHistory(complaints = []) {
+    const rows = complaints.length ? complaints.slice(0, 3).map((c) => `<li><div class="fw-semibold">${esc(c.title || c.short_title || 'Complaint')}</div><div class="small text-muted">#${esc(c.id || c.complaint_id || 'N/A')} • ${esc(c.status || 'Open')} • ${esc(c.created_at || 'N/A')} • Tech: ${esc(c.technician || c.assigned_technician || 'Unassigned')}</div></li>`).join('') : '<li class="text-muted small">No complaint history found.</li>';
+    return sectionShell('Complaint / Ticket History', 'sectionComplaints', `<ul class="simple-list">${rows}</ul><button class="btn btn-link btn-sm px-0" data-info-action="view-all-complaints">View All Complaints</button>`);
+  }
+
+  function renderBillingSummary(billing = {}) {
+    return sectionShell('Billing Summary', 'sectionBilling', `
+      <div class="meta-list mb-2">
+        <div><span class="meta-label">Outstanding</span><span class="meta-value">${esc(billing.outstanding_amount || '0')}</span></div>
+        <div><span class="meta-label">Last payment</span><span class="meta-value">${esc(billing.last_payment_date || 'N/A')}</span></div>
+        <div><span class="meta-label">Next due</span><span class="meta-value">${esc(billing.next_due_date || 'N/A')}</span></div>
+        <div><span class="meta-label">Plan</span><span class="meta-value">${esc(billing.plan_name || 'N/A')}</span></div>
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-sm btn-outline-primary" data-info-action="send-invoice">Send invoice</button>
+        <button class="btn btn-sm btn-outline-success" data-info-action="send-payment-link">Send payment link</button>
+      </div>
+    `);
+  }
+
+  function renderNotesSection(notes = []) {
+    const items = notes.length ? notes.map((n) => `<li><div>${esc(n.note || n.text || '')}</div><div class="small text-muted">${esc(n.author || 'Agent')} • ${esc(n.created_at || n.timestamp || '')}</div></li>`).join('') : '<li class="text-muted small">No notes yet.</li>';
+    return sectionShell('Internal Notes', 'sectionNotes', `
+      <ul class="simple-list mb-2">${items}</ul>
+      <form id="noteForm" class="d-grid gap-2">
+        <textarea class="form-control form-control-sm" id="newNoteText" rows="2" placeholder="Add an internal note..."></textarea>
+        <button class="btn btn-sm btn-primary" type="submit">Add note</button>
+      </form>
+    `);
+  }
+
+  function renderTagsSection(tags = []) {
+    const badges = tags.length ? tags.map((t) => `<span class="tag-badge" style="background:${esc(t.color || '#e2e8f0')}">${esc(t.name || t.tag)} <button type="button" data-tag-id="${esc(t.id || t.tag_id || t.name || t.tag)}">×</button></span>`).join('') : '<div class="small text-muted">No tags set.</div>';
+    return sectionShell('Tags & Labels', 'sectionTags', `
+      <div id="tagListWrap">${badges}</div>
+      <form id="tagForm" class="d-flex gap-2 mt-2">
+        <input class="form-control form-control-sm" id="newTagInput" placeholder="Add tag">
+        <button class="btn btn-sm btn-outline-secondary" type="submit">Add</button>
+      </form>
+    `);
+  }
+
+  function renderTimeline(events = []) {
+    const rows = events.length ? events.map((e) => `<li><div class="fw-semibold">${esc(e.event_type || e.type || 'Event')}</div><div class="small text-muted">${esc(e.description || '')}</div><div class="small text-muted">${esc(e.created_at || e.timestamp || '')}</div></li>`).join('') : '<li class="small text-muted">No timeline events found.</li>';
+    return sectionShell('Interaction Timeline', 'sectionTimeline', `<ul class="timeline-list">${rows}</ul>`);
+  }
+
+  function renderTechnicalDetails(technical = {}) {
+    const photos = (technical.installation_photos || technical.photos || []).map((url) => `<img src="${esc(url)}" alt="Installation photo">`).join('') || '<div class="small text-muted">No photos available.</div>';
+    return sectionShell('Technical Details', 'sectionTechnical', `
+      <div class="meta-list mb-2">
+        <div><span class="meta-label">Router model</span><span class="meta-value">${esc(technical.router_model || 'N/A')}</span></div>
+        <div><span class="meta-label">ONU MAC</span><span class="meta-value">${esc(technical.onu_mac || 'N/A')}</span></div>
+        <div><span class="meta-label">Fiber port</span><span class="meta-value">${esc(technical.fiber_port || 'N/A')}</span></div>
+      </div>
+      <div class="install-photos">${photos}</div>
+    `);
+  }
+
+  function wireCollapsibleSections() {
+    supportPanelBody.querySelectorAll('[data-collapse-target]').forEach((head) => {
+      head.addEventListener('click', () => {
+        head.closest('.panel-section').classList.toggle('collapsed');
+      });
+    });
+  }
+
+  async function loadCustomerDashboard(contactId) {
+    supportPanelBody.innerHTML = '<div class="section-loading">Loading customer dashboard...</div>';
+    const endpoints = {
+      header: apiForContact(contactId, 'info'),
+      status: apiForContact(contactId, 'status'),
+      complaints: apiForContact(contactId, 'complaints'),
+      billing: apiForContact(contactId, 'billing'),
+      notes: apiForContact(contactId, 'notes'),
+      tags: apiForContact(contactId, 'tags'),
+      timeline: apiForContact(contactId, 'timeline'),
+      technical: apiForContact(contactId, 'technical')
+    };
+
+    const [header, status, complaints, billing, notes, tags, timeline, technical] = await Promise.allSettled([
+      fetchJson(endpoints.header),
+      fetchJson(endpoints.status),
+      fetchJson(endpoints.complaints),
+      fetchJson(endpoints.billing),
+      fetchJson(endpoints.notes),
+      fetchJson(endpoints.tags),
+      fetchJson(endpoints.timeline),
+      fetchJson(endpoints.technical)
+    ]);
+
+    const valueOf = (result, fallback, sectionName) => {
+      if (result.status === 'fulfilled') return result.value;
+      console.warn(`${sectionName} failed`, result.reason);
+      return fallback;
+    };
+
+    supportPanelBody.innerHTML = [
+      renderHeader(valueOf(header, {}, 'header'), contactId),
+      renderQuickActions(contactId),
+      renderServiceStatus(valueOf(status, {}, 'status')),
+      renderComplaintHistory(valueOf(complaints, [], 'complaints')),
+      renderBillingSummary(valueOf(billing, {}, 'billing')),
+      renderNotesSection(valueOf(notes, [], 'notes')),
+      renderTagsSection(valueOf(tags, [], 'tags')),
+      renderTimeline(valueOf(timeline, [], 'timeline')),
+      renderTechnicalDetails(valueOf(technical, {}, 'technical'))
+    ].join('');
+
+    wireCollapsibleSections();
+    bindDashboardActions(contactId);
+  }
+
+  function openInfoPanel(contactId) {
+    if (!contactId) return;
+    supportPanel.dataset.contactId = contactId;
+    supportPanel.classList.add('open', 'panel-anim-slide-in');
+    supportPanel.setAttribute('aria-hidden', 'false');
+    infoPanelOverlay.classList.add('open');
+    loadCustomerDashboard(contactId).catch((error) => {
+      supportPanelBody.innerHTML = `<div class="section-error">Unable to load dashboard: ${esc(error.message)}</div>`;
+    });
+  }
+
+  function closeInfoPanel() {
+    supportPanel.classList.remove('open');
+    supportPanel.setAttribute('aria-hidden', 'true');
+    infoPanelOverlay.classList.remove('open');
+  }
+
+  function openComplaintForm(contactId, closeComplaint = false) {
+    if (closeComplaint) {
+      alert(`Close complaint flow for ${contactId} can be connected to complaint status API.`);
+      return;
+    }
+    window.location.href = '{{ url_for("complaints_page") }}';
+  }
+
+  function assignTechnician(contactId) {
+    alert(`Assign technician flow for ${contactId} can connect to your technician assignment endpoint.`);
+  }
+
+  async function sendTemplate(templateName) {
+    if (!supportPanel.dataset.contactId) return;
+    try {
+      await fetchJson(sendTemplateUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mobile: supportPanel.dataset.contactId, template_name: templateName, language_code: 'en_US', components: [] })
+      });
+      alert('Template sent successfully.');
+    } catch (error) {
+      alert(`Template failed: ${error.message}`);
+    }
+  }
+
+  async function tagCustomer(tag) {
+    if (!supportPanel.dataset.contactId || !tag) return;
+    try {
+      await fetchJson(apiForContact(supportPanel.dataset.contactId, 'tags'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag })
+      });
+      await loadCustomerDashboard(supportPanel.dataset.contactId);
+    } catch (error) {
+      alert(`Tag update failed: ${error.message}`);
+    }
+  }
+
+  function bindDashboardActions(contactId) {
+    document.getElementById('quickTagSelect')?.addEventListener('change', (event) => tagCustomer(event.target.value));
+    document.querySelector('[data-info-action="focus-note"]')?.addEventListener('click', () => document.getElementById('newNoteText')?.focus());
+    document.querySelector('[data-info-action="view-all-complaints"]')?.addEventListener('click', () => {
+      window.location.href = '{{ url_for("complaints_page") }}';
+    });
+
+    document.querySelector('[data-info-action="send-invoice"]')?.addEventListener('click', async () => {
+      try {
+        await fetchJson('/api/billing/send-invoice', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contact_id: contactId }) });
+        alert('Invoice sent.');
+      } catch (error) {
+        alert(`Invoice request failed: ${error.message}`);
+      }
+    });
+
+    document.querySelector('[data-info-action="send-payment-link"]')?.addEventListener('click', async () => {
+      try {
+        await fetchJson('/api/billing/send-payment-link', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contact_id: contactId }) });
+        alert('Payment link sent.');
+      } catch (error) {
+        alert(`Payment link failed: ${error.message}`);
+      }
+    });
+
+    document.getElementById('noteForm')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const note = document.getElementById('newNoteText')?.value.trim();
+      if (!note) return;
+      try {
+        await fetchJson(apiForContact(contactId, 'notes'), { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ note }) });
+        await loadCustomerDashboard(contactId);
+      } catch (error) {
+        alert(`Note save failed: ${error.message}`);
+      }
+    });
+
+    document.getElementById('tagForm')?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const tag = document.getElementById('newTagInput')?.value.trim();
+      if (!tag) return;
+      await tagCustomer(tag);
+    });
+
+    document.querySelectorAll('[data-tag-id]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        try {
+          await fetchJson(`${apiForContact(contactId, 'tags')}/${encodeURIComponent(btn.dataset.tagId)}`, { method: 'DELETE' });
+          await loadCustomerDashboard(contactId);
+        } catch (error) {
+          alert(`Tag removal failed: ${error.message}`);
+        }
+      });
+    });
+  }
+
+  infoPanelBtn?.addEventListener('click', () => openInfoPanel(activeMobile || activeMobileEl.textContent.trim()));
+  closeInfoPanelBtn?.addEventListener('click', closeInfoPanel);
+  infoPanelOverlay?.addEventListener('click', closeInfoPanel);
+  chatList?.addEventListener('click', (event) => {
+    const link = event.target.closest('.wa-item');
+    if (!link) return;
+    const contactId = link.dataset.mobile;
+    if (supportPanel.classList.contains('open')) {
+      openInfoPanel(contactId);
+    }
+  });
+
+  window.openInfoPanel = openInfoPanel;
+  window.closeInfoPanel = closeInfoPanel;
+  window.loadCustomerDashboard = loadCustomerDashboard;
+  window.renderHeader = renderHeader;
+  window.renderQuickActions = renderQuickActions;
+  window.renderServiceStatus = renderServiceStatus;
+  window.renderComplaintHistory = renderComplaintHistory;
+  window.renderBillingSummary = renderBillingSummary;
+  window.renderNotesSection = renderNotesSection;
+  window.renderTagsSection = renderTagsSection;
+  window.renderTimeline = renderTimeline;
+  window.renderTechnicalDetails = renderTechnicalDetails;
+  window.openComplaintForm = openComplaintForm;
+  window.assignTechnician = assignTechnician;
+  window.sendTemplate = sendTemplate;
+  window.tagCustomer = tagCustomer;
 
   scrollBottom();
   setInterval(() => poll().catch(() => {}), 5000);
