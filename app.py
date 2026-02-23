@@ -1129,22 +1129,33 @@ def set_default_json_header(response):
     return response
 
 
-@app.route('/flow-endpoint', methods=['POST'])
-def flow_endpoint():
-    data = request.get_json()
-    name = data.get("name")
-    mobile = data.get("mobile")
-    complaint = data.get("complaint")
+def parse_flow_payload(data):
+    if not isinstance(data, dict):
+        return None, "Invalid JSON payload"
+
+    name = str(data.get("name", "")).strip()
+    mobile = str(data.get("mobile", "")).strip()
+    complaint = str(data.get("complaint", "")).strip()
 
     if not all([name, mobile, complaint]):
-        return jsonify({"error": "Missing required fields"}), 400
+        return None, "Missing required fields"
 
-    category = predict_category(complaint)
+    return {"name": name, "mobile": mobile, "complaint": complaint}, None
+
+
+@app.route('/flow-endpoint', methods=['POST'])
+def flow_endpoint():
+    data = request.get_json(silent=True)
+    payload, error = parse_flow_payload(data)
+    if error:
+        return jsonify({"error": error}), 400
+
+    category = predict_category(payload["complaint"])
     conn = get_db_connection()
     c = conn.cursor()
     c.execute(
         "INSERT INTO complaints (name, mobile, complaint, category) VALUES (?, ?, ?, ?)",
-        (name, mobile, complaint, category)
+        (payload["name"], payload["mobile"], payload["complaint"], category)
     )
     conn.commit()
     conn.close()
