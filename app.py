@@ -172,6 +172,19 @@ def process_incoming_message(message, metadata):
     media_url = None
     media_mime_type = None
     file_name = None
+    latitude = None
+    longitude = None
+
+    if message_type == 'location':
+        location_info = message.get('location', {})
+        latitude = location_info.get('latitude')
+        longitude = location_info.get('longitude')
+        location_name = location_info.get('name') or ''
+        location_address = location_info.get('address') or ''
+        if location_name and location_address:
+            text_body = f"{location_name}\n{location_address}"
+        else:
+            text_body = location_name or location_address or text_body
 
     if message_type in {'image', 'video', 'audio', 'document'}:
         media_info = message.get(message_type, {})
@@ -214,8 +227,8 @@ def process_incoming_message(message, metadata):
         c.execute(
             """
             INSERT OR IGNORE INTO whatsapp_messages
-            (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, latitude, longitude, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 message_id,
@@ -228,6 +241,8 @@ def process_incoming_message(message, metadata):
                 media_url,
                 media_mime_type,
                 file_name,
+                latitude,
+                longitude,
                 created_at,
             ),
         )
@@ -236,8 +251,8 @@ def process_incoming_message(message, metadata):
         c.execute(
             """
             INSERT INTO whatsapp_messages
-            (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, latitude, longitude, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 None,
@@ -250,6 +265,8 @@ def process_incoming_message(message, metadata):
                 media_url,
                 media_mime_type,
                 file_name,
+                latitude,
+                longitude,
                 created_at,
             ),
         )
@@ -477,7 +494,7 @@ def safe_message_preview(message_type, text):
 def load_whatsapp_rows(conn):
     c = conn.cursor()
     c.execute("""
-        SELECT id, message_id, name, mobile, direction, message_type, text, media_url, file_name, media_mime_type, delivery_status, error_reason, created_at
+        SELECT id, message_id, name, mobile, direction, message_type, text, media_url, file_name, media_mime_type, latitude, longitude, delivery_status, error_reason, created_at
         FROM whatsapp_messages
         ORDER BY datetime(created_at) DESC, id DESC
     """)
@@ -504,6 +521,8 @@ def load_whatsapp_rows(conn):
                 "media_url": None,
                 "file_name": None,
                 "media_mime_type": None,
+                "latitude": None,
+                "longitude": None,
                 "delivery_status": None,
                 "error_reason": None,
                 "created_at": row["created_at"],
@@ -808,6 +827,8 @@ def init_db():
             media_url TEXT,
             media_mime_type TEXT,
             file_name TEXT,
+            latitude REAL,
+            longitude REAL,
             delivery_status TEXT,
             error_reason TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -826,6 +847,8 @@ def init_db():
         "media_url TEXT",
         "file_name TEXT",
         "media_mime_type TEXT",
+        "latitude REAL",
+        "longitude REAL",
         "delivery_status TEXT",
         "error_reason TEXT",
         "created_at TEXT DEFAULT CURRENT_TIMESTAMP",
@@ -1343,8 +1366,11 @@ def whatsapp_messages_api():
             "message_type": msg["message_type"],
             "text": msg["text"],
             "media_url": msg["media_url"],
+            "media_public_url": url_for('static', filename=msg["media_url"], _external=True) if msg["media_url"] else None,
             "file_name": msg["file_name"],
             "media_mime_type": msg.get("media_mime_type") if isinstance(msg, dict) else msg["media_mime_type"],
+            "latitude": msg.get("latitude") if isinstance(msg, dict) else msg["latitude"],
+            "longitude": msg.get("longitude") if isinstance(msg, dict) else msg["longitude"],
             "delivery_status": msg.get("delivery_status") if isinstance(msg, dict) else msg["delivery_status"],
             "error_reason": msg.get("error_reason") if isinstance(msg, dict) else msg["error_reason"],
             "created_at": msg["created_at"],
@@ -1405,6 +1431,8 @@ def send_whatsapp():
     media_url = None
     media_mime_type = None
     file_name = None
+    latitude = None
+    longitude = None
     message_id = None
 
     try:
@@ -1430,8 +1458,8 @@ def send_whatsapp():
     c.execute(
         """
         INSERT INTO whatsapp_messages
-        (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, latitude, longitude, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             message_id,
@@ -1444,6 +1472,8 @@ def send_whatsapp():
             media_url,
             media_mime_type,
             file_name,
+            latitude,
+            longitude,
             created_at,
         ),
     )
@@ -1679,8 +1709,8 @@ def send_whatsapp_interactive_api():
     c.execute(
         """
         INSERT INTO whatsapp_messages
-        (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, latitude, longitude, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             message_id,
@@ -1689,6 +1719,8 @@ def send_whatsapp_interactive_api():
             'outbound',
             'interactive',
             body_text,
+            None,
+            None,
             None,
             None,
             None,

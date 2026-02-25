@@ -113,6 +113,9 @@
   .msg-status.failed {color:#b91c1c; font-weight:600;}
   .msg-error {font-size:.74rem; margin-top:3px; color:#b91c1c;}
   .msg-media {display:block; width:100%; max-width:420px; max-height:320px; object-fit:contain; border-radius:8px; margin-bottom:6px; background:#fff;}
+  .msg-media-thumb {cursor:pointer;}
+  .msg-location-map {border:0; width:100%; max-width:420px; height:220px; border-radius:8px; margin-bottom:6px;}
+  .msg-location-link {display:inline-block; font-size:.78rem; margin-bottom:6px;}
   .msg-audio {max-width:320px; width:100%; margin-bottom:6px;}
   .wa-compose,.chat-typebar {display:flex; align-items:flex-end; gap:10px; padding:10px 12px; margin:0; background:#f0f2f5; border-top:1px solid #ddd; flex-shrink:0;}
   .wa-compose-form {display:flex; align-items:flex-end; gap:10px; width:100%; margin:0 !important; max-width:none !important; padding:0 !important; background:transparent !important; border-radius:0 !important; box-shadow:none !important;}
@@ -250,11 +253,17 @@
         {% for msg in messages %}
         <div class="msg-row {{ 'outbound' if msg['direction'] == 'outbound' else 'incoming' }}" data-message-id="{{ msg['id'] }}">
           <div class="msg-bubble">
-            {% if msg['message_type'] == 'image' and msg['media_url'] %}<img class="msg-media" src="{{ url_for('static', filename=msg['media_url']) }}" alt="image">{% endif %}
-            {% if msg['message_type'] == 'video' and msg['media_url'] %}<video class="msg-media" controls src="{{ url_for('static', filename=msg['media_url']) }}"></video>{% endif %}
+            {% if msg['message_type'] == 'location' and msg['latitude'] is not none and msg['longitude'] is not none %}
+              <iframe class="msg-location-map" loading="lazy" src="https://maps.google.com/maps?q={{ msg['latitude'] }},{{ msg['longitude'] }}&z=15&output=embed"></iframe>
+              <a class="msg-location-link" href="https://www.google.com/maps/search/?api=1&query={{ msg['latitude'] }},{{ msg['longitude'] }}" target="_blank" rel="noopener">Open location in Maps</a>
+            {% endif %}
+            {% if msg['message_type'] == 'image' and msg['media_url'] %}<img class="msg-media msg-media-thumb" data-media-type="image" src="{{ url_for('static', filename=msg['media_url']) }}" alt="image">{% endif %}
+            {% if msg['message_type'] == 'video' and msg['media_url'] %}<video class="msg-media msg-media-thumb" data-media-type="video" src="{{ url_for('static', filename=msg['media_url']) }}"></video>{% endif %}
             {% if msg['message_type'] == 'audio' and msg['media_url'] %}<audio class="msg-audio" controls src="{{ url_for('static', filename=msg['media_url']) }}"></audio>{% endif %}
             {% if msg['message_type'] == 'document' and msg['media_url'] %}
               <a class="btn btn-sm btn-light" href="{{ url_for('static', filename=msg['media_url']) }}" target="_blank"><i class="fas fa-file"></i> {{ msg['file_name'] or 'Document' }}</a>
+            {% elif msg['media_url'] %}
+              <a class="btn btn-sm btn-light" href="{{ url_for('static', filename=msg['media_url']) }}" target="_blank"><i class="fas fa-paperclip"></i> Open attachment</a>
             {% endif %}
             <p class="msg-text">{{ msg['text'] or ('Template message' if msg['message_type'] == 'template' else 'Interactive message') }}</p>
             {% if msg['error_reason'] %}<div class="msg-error">{{ msg['error_reason'] }}</div>{% endif %}
@@ -362,6 +371,13 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<div class="modal fade" id="mediaViewerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Attachment viewer</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body text-center" id="mediaViewerContent"></div>
+  </div></div>
+</div>
+
 <script>
 (() => {
   const activeMobile = '{{ active_mobile or "" }}';
@@ -386,6 +402,8 @@
   const newConversationBtn = document.getElementById('newConversationBtn');
   const templateBtn = document.getElementById('templateBtn');
   const interactiveBtn = document.getElementById('interactiveBtn');
+  const mediaViewerModalEl = document.getElementById('mediaViewerModal');
+  const mediaViewerContent = document.getElementById('mediaViewerContent');
   let lastMessageId = Number(chatBody?.dataset.lastMessageId || 0);
   let lastInboxMessageId = lastMessageId;
   let templates = [];
@@ -468,16 +486,37 @@
     });
   };
 
+
+  const getMapEmbedUrl = (lat, lng) => `https://maps.google.com/maps?q=${encodeURIComponent(`${lat},${lng}`)}&z=15&output=embed`;
+  const getMapExternalUrl = (lat, lng) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
+
+  const openMediaViewer = (type, src) => {
+    if (!mediaViewerModal || !mediaViewerContent || !src) return;
+    if (type === 'image') {
+      mediaViewerContent.innerHTML = `<img class="img-fluid rounded" src="${esc(src)}" alt="image">`;
+    } else if (type === 'video') {
+      mediaViewerContent.innerHTML = `<video class="w-100 rounded" controls autoplay src="${esc(src)}"></video>`;
+    } else {
+      mediaViewerContent.innerHTML = `<a class="btn btn-primary" target="_blank" href="${esc(src)}">Open attachment</a>`;
+    }
+    mediaViewerModal.show();
+  };
+
   const renderMessage = (m) => {
     const row = document.createElement('div');
     row.className = `msg-row ${m.direction === 'outbound' ? 'outbound' : 'incoming'}`;
     row.dataset.messageId = m.id;
     const media = m.media_url ? `${staticBase}${m.media_url}` : '';
     let html = '';
-    if (m.message_type === 'image') html += media ? `<img class="msg-media" src="${media}" alt="image">` : '';
-    if (m.message_type === 'video') html += media ? `<video class="msg-media" controls src="${media}"></video>` : '';
+    if (m.message_type === 'location' && m.latitude != null && m.longitude != null) {
+      html += `<iframe class="msg-location-map" loading="lazy" src="${getMapEmbedUrl(m.latitude, m.longitude)}"></iframe>`;
+      html += `<a class="msg-location-link" target="_blank" href="${getMapExternalUrl(m.latitude, m.longitude)}">Open location in Maps</a>`;
+    }
+    if (m.message_type === 'image') html += media ? `<img class="msg-media msg-media-thumb" data-media-type="image" src="${media}" alt="image">` : '';
+    if (m.message_type === 'video') html += media ? `<video class="msg-media msg-media-thumb" data-media-type="video" src="${media}"></video>` : '';
     if (m.message_type === 'audio') html += media ? `<audio class="msg-audio" controls src="${media}"></audio>` : '';
     if (m.message_type === 'document') html += media ? `<a target="_blank" class="btn btn-sm btn-light" href="${media}"><i class="fas fa-file"></i> ${esc(m.file_name || 'Document')}</a>` : '';
+    if (!['image','video','audio','document','location','text','template','interactive'].includes(m.message_type) && media) html += `<a target="_blank" class="btn btn-sm btn-light" href="${media}"><i class="fas fa-paperclip"></i> Open attachment</a>`;
     const text = esc(m.text || (m.message_type === 'template' ? 'Template message' : m.message_type === 'interactive' ? 'Interactive message' : ''));
     const status = esc((m.delivery_status || '').toUpperCase());
     const statusClass = (m.delivery_status || '').toLowerCase() === 'failed' ? 'failed' : '';
@@ -515,6 +554,15 @@
         <div class="wa-time">${fmt(c.created_at)}</div>
       </a>`).join('') : '<div class="p-4 text-center text-muted">No chats yet.</div>';
   };
+
+
+  chatBody?.addEventListener('click', (event) => {
+    const mediaEl = event.target.closest('.msg-media-thumb');
+    if (!mediaEl) return;
+    const mediaType = mediaEl.dataset.mediaType || 'image';
+    const mediaSrc = mediaEl.getAttribute('src');
+    openMediaViewer(mediaType, mediaSrc);
+  });
 
   async function poll() {
     const q = new URLSearchParams({include_contacts: '1'});
@@ -596,6 +644,7 @@
 
   const templateModal = new bootstrap.Modal(document.getElementById('templateModal'));
   const interactiveModal = new bootstrap.Modal(document.getElementById('interactiveModal'));
+  const mediaViewerModal = mediaViewerModalEl ? new bootstrap.Modal(mediaViewerModalEl) : null;
   const newConversationModal = new bootstrap.Modal(document.getElementById('newConversationModal'));
 
   function extractPlaceholderVars(text) {
