@@ -67,8 +67,8 @@
     .header {
       display: flex; align-items: center; justify-content: space-between;
       padding: 18px 26px;
-      background: rgba(19,19,26,0.88);
-      border: 1px solid var(--border);
+      background: linear-gradient(135deg, rgba(245,245,247,0.96), rgba(232,235,240,0.92));
+      border: 1px solid rgba(255,255,255,0.55);
       border-radius: 20px;
       backdrop-filter: blur(24px);
       margin-bottom: 26px;
@@ -81,14 +81,14 @@
     .back-btn {
       width:42px; height:42px; border-radius:12px;
       border:1px solid var(--border); background:transparent;
-      color:var(--muted); display:flex; align-items:center; justify-content:center;
+      color:#4b5563; display:flex; align-items:center; justify-content:center;
       cursor:pointer; transition:all 0.25s ease;
     }
     .back-btn:hover {
       border-color:var(--primary); color:var(--primary);
       background:var(--primary-dim); box-shadow:0 0 16px var(--primary-glow);
     }
-    .logo img { height: 44px; display:block; }
+    .logo img { height: 44px; display:block; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.12)); }
     .secure-badge {
       display:flex; align-items:center; gap:8px;
       background:rgba(57,217,138,0.08); border:1px solid rgba(57,217,138,0.22);
