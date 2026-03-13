@@ -31,7 +31,7 @@
       <!-- Optional logo (auto-hides if missing) -->
       <img class="brand" src="{{ url_for('static', filename='img/logo.png') }}" alt="Brand" onerror="this.style.display='none'">
 
-      <h2>Welcome Back</h2>
+      <h2>{{ login_title or "Welcome Back" }}</h2>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -53,7 +53,7 @@
         <button type="button" class="pw-toggle" data-toggle="password" aria-label="Show password">👁</button>
       </div>
 
-      <button type="submit" class="btn">Login</button>
+      <button type="submit" class="btn">{{ login_button_label or "Login" }}</button>
 
       <p class="muted">
         No account? <a href="{{ url_for('auth.signup') }}">Sign up</a>

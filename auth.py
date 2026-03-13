@@ -49,6 +49,18 @@ def signup():
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
+    return _handle_login(require_admin=False)
+
+
+@auth_bp.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    return _handle_login(require_admin=True)
+
+
+def _handle_login(require_admin=False):
+    login_title = 'Admin Login' if require_admin else 'Welcome Back'
+    login_button_label = 'Login as Admin' if require_admin else 'Login'
+
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
@@ -60,7 +72,11 @@ def login():
 
         if not row or not check_password_hash(row[3], password):
             flash('Invalid email or password.', 'error')
-            return render_template('auth/login.html')
+            return render_template('auth/login.html', login_title=login_title, login_button_label=login_button_label)
+
+        if require_admin and row[4] != 'admin':
+            flash('Admin access required for this login.', 'error')
+            return render_template('auth/login.html', login_title=login_title, login_button_label=login_button_label)
 
         session['user_id'] = row[0]
         session['user_name'] = row[1]
@@ -69,7 +85,7 @@ def login():
         flash(f'Welcome back, {row[1]}!', 'success')
         return redirect(url_for('dashboard'))
 
-    return render_template('auth/login.html')
+    return render_template('auth/login.html', login_title=login_title, login_button_label=login_button_label)
 
 @auth_bp.route('/logout')
 def logout():

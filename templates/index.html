@@ -47,8 +47,14 @@
             <li class="nav-item">
               <a class="nav-link" href="#contact">Contact</a>
             </li>
-            <li class="nav-item">
-              <a href="{{ url_for('auth.login') }}" type="button" class="btn tombol">Login</a>
+            <li class="nav-item dropdown">
+              <a class="btn tombol dropdown-toggle" href="#" id="loginDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                Login
+              </a>
+              <div class="dropdown-menu" aria-labelledby="loginDropdown">
+                <a class="dropdown-item" href="{{ url_for('auth.login') }}">User Login</a>
+                <a class="dropdown-item" href="{{ url_for('auth.admin_login') }}">Admin Login</a>
+              </div>
             </li>
           </ul>
         </div>
