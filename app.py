@@ -1124,12 +1124,14 @@ def payment():
 def create_payment_order():
     data = request.get_json(silent=True) or {}
     try:
-        amount = int(data.get('amount', 0))
+        amount_rupees = float(data.get('amount', 0))
     except (TypeError, ValueError):
         return jsonify({'error': 'Invalid amount'}), 400
 
-    if amount < 1000:
+    if amount_rupees < 10:
         return jsonify({'error': 'Amount must be at least ₹10'}), 400
+
+    amount_paise = int(round(amount_rupees * 100))
 
     if not razorpay_config_ready():
         return jsonify({'error': 'Razorpay is not configured on server'}), 503
@@ -1144,10 +1146,10 @@ def create_payment_order():
         notes['billing_cycle'] = billing_cycle
 
     try:
-        order = create_razorpay_order(amount, receipt, notes=notes)
+        order = create_razorpay_order(amount_paise, receipt, notes=notes)
         return jsonify({
             'id': order.get('id'),
-            'amount': order.get('amount', amount),
+            'amount': order.get('amount', amount_paise),
             'currency': order.get('currency', 'INR'),
             'key': os.environ.get('RAZORPAY_KEY_ID', ''),
         })

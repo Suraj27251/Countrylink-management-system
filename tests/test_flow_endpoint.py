@@ -81,7 +81,7 @@ def test_razorpay_order_endpoint_returns_503_when_not_configured(tmp_path, monke
     monkeypatch.delenv("RAZORPAY_KEY_ID", raising=False)
     monkeypatch.delenv("RAZORPAY_KEY_SECRET", raising=False)
 
-    response = client.post("/api/payments/razorpay/order", json={"amount": 1500})
+    response = client.post("/api/payments/razorpay/order", json={"amount": 499})
 
     assert response.status_code == 503
     assert response.get_json() == {"error": "Razorpay is not configured on server"}
@@ -103,7 +103,7 @@ def test_razorpay_order_endpoint_creates_order(tmp_path, monkeypatch):
     def fake_post(url, auth=None, json=None, timeout=0):
         assert url.endswith("/orders")
         assert auth == ("rzp_test_key", "test_secret")
-        assert json["amount"] == 2499
+        assert json["amount"] == 249900
         assert json["currency"] == "INR"
         return FakeResponse()
 
@@ -121,3 +121,15 @@ def test_razorpay_order_endpoint_creates_order(tmp_path, monkeypatch):
         "currency": "INR",
         "key": "rzp_test_key",
     }
+
+
+def test_razorpay_order_endpoint_rejects_below_minimum_amount(tmp_path, monkeypatch):
+    _configure_test_db(tmp_path)
+    client = app_module.app.test_client()
+    monkeypatch.setenv("RAZORPAY_KEY_ID", "rzp_test_key")
+    monkeypatch.setenv("RAZORPAY_KEY_SECRET", "test_secret")
+
+    response = client.post("/api/payments/razorpay/order", json={"amount": 9})
+
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "Amount must be at least ₹10"}
