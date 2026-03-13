@@ -1,9 +1,5 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/countrylinks/public_html/
-    - /bin/cp -R templates $DEPLOYPATH
-    - /bin/cp -R static $DEPLOYPATH
-    - /bin/cp app.py $DEPLOYPATH
-    - /bin/cp auth.py $DEPLOYPATH
-    - /bin/cp requirements.txt $DEPLOYPATH
+    - export DEPLOYPATH=/home/countrylinks/countrylink/
+    - /bin/echo "Deployment completed — no file copy required"
