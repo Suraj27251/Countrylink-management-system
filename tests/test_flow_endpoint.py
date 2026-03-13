@@ -63,3 +63,13 @@ def test_flow_endpoint_inserts_complaint_for_valid_payload(tmp_path):
     assert row[1] == "1234567890"
     assert row[2] == "Internet is down"
     assert row[4] == "Web"
+
+
+def test_payment_route_renders_payment_template(tmp_path):
+    _configure_test_db(tmp_path)
+    client = app_module.app.test_client()
+
+    response = client.get("/payment")
+
+    assert response.status_code == 200
+    assert b"Internet Plan Checkout" in response.data
