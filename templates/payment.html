@@ -368,7 +368,13 @@
     ::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:3px;}
 
     @media(max-width:960px){.main-content{grid-template-columns:1fr;}.right-panel{position:static;}}
-    @media(max-width:560px){.header{padding:14px 16px;}.cycle-btn{padding:8px 10px;font-size:0.76rem;}}
+    @media(max-width:560px){
+      .header{padding:14px 16px;gap:10px;}
+      .logo img{height:34px;}
+      .secure-badge{padding:6px 12px;font-size:0.64rem;letter-spacing:0.06em;}
+      .secure-dot{width:6px;height:6px;}
+      .cycle-btn{padding:8px 10px;font-size:0.76rem;}
+    }
   </style>
 </head>
 <body>
