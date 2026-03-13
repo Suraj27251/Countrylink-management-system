@@ -73,3 +73,51 @@ def test_payment_route_renders_payment_template(tmp_path):
 
     assert response.status_code == 200
     assert b"Internet Plan Checkout" in response.data
+
+
+def test_razorpay_order_endpoint_returns_503_when_not_configured(tmp_path, monkeypatch):
+    _configure_test_db(tmp_path)
+    client = app_module.app.test_client()
+    monkeypatch.delenv("RAZORPAY_KEY_ID", raising=False)
+    monkeypatch.delenv("RAZORPAY_KEY_SECRET", raising=False)
+
+    response = client.post("/api/payments/razorpay/order", json={"amount": 1500})
+
+    assert response.status_code == 503
+    assert response.get_json() == {"error": "Razorpay is not configured on server"}
+
+
+def test_razorpay_order_endpoint_creates_order(tmp_path, monkeypatch):
+    _configure_test_db(tmp_path)
+    client = app_module.app.test_client()
+    monkeypatch.setenv("RAZORPAY_KEY_ID", "rzp_test_key")
+    monkeypatch.setenv("RAZORPAY_KEY_SECRET", "test_secret")
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"id": "order_123", "amount": 2499, "currency": "INR"}
+
+    def fake_post(url, auth=None, json=None, timeout=0):
+        assert url.endswith("/orders")
+        assert auth == ("rzp_test_key", "test_secret")
+        assert json["amount"] == 2499
+        assert json["currency"] == "INR"
+        return FakeResponse()
+
+    monkeypatch.setattr(app_module.requests, "post", fake_post)
+
+    response = client.post(
+        "/api/payments/razorpay/order",
+        json={"amount": 2499, "plan_name": "100 Mbps Unlimited", "billing_cycle": "monthly"},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "id": "order_123",
+        "amount": 2499,
+        "currency": "INR",
+        "key": "rzp_test_key",
+    }

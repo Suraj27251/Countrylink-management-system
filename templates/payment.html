@@ -644,6 +644,7 @@
   const upiId = '9765009850@okbizaxis';
   const upiName = 'COUNTRYLINK BROADBAND SERVICES';
   const upiNote = 'Countrylink Broadband Subscription';
+  const razorpayPublicKey = {{ razorpay_key_id | tojson }};
   let billingCycle = 'monthly';
 
   document.querySelectorAll('.plan-option').forEach(option => {
@@ -729,22 +730,55 @@
   async function payWithRazorpay(amount) {
     amount = Number(amount);
     if (!amount || amount <= 0) { alert("Invalid payment amount. Please refresh the page."); return; }
+    const planName = document.querySelector('input[name="plan"]:checked')?.dataset.planName || 'Selected Plan';
     let order;
     try {
-      const res = await fetch('create-order.php', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount })
+      const res = await fetch('/api/payments/razorpay/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, plan_name: planName, billing_cycle: billingCycle })
       });
-      if (!res.ok) { alert('Order API error: ' + await res.text()); return; }
       order = await res.json();
-    } catch (err) { alert('Network or server error: ' + err); return; }
+      if (!res.ok) { alert(order.error || 'Unable to create payment order.'); return; }
+    } catch (err) {
+      alert('Network or server error: ' + err);
+      return;
+    }
+
     const options = {
-      key: "rzp_live_S2uFzG02Xbl4AA", amount: order.amount, currency: "INR",
-      name: "CountryLink Broadband", description: "Internet Subscription", order_id: order.id,
-      handler: function(response) { alert("Payment Successful ✅"); },
-      theme: { color: "#ff6b1a" }
+      key: order.key || razorpayPublicKey,
+      amount: order.amount,
+      currency: order.currency || 'INR',
+      name: 'CountryLink Broadband',
+      description: `Internet Subscription - ${planName}`,
+      order_id: order.id,
+      handler: async function (response) {
+        try {
+          const verifyResponse = await fetch('/api/payments/razorpay/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(response)
+          });
+          const verification = await verifyResponse.json();
+          if (verifyResponse.ok && verification.verified) {
+            alert('Payment Successful ✅');
+          } else {
+            alert('Payment captured but signature verification failed. Please contact support.');
+          }
+        } catch (error) {
+          alert('Payment completed but verification failed due to network issue.');
+        }
+      },
+      theme: { color: '#ff6b1a' }
     };
-    new Razorpay(options).open();
+
+    if (!options.key || !options.order_id) {
+      alert('Razorpay is not configured correctly. Please contact support.');
+      return;
+    }
+
+    const razorpay = new Razorpay(options);
+    razorpay.open();
   }
 
   function buildUpiQrUrl(amount, planName) {
