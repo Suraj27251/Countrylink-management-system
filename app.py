@@ -1072,6 +1072,11 @@ def track():
     return render_template('track.html', complaints=complaints, status=status)
 
 
+@app.route('/payment')
+def payment():
+    return render_template('payment.html')
+
+
 @app.route('/update_status/<int:complaint_id>/<status>')
 @login_required
 def update_status(complaint_id, status):
