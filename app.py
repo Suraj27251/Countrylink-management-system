@@ -53,13 +53,38 @@ log_whatsapp_env_warnings()
 RAZORPAY_API_BASE = 'https://api.razorpay.com/v1'
 
 
+
+def _get_first_env(*keys):
+    for key in keys:
+        value = os.environ.get(key)
+        if value:
+            return value.strip()
+    return ''
+
+
+def get_razorpay_key_id():
+    return _get_first_env('RAZORPAY_KEY_ID', 'RAZORPAY_KEY', 'RAZORPAY_API_KEY', 'KEY_ID')
+
+
+def get_razorpay_key_secret():
+    return _get_first_env('RAZORPAY_KEY_SECRET', 'RAZORPAY_SECRET', 'RAZORPAY_API_SECRET', 'KEY_SECRET')
+
+
+def get_missing_razorpay_env_keys():
+    missing = []
+    if not get_razorpay_key_id():
+        missing.append('RAZORPAY_KEY_ID')
+    if not get_razorpay_key_secret():
+        missing.append('RAZORPAY_KEY_SECRET')
+    return missing
+
 def razorpay_config_ready():
-    return bool(os.environ.get('RAZORPAY_KEY_ID') and os.environ.get('RAZORPAY_KEY_SECRET'))
+    return bool(get_razorpay_key_id() and get_razorpay_key_secret())
 
 
 def create_razorpay_order(amount_paise, receipt, notes=None):
-    key_id = os.environ.get('RAZORPAY_KEY_ID')
-    key_secret = os.environ.get('RAZORPAY_KEY_SECRET')
+    key_id = get_razorpay_key_id()
+    key_secret = get_razorpay_key_secret()
     if not key_id or not key_secret:
         raise RuntimeError('Razorpay credentials are not configured')
 
@@ -83,7 +108,7 @@ def create_razorpay_order(amount_paise, receipt, notes=None):
 
 
 def verify_razorpay_signature(order_id, payment_id, signature):
-    key_secret = os.environ.get('RAZORPAY_KEY_SECRET', '')
+    key_secret = get_razorpay_key_secret()
     if not key_secret:
         return False
     message = f"{order_id}|{payment_id}".encode('utf-8')
@@ -1117,7 +1142,7 @@ def track():
 
 @app.route('/payment')
 def payment():
-    return render_template('payment.html', razorpay_key_id=os.environ.get('RAZORPAY_KEY_ID', ''))
+    return render_template('payment.html', razorpay_key_id=get_razorpay_key_id())
 
 
 @app.route('/api/payments/razorpay/order', methods=['POST'])
@@ -1134,7 +1159,8 @@ def create_payment_order():
     amount_paise = int(round(amount_rupees * 100))
 
     if not razorpay_config_ready():
-        return jsonify({'error': 'Razorpay is not configured on server'}), 503
+        missing_keys = get_missing_razorpay_env_keys()
+        return jsonify({'error': 'Razorpay is not configured on server', 'missing': missing_keys}), 503
 
     plan_name = (data.get('plan_name') or '').strip()
     billing_cycle = (data.get('billing_cycle') or '').strip()
@@ -1151,7 +1177,7 @@ def create_payment_order():
             'id': order.get('id'),
             'amount': order.get('amount', amount_paise),
             'currency': order.get('currency', 'INR'),
-            'key': os.environ.get('RAZORPAY_KEY_ID', ''),
+            'key': get_razorpay_key_id(),
         })
     except requests.RequestException as exc:
         app.logger.exception('Failed to create Razorpay order: %s', exc)
