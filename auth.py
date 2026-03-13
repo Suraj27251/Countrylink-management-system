@@ -83,7 +83,9 @@ def _handle_login(require_admin=False):
         session['user_email'] = row[2]
         session['user_role'] = row[4]
         flash(f'Welcome back, {row[1]}!', 'success')
-        return redirect(url_for('dashboard'))
+        if require_admin:
+            return redirect(url_for('dashboard'))
+        return redirect(url_for('landing'))
 
     return render_template('auth/login.html', login_title=login_title, login_button_label=login_button_label)
 
