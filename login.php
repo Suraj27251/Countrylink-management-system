@@ -16,13 +16,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($email === '' || $password === '') {
         $error = 'Email and password are required.';
     } else {
-        $stmt = $pdo->prepare('SELECT id, name, email, password, status FROM users WHERE email = :email LIMIT 1');
+        $stmt = $pdo->prepare(
+            'SELECT
+                u.id,
+                u.name,
+                u.email,
+                u.password,
+                u.status,
+                EXISTS(
+                    SELECT 1
+                    FROM otp_verifications ov
+                    WHERE ov.user_id = u.id
+                      AND ov.verified = 1
+                    LIMIT 1
+                ) AS otp_verified
+             FROM users u
+             WHERE u.email = :email
+             LIMIT 1'
+        );
         $stmt->execute([':email' => $email]);
         $user = $stmt->fetch();
 
         if (!$user || !password_verify($password, $user['password'])) {
             $error = 'Invalid login credentials.';
-        } elseif ($user['status'] !== 'active') {
+        } elseif ($user['status'] !== 'active' || (int) $user['otp_verified'] !== 1) {
             $error = 'Account not yet approved by admin.';
         } else {
             $_SESSION['user_id'] = (int) $user['id'];
