@@ -1,4 +1,6 @@
 import os
+import hmac
+import hashlib
 from pathlib import Path
 import csv
 import pickle
@@ -47,6 +49,72 @@ def log_whatsapp_env_warnings():
 
 
 log_whatsapp_env_warnings()
+
+RAZORPAY_API_BASE = 'https://api.razorpay.com/v1'
+
+
+
+def _get_first_env(*keys):
+    for key in keys:
+        value = os.environ.get(key)
+        if value:
+            return value.strip()
+    return ''
+
+
+def get_razorpay_key_id():
+    return _get_first_env('RAZORPAY_KEY_ID', 'RAZORPAY_KEY', 'RAZORPAY_API_KEY', 'KEY_ID')
+
+
+def get_razorpay_key_secret():
+    return _get_first_env('RAZORPAY_KEY_SECRET', 'RAZORPAY_SECRET', 'RAZORPAY_API_SECRET', 'KEY_SECRET')
+
+
+def get_missing_razorpay_env_keys():
+    missing = []
+    if not get_razorpay_key_id():
+        missing.append('RAZORPAY_KEY_ID')
+    if not get_razorpay_key_secret():
+        missing.append('RAZORPAY_KEY_SECRET')
+    return missing
+
+def razorpay_config_ready():
+    return bool(get_razorpay_key_id() and get_razorpay_key_secret())
+
+
+def create_razorpay_order(amount_paise, receipt, notes=None):
+    key_id = get_razorpay_key_id()
+    key_secret = get_razorpay_key_secret()
+    if not key_id or not key_secret:
+        raise RuntimeError('Razorpay credentials are not configured')
+
+    payload = {
+        'amount': int(amount_paise),
+        'currency': 'INR',
+        'receipt': receipt,
+        'payment_capture': 1,
+    }
+    if notes:
+        payload['notes'] = notes
+
+    response = requests.post(
+        f"{RAZORPAY_API_BASE}/orders",
+        auth=(key_id, key_secret),
+        json=payload,
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def verify_razorpay_signature(order_id, payment_id, signature):
+    key_secret = get_razorpay_key_secret()
+    if not key_secret:
+        return False
+    message = f"{order_id}|{payment_id}".encode('utf-8')
+    expected = hmac.new(key_secret.encode('utf-8'), message, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature)
+
 
 # ---- WhatsApp helpers ----
 def normalize_mobile(raw_mobile):
@@ -1070,6 +1138,64 @@ def track():
         conn.close()
 
     return render_template('track.html', complaints=complaints, status=status)
+
+
+@app.route('/payment')
+def payment():
+    return render_template('payment.html', razorpay_key_id=get_razorpay_key_id())
+
+
+@app.route('/api/payments/razorpay/order', methods=['POST'])
+def create_payment_order():
+    data = request.get_json(silent=True) or {}
+    try:
+        amount_rupees = float(data.get('amount', 0))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Invalid amount'}), 400
+
+    if amount_rupees < 10:
+        return jsonify({'error': 'Amount must be at least ₹10'}), 400
+
+    amount_paise = int(round(amount_rupees * 100))
+
+    if not razorpay_config_ready():
+        missing_keys = get_missing_razorpay_env_keys()
+        return jsonify({'error': 'Razorpay is not configured on server', 'missing': missing_keys}), 503
+
+    plan_name = (data.get('plan_name') or '').strip()
+    billing_cycle = (data.get('billing_cycle') or '').strip()
+    receipt = f"cl-{uuid.uuid4().hex[:12]}"
+    notes = {'source': 'payment_page'}
+    if plan_name:
+        notes['plan_name'] = plan_name
+    if billing_cycle:
+        notes['billing_cycle'] = billing_cycle
+
+    try:
+        order = create_razorpay_order(amount_paise, receipt, notes=notes)
+        return jsonify({
+            'id': order.get('id'),
+            'amount': order.get('amount', amount_paise),
+            'currency': order.get('currency', 'INR'),
+            'key': get_razorpay_key_id(),
+        })
+    except requests.RequestException as exc:
+        app.logger.exception('Failed to create Razorpay order: %s', exc)
+        return jsonify({'error': 'Unable to create Razorpay order'}), 502
+
+
+@app.route('/api/payments/razorpay/verify', methods=['POST'])
+def verify_payment_signature():
+    data = request.get_json(silent=True) or {}
+    order_id = (data.get('razorpay_order_id') or '').strip()
+    payment_id = (data.get('razorpay_payment_id') or '').strip()
+    signature = (data.get('razorpay_signature') or '').strip()
+
+    if not order_id or not payment_id or not signature:
+        return jsonify({'error': 'Missing payment verification fields'}), 400
+
+    verified = verify_razorpay_signature(order_id, payment_id, signature)
+    return jsonify({'verified': verified}), (200 if verified else 400)
 
 
 @app.route('/update_status/<int:complaint_id>/<status>')
