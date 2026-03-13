@@ -52,8 +52,8 @@
                 Login
               </a>
               <div class="dropdown-menu" aria-labelledby="loginDropdown">
-                <a class="dropdown-item" href="#" aria-disabled="true">User Login</a>
-                <a class="dropdown-item" href="{{ url_for('dashboard') }}">Admin Login</a>
+                <a class="dropdown-item" href="{{ url_for('auth.login') }}">User Login</a>
+                <a class="dropdown-item" href="{{ url_for('auth.admin_login') }}">Admin Login</a>
               </div>
             </li>
           </ul>
