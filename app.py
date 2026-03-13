@@ -1013,10 +1013,6 @@ def landing():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    if session.get('user_role') != 'admin':
-        flash('Admin access required to open the dashboard.', 'error')
-        return redirect(url_for('landing'))
-
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
