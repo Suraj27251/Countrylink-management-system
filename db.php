@@ -26,7 +26,7 @@ try {
             email VARCHAR(150) NOT NULL UNIQUE,
             phone VARCHAR(20) NOT NULL,
             password VARCHAR(255) NOT NULL,
-            status ENUM('pending','active') NOT NULL DEFAULT 'pending',
+            status ENUM('pending','active') DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
     );
@@ -37,13 +37,11 @@ try {
             user_id INT NOT NULL,
             otp_code VARCHAR(10) NOT NULL,
             expires_at DATETIME NOT NULL,
-            verified BOOLEAN NOT NULL DEFAULT 0,
+            verified BOOLEAN DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
     );
-
-    $pdo->exec("ALTER TABLE users MODIFY status ENUM('pending','active') NOT NULL DEFAULT 'pending'");
 } catch (PDOException $e) {
     http_response_code(500);
     exit('Database connection failed.');
