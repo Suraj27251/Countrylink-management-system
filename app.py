@@ -15,9 +15,6 @@ from collections import defaultdict
 from functools import wraps
 from werkzeug.utils import secure_filename
 
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.naive_bayes import MultinomialNB
-
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me')
 
