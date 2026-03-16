@@ -365,6 +365,12 @@
       </div>
 
       <div id="interactiveFlowPane" class="interactive-pane d-none">
+        <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+          <label class="form-label mb-0">Flow</label>
+          <button class="btn btn-sm btn-outline-secondary" id="syncFlowsBtn" type="button">Sync flows</button>
+        </div>
+        <div class="mb-2"><select id="flowSelect" class="form-select"><option value="">Select flow</option></select></div>
+        <div class="small text-muted mb-2">If needed, you can still enter Flow ID manually.</div>
         <div class="mb-2"><label class="form-label">Flow ID</label><input id="flowId" class="form-control" placeholder="Enter flow id"></div>
         <div class="mb-2"><label class="form-label">Button text</label><input id="flowButtonText" class="form-control" maxlength="20" value="Open"></div>
       </div>
@@ -390,6 +396,8 @@
   const templateListUrl = '{{ url_for("whatsapp_templates_api") }}';
   const sendTemplateUrl = '{{ url_for("send_whatsapp_template_api") }}';
   const sendInteractiveUrl = '{{ url_for("send_whatsapp_interactive_api") }}';
+  const flowsUrl = '{{ url_for("whatsapp_flows_api") }}';
+  const syncFlowsUrl = '{{ url_for("sync_whatsapp_flows_api") }}';
   const staticBase = '{{ url_for("static", filename="") }}';
 
   const chatBody = document.getElementById('chatBody');
@@ -814,7 +822,31 @@
 
   const buttonsWrap = document.getElementById('interactiveButtons');
   const listSectionsWrap = document.getElementById('listSectionsWrap');
+  const flowSelect = document.getElementById('flowSelect');
+  const flowIdInput = document.getElementById('flowId');
+  const syncFlowsBtn = document.getElementById('syncFlowsBtn');
   let interactiveType = 'button';
+  let flows = [];
+
+  const renderFlowOptions = () => {
+    if (!flowSelect) return;
+    const options = flows.map((flow) => {
+      const name = flow.name || flow.id;
+      const status = (flow.status || '').toUpperCase();
+      return `<option value="${esc(flow.id)}">${esc(name)}${status ? ` (${esc(status)})` : ''}</option>`;
+    }).join('');
+    flowSelect.innerHTML = '<option value="">Select flow</option>' + options;
+  };
+
+  async function loadFlows(forceSync = false) {
+    const url = forceSync ? `${flowsUrl}?sync=1` : flowsUrl;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to load flows');
+    flows = data.data || [];
+    renderFlowOptions();
+    return flows;
+  }
 
   const reindexButtonRows = () => {
     [...buttonsWrap.querySelectorAll('.btn-row')].forEach((row, idx) => {
@@ -894,6 +926,7 @@
     document.getElementById('ctaButtonUrl').value = '';
     document.getElementById('flowId').value = '';
     document.getElementById('flowButtonText').value = 'Open';
+    if (flowSelect) flowSelect.value = '';
     setInteractiveType('button');
   };
 
@@ -903,8 +936,36 @@
     tabBtn.addEventListener('click', () => setInteractiveType(tabBtn.dataset.type));
   });
 
-  interactiveBtn?.addEventListener('click', () => {
+  flowSelect?.addEventListener('change', () => {
+    if (flowSelect.value) {
+      flowIdInput.value = flowSelect.value;
+    }
+  });
+
+  syncFlowsBtn?.addEventListener('click', async () => {
+    syncFlowsBtn.disabled = true;
+    try {
+      const res = await fetch(syncFlowsUrl, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to sync flows');
+        return;
+      }
+      flows = data.data || [];
+      renderFlowOptions();
+      alert(`Synced ${flows.length} flow(s).`);
+    } finally {
+      syncFlowsBtn.disabled = false;
+    }
+  });
+
+  interactiveBtn?.addEventListener('click', async () => {
     resetInteractiveForm();
+    try {
+      await loadFlows(false);
+    } catch (err) {
+      console.error(err);
+    }
     interactiveModal.show();
   });
 
