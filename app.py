@@ -1,6 +1,7 @@
 import os
 import hmac
 import hashlib
+import json
 from pathlib import Path
 import csv
 import pickle
@@ -40,6 +41,7 @@ REQUIRED_WHATSAPP_ENV_VARS = (
     'WEBHOOK_VERIFY_TOKEN',
     'WHATSAPP_API_VERSION',
 )
+DEFAULT_ENQUIRY_FLOW_NAME = os.environ.get('WHATSAPP_ENQUIRY_FLOW_NAME', 'enquiry').strip() or 'enquiry'
 
 
 def log_whatsapp_env_warnings():
@@ -731,6 +733,118 @@ def fetch_whatsapp_templates(limit=100):
     response.raise_for_status()
     return response.json().get('data', [])
 
+
+def fetch_whatsapp_flows(limit=100):
+    headers = get_whatsapp_headers()
+    waba_id = get_whatsapp_waba_id()
+    url = f"https://graph.facebook.com/{WHATSAPP_API_VERSION}/{waba_id}/flows"
+    response = requests.get(
+        url,
+        headers=headers,
+        params={
+            'limit': limit,
+            'fields': 'id,name,status,categories,updated_at,validation_errors',
+        },
+        timeout=30,
+    )
+    response.raise_for_status()
+    return response.json().get('data', [])
+
+
+def load_cached_whatsapp_flows(conn):
+    c = conn.cursor()
+    c.execute(
+        """
+        SELECT flow_id, flow_name, status, categories, updated_at
+        FROM whatsapp_flows
+        ORDER BY COALESCE(flow_name, flow_id) COLLATE NOCASE
+        """
+    )
+    flows = []
+    for row in c.fetchall():
+        categories = []
+        if row[3]:
+            try:
+                categories = json.loads(row[3])
+            except json.JSONDecodeError:
+                categories = []
+        flows.append(
+            {
+                'id': row[0],
+                'name': row[1] or row[0],
+                'status': row[2] or '',
+                'categories': categories,
+                'updated_at': row[4],
+            }
+        )
+    return flows
+
+
+def sync_whatsapp_flows_to_db(limit=100):
+    fetched_flows = fetch_whatsapp_flows(limit=limit)
+    synced_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    conn = get_db_connection()
+    c = conn.cursor()
+    for flow in fetched_flows:
+        flow_id = str(flow.get('id') or '').strip()
+        if not flow_id:
+            continue
+        flow_name = (flow.get('name') or '').strip()
+        status = (flow.get('status') or '').strip()
+        categories = flow.get('categories')
+        if not isinstance(categories, list):
+            categories = []
+        c.execute(
+            """
+            INSERT INTO whatsapp_flows (flow_id, flow_name, status, categories, raw_json, synced_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(flow_id) DO UPDATE SET
+                flow_name=excluded.flow_name,
+                status=excluded.status,
+                categories=excluded.categories,
+                raw_json=excluded.raw_json,
+                synced_at=excluded.synced_at,
+                updated_at=excluded.updated_at
+            """,
+            (
+                flow_id,
+                flow_name,
+                status,
+                json.dumps(categories),
+                json.dumps(flow),
+                synced_at,
+                (flow.get('updated_at') or '').strip() or synced_at,
+            ),
+        )
+    conn.commit()
+    flows = load_cached_whatsapp_flows(conn)
+    conn.close()
+    return flows
+
+
+def find_whatsapp_flow(flow_name):
+    normalized = (flow_name or '').strip().lower()
+    if not normalized:
+        return None
+
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute(
+        """
+        SELECT flow_id, flow_name, status
+        FROM whatsapp_flows
+        WHERE LOWER(COALESCE(flow_name, '')) = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (normalized,),
+    )
+    row = c.fetchone()
+    conn.close()
+    if not row:
+        return None
+    return {'id': row[0], 'name': row[1] or row[0], 'status': row[2] or ''}
+
 # ---- AI categorization setup ----
 MODEL_PATH = 'complaint_model.pkl'
 CATEGORIES = ["Speed Issue", "Connection Down", "Billing", "Installation", "Other"]
@@ -939,6 +1053,24 @@ def init_db():
             UNIQUE (chat_mobile, target_mobile)
         )
     ''')
+
+
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS whatsapp_flows (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            flow_id TEXT NOT NULL UNIQUE,
+            flow_name TEXT,
+            status TEXT,
+            categories TEXT,
+            raw_json TEXT,
+            synced_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_whatsapp_flows_flow_id ON whatsapp_flows(flow_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_whatsapp_flows_name ON whatsapp_flows(flow_name)")
+
     try:
         c.execute("ALTER TABLE whatsapp_template_notifications ADD COLUMN chat_mobile TEXT")
     except sqlite3.OperationalError:
@@ -1618,6 +1750,114 @@ def whatsapp_templates_api():
     except Exception as exc:
         app.logger.error("Failed to load WhatsApp templates: %s", exc)
         return jsonify({"error": f"Failed to fetch templates: {exc}"}), 500
+
+
+@app.route('/api/whatsapp/flows')
+@login_required
+def whatsapp_flows_api():
+    if not whatsapp_config_ready():
+        return jsonify({"error": "WhatsApp configuration missing."}), 400
+
+    force_sync = request.args.get('sync', '0') == '1'
+    try:
+        if force_sync:
+            flows = sync_whatsapp_flows_to_db(limit=100)
+        else:
+            conn = get_db_connection()
+            flows = load_cached_whatsapp_flows(conn)
+            conn.close()
+            if not flows:
+                flows = sync_whatsapp_flows_to_db(limit=100)
+        return jsonify({"data": flows}), 200
+    except Exception as exc:
+        app.logger.error("Failed to load WhatsApp flows: %s", exc)
+        return jsonify({"error": f"Failed to fetch flows: {exc}"}), 500
+
+
+@app.route('/api/whatsapp/flows/sync', methods=['POST'])
+@login_required
+def sync_whatsapp_flows_api():
+    if not whatsapp_config_ready():
+        return jsonify({"error": "WhatsApp configuration missing."}), 400
+
+    try:
+        flows = sync_whatsapp_flows_to_db(limit=100)
+        return jsonify({"status": "synced", "count": len(flows), "data": flows}), 200
+    except Exception as exc:
+        app.logger.error("Failed to sync WhatsApp flows: %s", exc)
+        return jsonify({"error": f"Failed to sync flows: {exc}"}), 500
+
+
+@app.route('/api/check-availability', methods=['POST'])
+def check_availability():
+    payload = request.get_json(silent=True) or {}
+    mobile = normalize_mobile((payload.get('mobile') or '').strip())
+    flow_name = (payload.get('flow_name') or DEFAULT_ENQUIRY_FLOW_NAME).strip()
+
+    if not mobile:
+        return jsonify({"error": "mobile is required."}), 400
+    if not whatsapp_config_ready():
+        return jsonify({"error": "WhatsApp configuration missing."}), 400
+
+    flow = find_whatsapp_flow(flow_name)
+    if not flow:
+        try:
+            sync_whatsapp_flows_to_db(limit=100)
+            flow = find_whatsapp_flow(flow_name)
+        except Exception as exc:
+            app.logger.error("Unable to sync WhatsApp flows while checking availability: %s", exc)
+            return jsonify({"error": f"Unable to sync flows: {exc}"}), 500
+
+    if not flow:
+        return jsonify({"error": f"Flow '{flow_name}' not found after sync. Please publish it in Meta first."}), 404
+
+    body_text = (payload.get('body') or 'Please complete this enquiry form to check service availability.').strip()[:1024]
+    cta_text = (payload.get('button_text') or 'Check Availability').strip()[:20] or 'Check Availability'
+    interactive_payload = {
+        'type': 'flow',
+        'body': {'text': body_text},
+        'action': {
+            'name': 'flow',
+            'parameters': {
+                'flow_message_version': '3',
+                'flow_id': flow['id'],
+                'flow_cta': cta_text,
+                'mode': 'published',
+            }
+        }
+    }
+
+    try:
+        result = send_whatsapp_interactive_message(mobile, interactive_payload)
+        message_id = (result.get('messages') or [{}])[0].get('id')
+    except Exception as exc:
+        app.logger.error("Failed to send availability flow to %s: %s", mobile, exc)
+        return jsonify({"error": f"Failed to send availability flow: {exc}"}), 500
+
+    created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute(
+        """
+        INSERT INTO whatsapp_messages
+        (message_id, name, mobile, direction, message_type, text, delivery_status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            message_id,
+            'System',
+            mobile,
+            'outbound',
+            'interactive',
+            f"Availability flow sent ({flow.get('name')})",
+            'accepted',
+            created_at,
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    return jsonify({"status": "sent", "mobile": mobile, "flow": flow}), 200
 
 
 @app.route('/api/whatsapp/send-template', methods=['POST'])

@@ -71,8 +71,8 @@
               <h1 class="display-4">Start your Journey With Countrylink Gigafiber</h1>
               <p class="lead">Superfast internet Speed Free OTT + 350 Tv live channels 100% fiber network</p>
               <div class="btn-jumbo">
-                <a href="#contact" type="button" class="btn tombol-transparan"><i
-                    class="fas fa-map-marker-alt pr-3"></i>Check Availability</a>
+                <button type="button" class="btn tombol-transparan" data-toggle="modal" data-target="#checkAvailabilityModal"><i
+                    class="fas fa-map-marker-alt pr-3"></i>Check Availability</button>
               </div>
             </div>
             <div class="col-lg-6 ">
@@ -278,9 +278,89 @@
   </footer>
 
 
+
+  <div class="modal fade" id="checkAvailabilityModal" tabindex="-1" role="dialog" aria-labelledby="checkAvailabilityLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="checkAvailabilityLabel">Check Availability on WhatsApp</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="availabilityMobile">WhatsApp mobile number</label>
+            <input type="tel" class="form-control" id="availabilityMobile" placeholder="e.g. 919876543210">
+            <small class="form-text text-muted">We'll send the enquiry WhatsApp flow form to this number.</small>
+          </div>
+          <div id="availabilityStatus" class="small"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          <button type="button" class="btn tombol" id="availabilitySubmitBtn">Submit</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
   <script src="{{ url_for('static', filename='provider/providerHTML-main/js/jquery.slim.min.js') }}"></script>
   <script src="{{ url_for('static', filename='provider/providerHTML-main/js/bootstrap.bundle.min.js') }}"></script>
   <script src="{{ url_for('static', filename='provider/providerHTML-main/js/script.js') }}"></script>
+
+  <script>
+    (function () {
+      var submitBtn = document.getElementById('availabilitySubmitBtn');
+      var mobileInput = document.getElementById('availabilityMobile');
+      var statusEl = document.getElementById('availabilityStatus');
+      if (!submitBtn || !mobileInput || !statusEl) return;
+
+      var setStatus = function (message, type) {
+        statusEl.className = 'small ' + (type || 'text-muted');
+        statusEl.textContent = message || '';
+      };
+
+      submitBtn.addEventListener('click', function () {
+        var mobile = (mobileInput.value || '').replace(/\D/g, '');
+        if (!mobile) {
+          setStatus('Please enter a valid WhatsApp mobile number.', 'text-danger');
+          return;
+        }
+
+        submitBtn.disabled = true;
+        setStatus('Sending enquiry flow...', 'text-muted');
+
+        fetch('{{ url_for("check_availability") }}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mobile: mobile,
+            flow_name: 'enquiry',
+            button_text: 'Open enquiry'
+          })
+        })
+          .then(function (response) {
+            return response.json().then(function (data) { return { ok: response.ok, data: data }; });
+          })
+          .then(function (result) {
+            if (!result.ok) {
+              setStatus(result.data.error || 'Failed to send enquiry flow.', 'text-danger');
+              return;
+            }
+            setStatus('Enquiry flow sent successfully on WhatsApp.', 'text-success');
+            mobileInput.value = '';
+          })
+          .catch(function () {
+            setStatus('Failed to send enquiry flow. Please try again.', 'text-danger');
+          })
+          .finally(function () {
+            submitBtn.disabled = false;
+          });
+      });
+    })();
+  </script>
+
 </body>
 
 </html>
