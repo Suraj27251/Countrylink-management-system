@@ -2,6 +2,7 @@ import os
 import hmac
 import hashlib
 import json
+import re
 from pathlib import Path
 import csv
 import pickle
@@ -888,50 +889,83 @@ def _launch_ping_thread():
     _start_ping_thread()
 
 
+def _tokenize_complaint(text: str):
+    return [token for token in re.findall(r"[a-z0-9]+", (text or '').lower()) if len(token) > 2]
+
+
 def _load_or_train_model():
-    """Load a trained model or train a new one from sample data."""
+    """Load a lightweight local keyword model or train one from sample data."""
     global _model, _vectorizer
     if _model and _vectorizer:
         return
+
     if os.path.exists(MODEL_PATH):
-        with open(MODEL_PATH, 'rb') as f:
-            _model, _vectorizer = pickle.load(f)
-        return
+        try:
+            with open(MODEL_PATH, 'rb') as f:
+                model, vectorizer = pickle.load(f)
+            if isinstance(model, dict) and vectorizer == 'keyword_v1':
+                _model, _vectorizer = model, vectorizer
+                return
+        except Exception:
+            pass
 
     training_file = os.path.join('setup', 'complaint_training_data.csv')
     if not os.path.exists(training_file):
+        _model = {'category_totals': {}, 'token_scores': {}}
+        _vectorizer = 'keyword_v1'
         return
 
-    texts, labels = [], []
+    token_scores = {category: {} for category in CATEGORIES}
+    category_totals = {category: 0 for category in CATEGORIES}
+
     with open(training_file, newline='', encoding='utf-8') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
-            texts.append(row.get('complaint', ''))
-            labels.append(row.get('category', 'Other'))
+            category = (row.get('category') or 'Other').strip()
+            if category not in token_scores:
+                category = 'Other'
+            tokens = _tokenize_complaint(row.get('complaint', ''))
+            for token in tokens:
+                token_scores[category][token] = token_scores[category].get(token, 0) + 1
+                category_totals[category] += 1
 
-    if not texts:
-        return
-
-    _vectorizer = TfidfVectorizer()
-    X = _vectorizer.fit_transform(texts)
-    _model = MultinomialNB()
-    _model.fit(X, labels)
+    _model = {
+        'category_totals': category_totals,
+        'token_scores': token_scores,
+    }
+    _vectorizer = 'keyword_v1'
 
     with open(MODEL_PATH, 'wb') as f:
         pickle.dump((_model, _vectorizer), f)
 
 
 def predict_category(text: str) -> str:
-    """Predict complaint category with confidence threshold."""
+    """Predict complaint category using keyword score matching."""
     _load_or_train_model()
-    if not _model or not _vectorizer:
+    if not _model:
         return 'Other'
 
-    probs = _model.predict_proba(_vectorizer.transform([text]))[0]
-    max_prob = probs.max()
-    if max_prob < 0.5:
+    tokens = _tokenize_complaint(text)
+    if not tokens:
         return 'Other'
-    return _model.classes_[probs.argmax()]
+
+    token_scores = _model.get('token_scores', {})
+    category_totals = _model.get('category_totals', {})
+    best_category = 'Other'
+    best_score = 0
+
+    for category in CATEGORIES:
+        category_score = 0
+        cat_token_map = token_scores.get(category, {})
+        for token in tokens:
+            category_score += cat_token_map.get(token, 0)
+        if category_totals.get(category):
+            category_score = category_score / category_totals[category]
+        if category_score > best_score:
+            best_score = category_score
+            best_category = category
+
+    return best_category if best_score > 0 else 'Other'
 
 
 # Make {{ current_year }} available in all templates
