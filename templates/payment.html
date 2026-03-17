@@ -279,6 +279,117 @@
     }
     .payment-option.selected .payment-info h4 { color:var(--primary); }
 
+    /* CASH COLLECTION MODAL */
+    .cash-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 5, 8, 0.72);
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 1200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .cash-modal.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .cash-modal-card {
+      width: min(100%, 420px);
+      background: linear-gradient(165deg, rgba(19,19,26,0.96), rgba(17,17,24,0.96));
+      border: 1px solid rgba(255,107,26,0.28);
+      border-radius: 20px;
+      box-shadow: 0 22px 60px rgba(0,0,0,0.42);
+      padding: 24px;
+      animation: cashModalIn 0.3s cubic-bezier(0.22,1,0.36,1);
+    }
+    @keyframes cashModalIn {
+      from { transform: translateY(12px) scale(0.98); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    .cash-modal-title {
+      font-family: 'Outfit',sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .cash-modal-copy {
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.55;
+      margin-bottom: 16px;
+    }
+    .cash-modal-label {
+      display: block;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .cash-modal-input {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      color: var(--text);
+      padding: 12px 14px;
+      font-size: 1rem;
+      font-family: 'Nunito', sans-serif;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .cash-modal-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(255,107,26,0.16);
+    }
+    .cash-modal-hint {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+    .cash-modal-error {
+      min-height: 20px;
+      margin-top: 10px;
+      color: #ff8ea8;
+      font-size: 0.78rem;
+    }
+    .cash-modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .cash-btn {
+      flex: 1;
+      border: 1px solid transparent;
+      border-radius: 11px;
+      font-family: 'Outfit',sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+      padding: 11px 14px;
+      cursor: pointer;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+    .cash-btn:active { transform: scale(0.98); }
+    .cash-btn.secondary {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--muted);
+    }
+    .cash-btn.primary {
+      background: linear-gradient(135deg, #e63c00, #ff9500);
+      color: #fff;
+    }
+    .cash-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
     /* RIGHT PANEL */
     .right-panel { position:sticky; top:24px; animation:cardIn 0.6s cubic-bezier(0.22,1,0.36,1) 0.4s both; }
     .checkout-summary {
@@ -369,11 +480,17 @@
 
     @media(max-width:960px){.main-content{grid-template-columns:1fr;}.right-panel{position:static;}}
     @media(max-width:560px){
+      .container{padding:0 14px 48px;}
       .header{padding:14px 16px;gap:10px;}
       .logo img{height:34px;}
       .secure-badge{padding:6px 12px;font-size:0.64rem;letter-spacing:0.06em;}
       .secure-dot{width:6px;height:6px;}
       .cycle-btn{padding:8px 10px;font-size:0.76rem;}
+      .section-card{padding:18px;}
+      .checkout-summary{padding:18px;}
+      .cash-modal{padding:14px;align-items:flex-end;}
+      .cash-modal-card{border-radius:18px 18px 14px 14px;padding:18px;}
+      .cash-modal-actions{flex-direction:column-reverse;}
     }
   </style>
 </head>
@@ -572,7 +689,7 @@
                 <div class="payment-info">
                   <h4>Cash on Collection</h4>
                   <p>Pay when we arrive</p>
-                  <p style="color:rgba(255,79,126,0.8);font-size:0.72rem;margin-top:4px;">⚠ Section under construction — contact support</p>
+                  <p style="color:rgba(255,79,126,0.8);font-size:0.72rem;margin-top:4px;">WhatsApp form opens to schedule doorstep cash pickup</p>
                 </div>
                 <div style="color:var(--muted);">
                   <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
@@ -645,13 +762,46 @@
   </main>
 </div>
 
+<div class="cash-modal" id="cashCollectionModal" aria-hidden="true">
+  <div class="cash-modal-card" role="dialog" aria-modal="true" aria-labelledby="cashModalTitle">
+    <h3 class="cash-modal-title" id="cashModalTitle">Cash Collection via WhatsApp</h3>
+    <p class="cash-modal-copy">Share your WhatsApp number to receive our <strong>cash_collection</strong> flow form instantly.</p>
+    <form id="cashCollectionForm">
+      <label class="cash-modal-label" for="cashWhatsappNumber">WhatsApp Number</label>
+      <input
+        class="cash-modal-input"
+        id="cashWhatsappNumber"
+        type="tel"
+        inputmode="numeric"
+        autocomplete="tel"
+        placeholder="e.g. 9876543210"
+        maxlength="15"
+        required
+      >
+      <p class="cash-modal-hint">Enter with country code only if needed. We’ll validate automatically.</p>
+      <p class="cash-modal-error" id="cashModalMessage" aria-live="polite"></p>
+      <div class="cash-modal-actions">
+        <button type="button" class="cash-btn secondary" id="cashModalCancel">Cancel</button>
+        <button type="submit" class="cash-btn primary" id="cashModalSubmit">Send WhatsApp Form</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
   const upiId = '9765009850@okbizaxis';
   const upiName = 'COUNTRYLINK BROADBAND SERVICES';
   const upiNote = 'Countrylink Broadband Subscription';
+  const cashFlowName = 'cash_collection';
   const razorpayPublicKey = {{ razorpay_key_id | tojson }};
   let billingCycle = 'monthly';
+  const cashModal = document.getElementById('cashCollectionModal');
+  const cashForm = document.getElementById('cashCollectionForm');
+  const cashInput = document.getElementById('cashWhatsappNumber');
+  const cashMessage = document.getElementById('cashModalMessage');
+  const cashCancelBtn = document.getElementById('cashModalCancel');
+  const cashSubmitBtn = document.getElementById('cashModalSubmit');
 
   document.querySelectorAll('.plan-option').forEach(option => {
     option.addEventListener('click', () => {
@@ -669,7 +819,81 @@
       option.classList.add('selected');
       const radio = option.querySelector('input[type="radio"]');
       if (radio) radio.checked = true;
+      if (radio?.value === 'cash') {
+        openCashModal();
+      }
     });
+  });
+
+  function getValidWhatsappNumber() {
+    const raw = (cashInput?.value || '').replace(/\D/g, '');
+    if (raw.length < 10 || raw.length > 15) return '';
+    return raw;
+  }
+
+  function setCashMessage(message, isError = true) {
+    cashMessage.innerText = message;
+    cashMessage.style.color = isError ? '#ff8ea8' : '#39d98a';
+  }
+
+  function openCashModal() {
+    cashModal.classList.add('open');
+    cashModal.setAttribute('aria-hidden', 'false');
+    setCashMessage('');
+    setTimeout(() => cashInput?.focus(), 20);
+  }
+
+  function closeCashModal() {
+    cashModal.classList.remove('open');
+    cashModal.setAttribute('aria-hidden', 'true');
+    cashSubmitBtn.disabled = false;
+  }
+
+  cashCancelBtn?.addEventListener('click', closeCashModal);
+  cashModal?.addEventListener('click', (event) => {
+    if (event.target === cashModal) closeCashModal();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && cashModal.classList.contains('open')) closeCashModal();
+  });
+
+  cashForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const mobile = getValidWhatsappNumber();
+    if (!mobile) {
+      setCashMessage('Please enter a valid WhatsApp number (10 to 15 digits).');
+      return;
+    }
+
+    cashSubmitBtn.disabled = true;
+    setCashMessage('Sending flow to your WhatsApp…', false);
+    try {
+      const res = await fetch('/api/check-availability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mobile,
+          flow_name: cashFlowName,
+          body: 'Please complete this cash collection form to schedule a pickup.',
+          button_text: 'Cash Collection'
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCashMessage(data.error || 'Unable to send WhatsApp flow right now.');
+        cashSubmitBtn.disabled = false;
+        return;
+      }
+
+      setCashMessage('Success! We sent the form on WhatsApp.', false);
+      setTimeout(() => {
+        closeCashModal();
+        alert('Cash collection request shared on WhatsApp ✅');
+      }, 900);
+    } catch (error) {
+      setCashMessage('Network issue while sending flow. Please try again.');
+      cashSubmitBtn.disabled = false;
+    }
   });
 
   function syncAddonSelectionStyles() {
@@ -834,7 +1058,7 @@
         showUpiQrPopup({ amount, planName });
       }
       if (selectedPayment === 'card') payWithRazorpay(amount);
-      if (selectedPayment === 'cash') alert("Home collection request will be submitted.");
+      if (selectedPayment === 'cash') openCashModal();
     }, 0);
   });
 
