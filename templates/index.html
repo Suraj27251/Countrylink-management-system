@@ -71,8 +71,8 @@
               <h1 class="display-4">Start your Journey With Countrylink Gigafiber</h1>
               <p class="lead">Superfast internet Speed Free OTT + 350 Tv live channels 100% fiber network</p>
               <div class="btn-jumbo">
-                <a href="#contact" type="button" class="btn tombol-transparan"><i
-                    class="fas fa-map-marker-alt pr-3"></i>Check Availability</a>
+                <button type="button" class="btn tombol-transparan" data-toggle="modal" data-target="#checkAvailabilityModal"><i
+                    class="fas fa-map-marker-alt pr-3"></i>Check Availability</button>
               </div>
             </div>
             <div class="col-lg-6 ">
@@ -278,9 +278,236 @@
   </footer>
 
 
+
+  <style>
+    #checkAvailabilityModal .modal-content {
+      border: 0;
+      border-radius: 22px;
+      overflow: hidden;
+      box-shadow: 0 22px 60px rgba(16, 24, 40, 0.28);
+      animation: availabilityCardIn .35s ease;
+    }
+    #checkAvailabilityModal .modal-header {
+      border-bottom: 0;
+      padding: 1.1rem 1.25rem 0.2rem;
+    }
+    #checkAvailabilityModal .modal-body {
+      padding: 0.85rem 1.25rem 0.9rem;
+    }
+    #checkAvailabilityModal .modal-footer {
+      border-top: 0;
+      padding: 0.85rem 1.25rem 1.2rem;
+    }
+    .availability-hero {
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 14px;
+      color: #fff;
+      background: linear-gradient(135deg, #25d366 0%, #16a34a 45%, #0f766e 100%);
+      position: relative;
+      overflow: hidden;
+    }
+    .availability-hero::after {
+      content: '';
+      position: absolute;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      right: -45px;
+      top: -35px;
+      background: rgba(255,255,255,0.12);
+      animation: floatPulse 2.8s ease-in-out infinite;
+    }
+    .availability-hero h6 { margin: 0 0 3px; font-weight: 600; }
+    .availability-hero p { margin: 0; font-size: .85rem; opacity: .95; }
+    .availability-steps {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .availability-step {
+      font-size: .74rem;
+      border-radius: 999px;
+      background: #f2fdf6;
+      color: #0f766e;
+      border: 1px solid #b7f0cb;
+      padding: 4px 10px;
+      animation: chipIn .4s ease;
+    }
+    #availabilityMobile {
+      border-radius: 12px;
+      height: 45px;
+      border: 1px solid #d1d5db;
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+    #availabilityMobile:focus {
+      border-color: #25d366;
+      box-shadow: 0 0 0 .2rem rgba(37, 211, 102, 0.2);
+    }
+    #availabilitySubmitBtn {
+      min-width: 138px;
+      border-radius: 999px;
+      position: relative;
+      overflow: hidden;
+    }
+    #availabilitySubmitBtn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, transparent, rgba(255,255,255,0.35), transparent);
+      transform: translateX(-110%);
+      transition: transform .35s ease;
+    }
+    #availabilitySubmitBtn:hover::after { transform: translateX(115%); }
+    #availabilityStatus {
+      min-height: 22px;
+      border-radius: 10px;
+      padding: 7px 10px;
+      margin-top: 8px;
+      transition: all .2s ease;
+    }
+    #availabilityStatus.status-muted { color: #475467; background: #f8fafc; }
+    #availabilityStatus.status-success { color: #027a48; background: #ecfdf3; border: 1px solid #abefc6; }
+    #availabilityStatus.status-error { color: #b42318; background: #fef3f2; border: 1px solid #fecdca; animation: shakeX .26s ease; }
+    .availability-spinner {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid #c9f5d9;
+      border-top-color: #25d366;
+      display: inline-block;
+      vertical-align: -1px;
+      margin-right: 6px;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes availabilityCardIn { from { opacity: 0; transform: translateY(18px) scale(.98);} to { opacity: 1; transform: translateY(0) scale(1);} }
+    @keyframes floatPulse { 0%,100% { transform: translateY(0);} 50% { transform: translateY(9px);} }
+    @keyframes chipIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: translateY(0);} }
+    @keyframes shakeX {
+      0%,100% { transform: translateX(0); }
+      25% { transform: translateX(-4px); }
+      50% { transform: translateX(4px); }
+      75% { transform: translateX(-2px); }
+    }
+  </style>
+
+  <div class="modal fade" id="checkAvailabilityModal" tabindex="-1" role="dialog" aria-labelledby="checkAvailabilityLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="checkAvailabilityLabel">Check Availability on WhatsApp</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="availability-hero">
+            <h6>Quick 15-second process</h6>
+            <p>Enter your WhatsApp number and get the enquiry flow instantly.</p>
+          </div>
+          <div class="availability-steps">
+            <span class="availability-step">1. Enter Number</span>
+            <span class="availability-step">2. Tap Submit</span>
+            <span class="availability-step">3. Open WhatsApp Flow</span>
+          </div>
+          <div class="form-group mb-2">
+            <label for="availabilityMobile">WhatsApp mobile number</label>
+            <input type="tel" class="form-control" id="availabilityMobile" placeholder="e.g. 919876543210" autocomplete="tel">
+            <small class="form-text text-muted">We'll send the enquiry WhatsApp flow form to this number.</small>
+          </div>
+          <div id="availabilityStatus" class="small status-muted">Enter your number to continue.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-light" data-dismiss="modal">Close</button>
+          <button type="button" class="btn tombol" id="availabilitySubmitBtn">Submit on WhatsApp</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
   <script src="{{ url_for('static', filename='provider/providerHTML-main/js/jquery.slim.min.js') }}"></script>
   <script src="{{ url_for('static', filename='provider/providerHTML-main/js/bootstrap.bundle.min.js') }}"></script>
   <script src="{{ url_for('static', filename='provider/providerHTML-main/js/script.js') }}"></script>
+
+  <script>
+    (function () {
+      var submitBtn = document.getElementById('availabilitySubmitBtn');
+      var mobileInput = document.getElementById('availabilityMobile');
+      var statusEl = document.getElementById('availabilityStatus');
+      var modalEl = document.getElementById('checkAvailabilityModal');
+      if (!submitBtn || !mobileInput || !statusEl || !modalEl) return;
+
+      var setStatus = function (message, variant, withSpinner) {
+        var classes = 'small';
+        if (variant === 'success') classes += ' status-success';
+        else if (variant === 'error') classes += ' status-error';
+        else classes += ' status-muted';
+        statusEl.className = classes;
+        statusEl.innerHTML = (withSpinner ? '<span class="availability-spinner"></span>' : '') + (message || '');
+      };
+
+      mobileInput.addEventListener('input', function () {
+        mobileInput.value = (mobileInput.value || '').replace(/\D/g, '').slice(0, 15);
+      });
+
+      $(modalEl).on('shown.bs.modal', function () {
+        mobileInput.focus();
+      });
+
+      $(modalEl).on('hidden.bs.modal', function () {
+        mobileInput.value = '';
+        setStatus('Enter your number to continue.', 'muted');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit on WhatsApp';
+      });
+
+      submitBtn.addEventListener('click', function () {
+        var mobile = (mobileInput.value || '').replace(/\D/g, '');
+        if (mobile.length < 10) {
+          setStatus('Please enter a valid WhatsApp number (minimum 10 digits).', 'error');
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Sending...';
+        setStatus('Sending enquiry flow to WhatsApp...', 'muted', true);
+
+        fetch('{{ url_for("check_availability") }}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mobile: mobile,
+            flow_name: 'enquiry',
+            button_text: 'Open enquiry'
+          })
+        })
+          .then(function (response) {
+            return response.json().then(function (data) { return { ok: response.ok, data: data }; });
+          })
+          .then(function (result) {
+            if (!result.ok) {
+              setStatus(result.data.error || 'Failed to send enquiry flow.', 'error');
+              return;
+            }
+            setStatus('Great! Enquiry flow sent successfully. Please check your WhatsApp.', 'success');
+            submitBtn.textContent = 'Sent ✓';
+          })
+          .catch(function () {
+            setStatus('Something went wrong. Please try again in a moment.', 'error');
+          })
+          .finally(function () {
+            setTimeout(function () {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Submit on WhatsApp';
+            }, 350);
+          });
+      });
+    })();
+  </script>
+
 </body>
 
 </html>
