@@ -1290,24 +1290,6 @@ def submit():
     return redirect(url_for('dashboard'))
 
 
-@app.route('/bulk')
-@login_required
-def bulk():
-    """
-    Backward-compatible endpoint for older templates that still call url_for('bulk').
-    """
-    return redirect(url_for('whatsapp_complaints'))
-
-
-@app.route('/bulk_send')
-@login_required
-def bulk_send():
-    """
-    Compatibility alias for legacy deployments referencing bulk_send.
-    """
-    return redirect(url_for('whatsapp_complaints'))
-
-
 @app.route('/track', methods=['GET', 'POST'])
 def track():
     complaints = []
