@@ -43,6 +43,7 @@ REQUIRED_WHATSAPP_ENV_VARS = (
     'WHATSAPP_API_VERSION',
 )
 DEFAULT_ENQUIRY_FLOW_NAME = os.environ.get('WHATSAPP_ENQUIRY_FLOW_NAME', 'enquiry').strip() or 'enquiry'
+WHATSAPP_DB_WRITE_LOCK = threading.Lock()
 
 
 def log_whatsapp_env_warnings():
@@ -124,6 +125,10 @@ def normalize_mobile(raw_mobile):
     if not raw_mobile:
         return ''
     digits = ''.join(ch for ch in str(raw_mobile).strip() if ch.isdigit())
+    # Normalize India numbers like 91XXXXXXXXXX into a consistent 10-digit key
+    # so webhook numbers and locally stored contacts match reliably.
+    if len(digits) == 12 and digits.startswith('91'):
+        digits = digits[2:]
     return digits
 
 
@@ -291,74 +296,91 @@ def process_incoming_message(message, metadata):
         text_body = safe_message_preview(message_type, text_body)
 
     if not mobile:
-        app.logger.warning("Skipping inbound message id=%s due to missing sender mobile.", message_id or 'no-id')
+        app.logger.error(
+            "Skipping inbound message id=%s due to missing sender mobile. Raw from=%s payload=%s",
+            message_id or 'no-id',
+            from_id,
+            json.dumps(message, ensure_ascii=False)[:1000],
+        )
         return
 
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute(
-        """
-        SELECT 1
-        FROM whatsapp_messages
-        WHERE mobile = ? AND direction = 'inbound'
-        LIMIT 1
-        """,
-        (mobile,),
-    )
-    is_new_chat = c.fetchone() is None
-
     inserted_new_message = False
-    if message_id:
-        c.execute(
-            """
-            INSERT OR IGNORE INTO whatsapp_messages
-            (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, latitude, longitude, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                message_id,
-                name or None,
-                mobile,
-                'inbound',
-                message_type,
-                text_body,
-                media_id,
-                media_url,
-                media_mime_type,
-                file_name,
-                latitude,
-                longitude,
-                created_at,
-            ),
+    is_new_chat = False
+    try:
+        # Serialize inbound DB writes with status updates/poll reads to reduce
+        # race windows where the poll request can miss just-arriving rows.
+        with WHATSAPP_DB_WRITE_LOCK:
+            conn = get_db_connection()
+            c = conn.cursor()
+            c.execute(
+                """
+                SELECT 1
+                FROM whatsapp_messages
+                WHERE mobile = ? AND direction = 'inbound'
+                LIMIT 1
+                """,
+                (mobile,),
+            )
+            is_new_chat = c.fetchone() is None
+
+            if message_id:
+                c.execute(
+                    """
+                    INSERT OR IGNORE INTO whatsapp_messages
+                    (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, latitude, longitude, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        message_id,
+                        name or None,
+                        mobile,
+                        'inbound',
+                        message_type,
+                        text_body,
+                        media_id,
+                        media_url,
+                        media_mime_type,
+                        file_name,
+                        latitude,
+                        longitude,
+                        created_at,
+                    ),
+                )
+                inserted_new_message = c.rowcount > 0
+            else:
+                c.execute(
+                    """
+                    INSERT INTO whatsapp_messages
+                    (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, latitude, longitude, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        None,
+                        name or None,
+                        mobile,
+                        'inbound',
+                        message_type,
+                        text_body,
+                        media_id,
+                        media_url,
+                        media_mime_type,
+                        file_name,
+                        latitude,
+                        longitude,
+                        created_at,
+                    ),
+                )
+                inserted_new_message = True
+            conn.commit()
+            conn.close()
+        app.logger.info("Stored inbound WhatsApp message id=%s mobile=%s", message_id or 'no-id', mobile)
+    except Exception:
+        app.logger.exception(
+            "Failed storing inbound WhatsApp message id=%s mobile=%s",
+            message_id or 'no-id',
+            mobile,
         )
-        inserted_new_message = c.rowcount > 0
-    else:
-        c.execute(
-            """
-            INSERT INTO whatsapp_messages
-            (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, latitude, longitude, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                None,
-                name or None,
-                mobile,
-                'inbound',
-                message_type,
-                text_body,
-                media_id,
-                media_url,
-                media_mime_type,
-                file_name,
-                latitude,
-                longitude,
-                created_at,
-            ),
-        )
-        inserted_new_message = True
-    conn.commit()
-    conn.close()
-    app.logger.info("Stored inbound WhatsApp message id=%s mobile=%s", message_id or 'no-id', mobile)
+        raise
 
     if inserted_new_message and is_new_chat:
         send_auto_notification_templates(
@@ -378,17 +400,26 @@ def process_incoming_message(message, metadata):
 
     if message_type == 'text' and name and name != '.' and text_body.strip():
         category = predict_category(text_body)
-        conn = get_db_connection()
-        c = conn.cursor()
-        c.execute(
-            """
-            INSERT INTO complaints (name, mobile, complaint, category, status, created_at, source)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (name, mobile, text_body, category, 'Pending', created_at, 'WhatsApp')
-        )
-        conn.commit()
-        conn.close()
+        try:
+            with WHATSAPP_DB_WRITE_LOCK:
+                conn = get_db_connection()
+                c = conn.cursor()
+                c.execute(
+                    """
+                    INSERT INTO complaints (name, mobile, complaint, category, status, created_at, source)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (name, mobile, text_body, category, 'Pending', created_at, 'WhatsApp')
+                )
+                conn.commit()
+                conn.close()
+        except Exception:
+            app.logger.exception(
+                "Failed to insert complaint for inbound WhatsApp message id=%s mobile=%s",
+                message_id or 'no-id',
+                mobile,
+            )
+            raise
 
 
 def process_whatsapp_webhook_payload(data):
@@ -440,18 +471,19 @@ def process_message_status_event(status_event):
     if not message_id:
         return
 
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute(
-        """
-        UPDATE whatsapp_messages
-        SET delivery_status = ?, error_reason = ?, created_at = CASE WHEN created_at IS NULL THEN ? ELSE created_at END
-        WHERE message_id = ?
-        """,
-        (status, reason or None, status_time, message_id),
-    )
-    conn.commit()
-    conn.close()
+    with WHATSAPP_DB_WRITE_LOCK:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute(
+            """
+            UPDATE whatsapp_messages
+            SET delivery_status = ?, error_reason = ?, created_at = CASE WHEN created_at IS NULL THEN ? ELSE created_at END
+            WHERE message_id = ?
+            """,
+            (status, reason or None, status_time, message_id),
+        )
+        conn.commit()
+        conn.close()
 
 
 def send_auto_notification_templates(inbound_message_id, sender_mobile):
@@ -577,6 +609,9 @@ def safe_message_preview(message_type, text):
 
 
 def load_whatsapp_rows(conn):
+    # Ensure dictionary-like access (row["id"], row["mobile"], etc.) works
+    # regardless of which caller created the connection.
+    conn.row_factory = sqlite3.Row
     c = conn.cursor()
     c.execute("""
         SELECT id, message_id, name, mobile, direction, message_type, text, media_url, file_name, media_mime_type, latitude, longitude, delivery_status, error_reason, created_at
@@ -1630,35 +1665,107 @@ def whatsapp_complaints():
 @login_required
 def whatsapp_messages_api():
     mobile = normalize_mobile(request.args.get('mobile', ''))
-    since_id = request.args.get('since_id', type=int)
-    since_inbox_id = request.args.get('since_inbox_id', type=int)
+    since_id_raw = (request.args.get('since_id') or '').strip()
+    since_inbox_id_raw = (request.args.get('since_inbox_id') or '').strip()
     include_contacts = request.args.get('include_contacts', '0') == '1'
+
+    def parse_non_negative_int(raw_value, field_name):
+        if raw_value == '':
+            return 0
+        try:
+            value = int(raw_value)
+            if value < 0:
+                raise ValueError("negative value")
+            return value
+        except Exception:
+            app.logger.warning(
+                "Invalid %s='%s' received in WhatsApp API; defaulting to 0",
+                field_name,
+                raw_value,
+            )
+            return 0
+
+    since_id = parse_non_negative_int(since_id_raw, 'since_id')
+    since_inbox_id = parse_non_negative_int(since_inbox_id_raw, 'since_inbox_id')
 
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
-    rows, legacy_mode = load_whatsapp_rows(conn)
-    contacts = build_whatsapp_contacts(rows)
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) AS total FROM whatsapp_messages")
+    count_row = c.fetchone()
+    has_whatsapp_messages = (count_row["total"] if count_row else 0) > 0
 
+    legacy_mode = False
+    contacts = []
     messages = []
     inbox_messages = []
     active_name = ""
-    if since_inbox_id:
-        inbox_messages = [row for row in rows if row["id"] > since_inbox_id]
-        inbox_messages = sorted(inbox_messages, key=lambda item: item["id"])
 
-    if mobile:
-        messages = [row for row in rows if mobiles_equivalent(row["mobile"], mobile)]
-        if since_id:
-            # Include the last known message as well so status/error updates on existing
-            # rows are delivered to polling clients.
-            messages = [row for row in messages if row["id"] >= since_id]
-        messages = sorted(messages, key=lambda item: (item["created_at"], item["id"]))
-        active_name = next((contact["name"] for contact in contacts if mobiles_equivalent(contact["mobile"], mobile)), "")
-        if not active_name and messages:
-            active_name = messages[0]["name"] or mobile
-    else:
+    if has_whatsapp_messages:
         if include_contacts:
-            app.logger.info("WhatsApp messages API called without mobile. Returning contacts only.")
+            # Fetch only required columns for contact list generation.
+            c.execute(
+                """
+                SELECT id, name, mobile, direction, message_type, text, created_at
+                FROM whatsapp_messages
+                ORDER BY datetime(created_at) DESC, id DESC
+                """
+            )
+            contacts = build_whatsapp_contacts(c.fetchall())
+
+        if since_inbox_id:
+            c.execute(
+                """
+                SELECT id, direction
+                FROM whatsapp_messages
+                WHERE id > ?
+                ORDER BY id ASC
+                """,
+                (since_inbox_id,),
+            )
+            inbox_messages = c.fetchall()
+
+        if mobile:
+            mobile_key = conversation_mobile_key(mobile)
+            query = """
+                SELECT id, message_id, name, mobile, direction, message_type, text, media_url, file_name, media_mime_type, latitude, longitude, delivery_status, error_reason, created_at
+                FROM whatsapp_messages
+                WHERE (substr(mobile, -10) = ? OR mobile = ?)
+            """
+            params = [mobile_key, mobile]
+            if since_id:
+                # Include the cursor row as well so existing messages can still
+                # receive status/error updates without reloading all messages.
+                query += " AND id >= ?"
+                params.append(since_id)
+            query += " ORDER BY datetime(created_at) ASC, id ASC"
+            c.execute(query, params)
+            messages = c.fetchall()
+
+            active_name = next(
+                (contact["name"] for contact in contacts if mobiles_equivalent(contact["mobile"], mobile)),
+                "",
+            )
+            if not active_name and messages:
+                active_name = messages[0]["name"] or mobile
+    else:
+        # Preserve legacy fallback behavior when whatsapp_messages has no rows.
+        rows, legacy_mode = load_whatsapp_rows(conn)
+        contacts = build_whatsapp_contacts(rows)
+        if since_inbox_id:
+            inbox_messages = [row for row in rows if row["id"] > since_inbox_id]
+            inbox_messages = sorted(inbox_messages, key=lambda item: item["id"])
+        if mobile:
+            messages = [row for row in rows if mobiles_equivalent(row["mobile"], mobile)]
+            if since_id:
+                messages = [row for row in messages if row["id"] >= since_id]
+            messages = sorted(messages, key=lambda item: (item["created_at"], item["id"]))
+            active_name = next((contact["name"] for contact in contacts if mobiles_equivalent(contact["mobile"], mobile)), "")
+            if not active_name and messages:
+                active_name = messages[0]["name"] or mobile
+
+    if not mobile and include_contacts:
+        app.logger.info("WhatsApp messages API called without mobile. Returning contacts only.")
 
     conn.close()
 
