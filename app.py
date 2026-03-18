@@ -212,41 +212,11 @@ def download_whatsapp_media(media_id, fallback_name=None):
 
 
 def extract_text_body(message):
-    interactive_payload = message.get('interactive', {}) or {}
-    nfm_reply = interactive_payload.get('nfm_reply', {}) or {}
-    nfm_text = ''
-    if nfm_reply:
-        response_json = nfm_reply.get('response_json')
-        parsed_payload = None
-        if isinstance(response_json, dict):
-            parsed_payload = response_json
-        elif isinstance(response_json, str) and response_json.strip():
-            try:
-                parsed_payload = json.loads(response_json)
-            except json.JSONDecodeError:
-                parsed_payload = None
-
-        if isinstance(parsed_payload, dict) and parsed_payload:
-            preview_items = []
-            for key, value in parsed_payload.items():
-                if isinstance(value, (dict, list)):
-                    continue
-                cleaned_value = str(value).strip()
-                if not cleaned_value:
-                    continue
-                preview_items.append(f"{key}: {cleaned_value}")
-            if preview_items:
-                nfm_text = "Flow response\n" + "\n".join(preview_items[:8])
-
-        if not nfm_text:
-            nfm_text = (nfm_reply.get('body') or '').strip()
-
     return (
         message.get('text', {}).get('body')
         or message.get('button', {}).get('text')
-        or interactive_payload.get('button_reply', {}).get('title')
-        or interactive_payload.get('list_reply', {}).get('title')
-        or nfm_text
+        or message.get('interactive', {}).get('button_reply', {}).get('title')
+        or message.get('interactive', {}).get('list_reply', {}).get('title')
         or ''
     )
 
@@ -1434,9 +1404,7 @@ def webhook():
                 app.logger.warning("Webhook received no JSON payload.")
                 return 'ok', 200
 
-            # Process synchronously for reliability on shared-host deployments
-            # where daemon/background threads can be dropped after request return.
-            process_whatsapp_webhook_payload(data)
+            threading.Thread(target=process_whatsapp_webhook_payload, args=(data,), daemon=True).start()
             return 'ok', 200
 
         except Exception:
