@@ -33,6 +33,9 @@
   .wa-main,.chat-container {display:flex; flex-direction:column; background:#efeae2; min-height:0; min-width:0; height:100%; position:relative; overflow:hidden;}
   .wa-head {background:#fff; border-bottom:1px solid #e2e8f0; padding:12px 16px; display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;}
   .wa-head-actions {display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;}
+  .poll-status {display:inline-flex; align-items:center; gap:6px; font-size:.72rem; color:#475569; margin-right:4px;}
+  .poll-status-dot {width:9px; height:9px; border-radius:999px; background:#ef4444; box-shadow:0 0 0 2px rgba(239,68,68,.18);}
+  .poll-status-dot.online {background:#22c55e; box-shadow:0 0 0 2px rgba(34,197,94,.18);}
   .volume {
     --line: #0f172a;
     --line-width: 5px;
@@ -232,6 +235,10 @@
           </div>
         </div>
         <div class="wa-head-actions">
+          <span class="poll-status" id="pollStatus" title="Inbox connection status">
+            <span class="poll-status-dot" id="pollStatusDot"></span>
+            <span id="pollStatusText">Connecting</span>
+          </span>
           <label class="volume" id="notifyToggle" title="Notification sound: ON" aria-label="Toggle notification sound">
             <input type="checkbox" id="notifyToggleInput" checked>
             <svg viewBox="0 0 108 96">
@@ -269,8 +276,8 @@
               <a class="btn btn-sm btn-light" href="{{ url_for('static', filename=msg['media_url']) }}" target="_blank"><i class="fas fa-paperclip"></i> Open attachment</a>
             {% endif %}
             <p class="msg-text">{{ msg['text'] or ('Template message' if msg['message_type'] == 'template' else 'Interactive message') }}</p>
-            {% if msg['error_reason'] %}<div class="msg-error">{{ msg['error_reason'] }}</div>{% endif %}
-            {% if msg['delivery_status'] %}<div class="msg-status {{ 'failed' if msg['delivery_status'] == 'failed' else '' }}">{{ msg['delivery_status']|upper }}</div>{% endif %}
+            {% if msg['error_reason'] %}<div class="msg-error" data-role="msg-error">{{ msg['error_reason'] }}</div>{% endif %}
+            {% if msg['delivery_status'] %}<div class="msg-status {{ 'failed' if msg['delivery_status'] == 'failed' else '' }}" data-role="msg-status">{{ msg['delivery_status']|upper }}</div>{% endif %}
             <div class="msg-time">{{ msg['created_at'].split(' ')[1][:5] if msg['created_at'] else '' }}</div>
           </div>
         </div>
@@ -410,24 +417,42 @@
   const activeMobileEl = document.getElementById('activeMobile');
   const notifyToggle = document.getElementById('notifyToggle');
   const notifyToggleInput = document.getElementById('notifyToggleInput');
+  const pollStatusDot = document.getElementById('pollStatusDot');
+  const pollStatusText = document.getElementById('pollStatusText');
   const newConversationBtn = document.getElementById('newConversationBtn');
   const templateBtn = document.getElementById('templateBtn');
   const interactiveBtn = document.getElementById('interactiveBtn');
   const mediaViewerModalEl = document.getElementById('mediaViewerModal');
   const mediaViewerContent = document.getElementById('mediaViewerContent');
-  let lastMessageId = Number(chatBody?.dataset.lastMessageId || 0);
+  const renderedMessageIds = [...document.querySelectorAll('#chatBody .msg-row[data-message-id]')]
+    .map((el) => Number(el.dataset.messageId))
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .sort((a, b) => a - b);
+  // Initialize cursors from DOM-rendered rows (single source of truth), not from
+  // data attributes that can become stale after template changes.
+  let lastMessageId = renderedMessageIds.length ? renderedMessageIds[renderedMessageIds.length - 1] : 0;
   let lastInboxMessageId = lastMessageId;
   let templates = [];
   const notificationStorageKey = 'wa_sound_notifications_enabled';
   const initialPref = localStorage.getItem(notificationStorageKey);
   let notificationsEnabled = initialPref === null ? true : initialPref === '1';
-  const knownMessageIds = new Set([...document.querySelectorAll('#chatBody [data-message-id]')].map((el) => el.dataset.messageId));
+  const knownMessageIds = new Set(
+    [...document.querySelectorAll('#chatBody .msg-row[data-message-id]')]
+      .map((el) => String(el.dataset.messageId || ''))
+      .filter(Boolean)
+  );
   knownMessageIds.forEach((id) => {
     const asNumber = Number(id);
     if (!Number.isNaN(asNumber)) {
+      lastMessageId = Math.max(lastMessageId, asNumber);
       lastInboxMessageId = Math.max(lastInboxMessageId, asNumber);
     }
   });
+  const notifiedInboxIds = new Set(knownMessageIds);
+  let pollFailureCount = 0;
+  let pollTimer = null;
+  const pollBaseDelayMs = 5000;
+  const pollMaxDelayMs = 30000;
   let hasUserInteracted = false;
   const notificationSound = new Audio();
   notificationSound.preload = 'none';
@@ -465,6 +490,12 @@
     notificationSound.play().catch(() => {
       fallbackBeep();
     });
+  };
+
+  const setPollStatus = (isOnline, detailText = '') => {
+    if (!pollStatusDot || !pollStatusText) return;
+    pollStatusDot.classList.toggle('online', !!isOnline);
+    pollStatusText.textContent = detailText || (isOnline ? 'Live' : 'Reconnecting');
   };
 
   const isInboundMessage = (message) => {
@@ -531,8 +562,8 @@
     const text = esc(m.text || (m.message_type === 'template' ? 'Template message' : m.message_type === 'interactive' ? 'Interactive message' : ''));
     const status = esc((m.delivery_status || '').toUpperCase());
     const statusClass = (m.delivery_status || '').toLowerCase() === 'failed' ? 'failed' : '';
-    const errorText = m.error_reason ? `<div class="msg-error">${esc(m.error_reason)}</div>` : '';
-    const statusHtml = status ? `<div class="msg-status ${statusClass}">${status}</div>` : '';
+    const errorText = m.error_reason ? `<div class="msg-error" data-role="msg-error">${esc(m.error_reason)}</div>` : '';
+    const statusHtml = status ? `<div class="msg-status ${statusClass}" data-role="msg-status">${status}</div>` : '';
     html += `<p class="msg-text">${text}</p>${errorText}${statusHtml}<div class="msg-time">${fmt(m.created_at)}</div>`;
     row.innerHTML = `<div class="msg-bubble">${html}</div>`;
     return row;
@@ -540,20 +571,60 @@
 
   const upsertMessage = (m) => {
     const existing = chatBody?.querySelector(`[data-message-id="${m.id}"]`);
-    const freshRow = renderMessage(m);
     if (!existing) {
+      const freshRow = renderMessage(m);
       emptyConversationHint?.remove();
       chatBody.appendChild(freshRow);
       const msgId = String(m.id || '');
-      const isNew = msgId && !knownMessageIds.has(msgId);
-      knownMessageIds.add(msgId);
+      // Track as known only after we have inserted the row successfully.
+      const isNew = !!msgId && !knownMessageIds.has(msgId);
+      if (msgId) knownMessageIds.add(msgId);
       if (isNew) {
+        lastMessageId = Math.max(lastMessageId, Number(m.id) || 0);
         lastInboxMessageId = Math.max(lastInboxMessageId, Number(m.id) || 0);
       }
       return true;
     }
-    existing.className = freshRow.className;
-    existing.innerHTML = freshRow.innerHTML;
+
+    // For existing rows, patch only delivery/error status fragments so we avoid
+    // expensive full bubble re-renders (media iframe/audio/video remain untouched).
+    const statusText = esc((m.delivery_status || '').toUpperCase());
+    const statusClass = (m.delivery_status || '').toLowerCase() === 'failed' ? 'failed' : '';
+    let statusEl = existing.querySelector('[data-role="msg-status"]');
+    if (statusText) {
+      if (!statusEl) {
+        statusEl = document.createElement('div');
+        statusEl.dataset.role = 'msg-status';
+        const timeEl = existing.querySelector('.msg-time');
+        if (timeEl) {
+          timeEl.before(statusEl);
+        } else {
+          existing.querySelector('.msg-bubble')?.appendChild(statusEl);
+        }
+      }
+      statusEl.className = `msg-status ${statusClass}`.trim();
+      statusEl.textContent = statusText;
+    } else if (statusEl) {
+      statusEl.remove();
+    }
+
+    let errorEl = existing.querySelector('[data-role="msg-error"]');
+    if (m.error_reason) {
+      if (!errorEl) {
+        errorEl = document.createElement('div');
+        errorEl.className = 'msg-error';
+        errorEl.dataset.role = 'msg-error';
+        const statusOrTime = existing.querySelector('[data-role="msg-status"]') || existing.querySelector('.msg-time');
+        if (statusOrTime) {
+          statusOrTime.before(errorEl);
+        } else {
+          existing.querySelector('.msg-bubble')?.appendChild(errorEl);
+        }
+      }
+      errorEl.textContent = m.error_reason;
+    } else if (errorEl) {
+      errorEl.remove();
+    }
     return false;
   };
 
@@ -583,14 +654,16 @@
       q.set('since_id', String(lastMessageId || 0));
     }
     const res = await fetch(`${apiUrl}?${q.toString()}`, {headers: {'X-Requested-With':'XMLHttpRequest'}});
-    if (!res.ok) return;
+    if (!res.ok) {
+      throw new Error(`Polling failed (${res.status})`);
+    }
     const data = await res.json();
     if (data.contacts) renderContacts(data.contacts);
     if (data.inbox_messages?.length) {
       data.inbox_messages.forEach((m) => {
         const msgId = String(m.id || '');
-        if (!msgId || knownMessageIds.has(msgId)) return;
-        knownMessageIds.add(msgId);
+        if (!msgId || notifiedInboxIds.has(msgId)) return;
+        notifiedInboxIds.add(msgId);
         lastInboxMessageId = Math.max(lastInboxMessageId, Number(m.id) || 0);
         if (isInboundMessage(m)) {
           playNotificationSound();
@@ -608,9 +681,27 @@
       data.messages.forEach((m) => {
         hasNewMessage = upsertMessage(m) || hasNewMessage;
       });
-      lastMessageId = data.last_message_id || lastMessageId;
+      lastMessageId = Math.max(lastMessageId, Number(data.last_message_id) || 0);
       if (hasNewMessage || shouldAutoScroll) scrollBottom();
     }
+
+    pollFailureCount = 0;
+    setPollStatus(true, 'Live');
+  }
+
+  function scheduleNextPoll(delayMs = pollBaseDelayMs) {
+    if (pollTimer) window.clearTimeout(pollTimer);
+    pollTimer = window.setTimeout(async () => {
+      try {
+        await poll();
+        scheduleNextPoll(pollBaseDelayMs);
+      } catch (error) {
+        pollFailureCount += 1;
+        const backoffDelay = Math.min(pollBaseDelayMs * (2 ** pollFailureCount), pollMaxDelayMs);
+        setPollStatus(false, `Retrying (${Math.round(backoffDelay / 1000)}s)`);
+        scheduleNextPoll(backoffDelay);
+      }
+    }, delayMs);
   }
 
   const autoSizeComposer = () => {
@@ -1367,7 +1458,8 @@
   window.tagCustomer = tagCustomer;
 
   scrollBottom();
-  setInterval(() => poll().catch(() => {}), 5000);
+  setPollStatus(false, 'Connecting');
+  scheduleNextPoll(0);
 })();
 </script>
 {% endblock %}
