@@ -127,6 +127,23 @@ def normalize_mobile(raw_mobile):
     return digits
 
 
+def conversation_mobile_key(raw_mobile):
+    digits = normalize_mobile(raw_mobile)
+    if len(digits) >= 10:
+        return digits[-10:]
+    return digits
+
+
+def mobiles_equivalent(left_mobile, right_mobile):
+    left = normalize_mobile(left_mobile)
+    right = normalize_mobile(right_mobile)
+    if not left or not right:
+        return False
+    if left == right:
+        return True
+    return conversation_mobile_key(left) == conversation_mobile_key(right)
+
+
 def whatsapp_config_ready():
     return bool(
         os.environ.get('META_ACCESS_TOKEN')
@@ -618,25 +635,26 @@ def build_whatsapp_contacts(rows):
             return default
 
     for row in rows:
-        mobile = normalize_mobile(value(row, "mobile", ''))
-        if not mobile:
+        mobile_raw = normalize_mobile(value(row, "mobile", ''))
+        mobile_key = conversation_mobile_key(mobile_raw)
+        if not mobile_key:
             continue
 
-        if mobile not in latest_by_mobile:
-            latest_by_mobile[mobile] = {
-                "mobile": mobile,
-                "name": value(row, "name") or mobile,
+        if mobile_key not in latest_by_mobile:
+            latest_by_mobile[mobile_key] = {
+                "mobile": mobile_raw,
+                "name": value(row, "name") or mobile_raw,
                 "preview": safe_message_preview(value(row, "message_type", 'unknown'), value(row, "text")),
                 "created_at": value(row, "created_at"),
             }
 
         row_name = value(row, "name")
         if value(row, "direction") == 'inbound' and _is_usable_contact_name(row_name):
-            preferred_name_by_mobile[mobile] = row_name
+            preferred_name_by_mobile[mobile_key] = row_name
 
-    for mobile, contact in latest_by_mobile.items():
-        if preferred_name_by_mobile.get(mobile):
-            contact["name"] = preferred_name_by_mobile[mobile]
+    for mobile_key, contact in latest_by_mobile.items():
+        if preferred_name_by_mobile.get(mobile_key):
+            contact["name"] = preferred_name_by_mobile[mobile_key]
 
     return sorted(latest_by_mobile.values(), key=lambda item: item["created_at"], reverse=True)
 
@@ -1589,9 +1607,9 @@ def whatsapp_complaints():
     messages = []
     active_name = None
     if active_mobile:
-        messages = [row for row in rows if normalize_mobile(row["mobile"]) == active_mobile]
+        messages = [row for row in rows if mobiles_equivalent(row["mobile"], active_mobile)]
         messages = sorted(messages, key=lambda item: (item["created_at"], item["id"]))
-        active_name = contacts[0]["name"] if contacts and contacts[0]["mobile"] == active_mobile else None
+        active_name = contacts[0]["name"] if contacts and mobiles_equivalent(contacts[0]["mobile"], active_mobile) else None
         if not active_name and messages:
             active_name = messages[0]["name"] or active_mobile
 
@@ -1629,13 +1647,13 @@ def whatsapp_messages_api():
         inbox_messages = sorted(inbox_messages, key=lambda item: item["id"])
 
     if mobile:
-        messages = [row for row in rows if normalize_mobile(row["mobile"]) == mobile]
+        messages = [row for row in rows if mobiles_equivalent(row["mobile"], mobile)]
         if since_id:
             # Include the last known message as well so status/error updates on existing
             # rows are delivered to polling clients.
             messages = [row for row in messages if row["id"] >= since_id]
         messages = sorted(messages, key=lambda item: (item["created_at"], item["id"]))
-        active_name = next((contact["name"] for contact in contacts if contact["mobile"] == mobile), "")
+        active_name = next((contact["name"] for contact in contacts if mobiles_equivalent(contact["mobile"], mobile)), "")
         if not active_name and messages:
             active_name = messages[0]["name"] or mobile
     else:
