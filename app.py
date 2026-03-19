@@ -1,4 +1,5 @@
 import os
+import logging
 import hmac
 import hashlib
 import json
@@ -28,11 +29,23 @@ if not DB_PATH:
     DB_PATH = str(default_path if default_path.exists() else Path(app.root_path) / 'complaints.db')
 
 def get_db_connection():
-    return sqlite3.connect(DB_PATH)
+    timeout = int(os.environ.get('SQLITE_BUSY_TIMEOUT_SECONDS', '30'))
+    conn = sqlite3.connect(DB_PATH, timeout=timeout)
+    try:
+        conn.execute("PRAGMA busy_timeout = 30000")
+        conn.execute("PRAGMA journal_mode = WAL")
+    except sqlite3.DatabaseError:
+        app.logger.warning("Unable to apply SQLite PRAGMA settings.", exc_info=True)
+    return conn
 
 WHATSAPP_API_VERSION = os.environ.get('WHATSAPP_API_VERSION', 'v20.0')
 WEBHOOK_VERIFY_TOKEN = os.environ.get('WEBHOOK_VERIFY_TOKEN', '')
 WHATSAPP_MEDIA_DIR = Path(app.root_path) / 'static' / 'uploads' / 'whatsapp'
+WEBHOOK_ASYNC_PROCESSING = os.environ.get('WEBHOOK_ASYNC_PROCESSING', 'true').strip().lower() in {'1', 'true', 'yes', 'on'}
+WHATSAPP_WEBHOOK_LOG_PATH = os.environ.get(
+    'WHATSAPP_WEBHOOK_LOG_PATH',
+    str(Path.home() / 'whatsapp_webhook.log')
+)
 AUTO_NOTIFICATION_TEMPLATE_NAME = 'notification_team'
 AUTO_NOTIFICATION_TEMPLATE_LANGUAGE = 'en'
 AUTO_NOTIFICATION_RECIPIENTS = ['8149912379', '8055782345']
@@ -44,6 +57,47 @@ REQUIRED_WHATSAPP_ENV_VARS = (
 )
 DEFAULT_ENQUIRY_FLOW_NAME = os.environ.get('WHATSAPP_ENQUIRY_FLOW_NAME', 'enquiry').strip() or 'enquiry'
 WHATSAPP_DB_WRITE_LOCK = threading.Lock()
+WHATSAPP_WEBHOOK_LOGGER = None
+WHATSAPP_WEBHOOK_LOGGER_PATH = None
+
+
+def get_whatsapp_webhook_logger():
+    global WHATSAPP_WEBHOOK_LOGGER, WHATSAPP_WEBHOOK_LOGGER_PATH
+    if WHATSAPP_WEBHOOK_LOGGER is not None:
+        return WHATSAPP_WEBHOOK_LOGGER
+
+    logger = logging.getLogger('whatsapp_webhook')
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    if not logger.handlers:
+        candidate_paths = [
+            Path(WHATSAPP_WEBHOOK_LOG_PATH),
+            Path.home() / 'whatsapp_webhook.log',
+            Path('/tmp/whatsapp_webhook.log'),
+        ]
+        file_handler_attached = False
+        for log_path in candidate_paths:
+            try:
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                with log_path.open('a', encoding='utf-8'):
+                    pass
+                file_handler = logging.FileHandler(log_path, encoding='utf-8')
+                file_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+                logger.addHandler(file_handler)
+                WHATSAPP_WEBHOOK_LOGGER_PATH = str(log_path)
+                file_handler_attached = True
+                break
+            except OSError:
+                app.logger.warning("Could not open webhook log file at %s", log_path, exc_info=True)
+
+        if not file_handler_attached:
+            stream_handler = logging.StreamHandler()
+            stream_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+            logger.addHandler(stream_handler)
+            WHATSAPP_WEBHOOK_LOGGER_PATH = 'stream-only'
+            app.logger.warning("WhatsApp webhook logger is using stream-only fallback (no writable file path found).")
+    WHATSAPP_WEBHOOK_LOGGER = logger
+    return logger
 
 
 def log_whatsapp_env_warnings():
@@ -423,14 +477,22 @@ def process_incoming_message(message, metadata):
 
 
 def process_whatsapp_webhook_payload(data):
+    webhook_logger = get_whatsapp_webhook_logger()
     try:
         app.logger.info("Webhook POST processing started: object=%s entries=%s", data.get('object'), len(data.get('entry', [])))
+        webhook_logger.info("processing_started object=%s entries=%s", data.get('object'), len(data.get('entry', [])))
         for entry in data.get('entry', []):
             for change in entry.get('changes', []):
                 value = change.get('value', {})
                 contacts = value.get('contacts', [])
                 messages = value.get('messages', [])
                 statuses = value.get('statuses', [])
+                webhook_logger.info(
+                    "change_received field=%s messages=%s statuses=%s",
+                    change.get('field'),
+                    len(messages or []),
+                    len(statuses or []),
+                )
                 metadata = {
                     'display_phone_number': value.get('metadata', {}).get('display_phone_number', ''),
                     'contacts_by_wa': {
@@ -445,14 +507,69 @@ def process_whatsapp_webhook_payload(data):
                         process_incoming_message(message, metadata)
                     except Exception:
                         app.logger.exception("Failed processing incoming message event.")
+                        webhook_logger.exception("incoming_message_processing_failed")
 
                 for status_event in statuses:
                     try:
                         process_message_status_event(status_event)
                     except Exception:
                         app.logger.exception("Failed processing message status event.")
+                        webhook_logger.exception("status_event_processing_failed")
     except Exception:
         app.logger.exception("Webhook payload parsing failed.")
+        webhook_logger.exception("payload_parsing_failed")
+
+
+def parse_webhook_request_json():
+    webhook_logger = get_whatsapp_webhook_logger()
+    data = request.get_json(force=True, silent=True)
+    if data:
+        webhook_logger.info("request_json_parsed_via_flask")
+        return data
+
+    raw_body = (request.get_data(cache=False, as_text=True) or '').strip()
+    if not raw_body:
+        webhook_logger.warning("request_body_empty_or_unreadable")
+        return None
+
+    try:
+        webhook_logger.info("request_json_parsed_via_raw_body")
+        return json.loads(raw_body)
+    except json.JSONDecodeError:
+        app.logger.warning("Webhook body was not valid JSON. body_preview=%s", raw_body[:500])
+        webhook_logger.warning("request_json_invalid body_preview=%s", raw_body[:500])
+        return None
+
+
+def store_webhook_audit_event(data, note):
+    webhook_logger = get_whatsapp_webhook_logger()
+    try:
+        payload = json.dumps(data, ensure_ascii=False)[:2000] if data is not None else None
+        entries = data.get('entry', []) if isinstance(data, dict) else []
+        message_events = 0
+        status_events = 0
+        for entry in entries:
+            for change in entry.get('changes', []):
+                value = change.get('value', {})
+                message_events += len(value.get('messages', []) or [])
+                status_events += len(value.get('statuses', []) or [])
+
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute(
+            '''
+            INSERT INTO whatsapp_webhook_audit
+            (note, message_events, status_events, payload_preview, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            ''',
+            (note, message_events, status_events, payload, datetime.now().strftime('%Y-%m-%d %H:%M:%S')),
+        )
+        conn.commit()
+        conn.close()
+        webhook_logger.info("audit_saved note=%s message_events=%s status_events=%s", note, message_events, status_events)
+    except Exception:
+        app.logger.exception("Failed to store webhook audit event.")
+        webhook_logger.exception("audit_save_failed note=%s", note)
 
 
 def process_message_status_event(status_event):
@@ -1141,6 +1258,17 @@ def init_db():
         )
     ''')
 
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS whatsapp_webhook_audit (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            note TEXT,
+            message_events INTEGER DEFAULT 0,
+            status_events INTEGER DEFAULT 0,
+            payload_preview TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS whatsapp_flows (
@@ -1431,43 +1559,65 @@ def update_status(complaint_id, status):
 @app.route('/webhook', methods=['GET', 'POST'])
 @app.route('/webhook/whatsapp', methods=['GET', 'POST'])
 def webhook():
+    webhook_logger = get_whatsapp_webhook_logger()
     app.logger.info("Webhook hit: method=%s path=%s", request.method, request.path)
+    webhook_logger.info("webhook_hit method=%s path=%s remote=%s", request.method, request.path, request.remote_addr)
 
     if request.method == 'GET':
         mode = request.args.get('hub.mode')
         challenge = request.args.get('hub.challenge')
         verify_token = request.args.get('hub.verify_token')
         app.logger.info("Webhook verification attempt: mode=%s token_present=%s", mode, bool(verify_token))
+        webhook_logger.info("verification_attempt mode=%s token_present=%s", mode, bool(verify_token))
         if mode != 'subscribe':
             app.logger.warning("Webhook verification failed: invalid hub.mode=%s", mode)
+            webhook_logger.warning("verification_failed_invalid_mode mode=%s", mode)
             return 'Invalid mode', 403
         if not WEBHOOK_VERIFY_TOKEN:
             app.logger.warning("Webhook verification failed: WEBHOOK_VERIFY_TOKEN is not configured.")
+            webhook_logger.warning("verification_failed_missing_verify_token")
             return 'Missing verify token', 500
         if verify_token != WEBHOOK_VERIFY_TOKEN:
             app.logger.warning("Webhook verification failed: invalid token.")
+            webhook_logger.warning("verification_failed_invalid_token")
             return 'Verification failed', 403
         app.logger.info("Webhook verification handshake accepted.")
+        webhook_logger.info("verification_success")
         return challenge or '', 200
 
     if request.method == 'POST':
         try:
-            data = request.get_json(force=True, silent=True)
+            data = parse_webhook_request_json()
             if not data:
                 app.logger.warning("Webhook received no JSON payload.")
+                webhook_logger.warning("post_no_json_payload")
+                store_webhook_audit_event(None, 'empty-or-invalid-json')
                 return 'ok', 200
 
-            threading.Thread(target=process_whatsapp_webhook_payload, args=(data,), daemon=True).start()
+            store_webhook_audit_event(data, 'received')
+            if WEBHOOK_ASYNC_PROCESSING:
+                app.logger.info("Webhook POST accepted. Processing asynchronously.")
+                webhook_logger.info("post_processing_async")
+                threading.Thread(target=process_whatsapp_webhook_payload, args=(data,), daemon=True).start()
+            else:
+                app.logger.info("Webhook POST accepted. Processing synchronously because WEBHOOK_ASYNC_PROCESSING is disabled.")
+                webhook_logger.info("post_processing_sync")
+                process_whatsapp_webhook_payload(data)
             return 'ok', 200
 
         except Exception:
             app.logger.exception("Webhook processing failed.")
+            webhook_logger.exception("post_handler_exception")
+            store_webhook_audit_event(None, 'handler-exception')
             return 'ok', 200
 
 
 @app.route('/webhook/debug', methods=['GET'])
 @login_required
 def webhook_debug():
+    get_whatsapp_webhook_logger()
+    log_path = WHATSAPP_WEBHOOK_LOGGER_PATH or WHATSAPP_WEBHOOK_LOG_PATH
+    log_file_exists = Path(log_path).exists() if log_path and log_path != 'stream-only' else False
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
@@ -1477,6 +1627,13 @@ def webhook_debug():
     inbound_total = c.fetchone()['inbound_total']
     c.execute("SELECT message_id, mobile, message_type, created_at FROM whatsapp_messages ORDER BY id DESC LIMIT 5")
     latest = [dict(row) for row in c.fetchall()]
+    c.execute("""
+        SELECT id, note, message_events, status_events, created_at
+        FROM whatsapp_webhook_audit
+        ORDER BY id DESC
+        LIMIT 10
+    """)
+    webhook_audit = [dict(row) for row in c.fetchall()]
     conn.close()
     app.logger.info("Webhook debug route checked. total=%s inbound=%s", total_messages, inbound_total)
     return jsonify({
@@ -1484,6 +1641,9 @@ def webhook_debug():
         'total_messages': total_messages,
         'inbound_messages': inbound_total,
         'latest_messages': latest,
+        'latest_webhook_events': webhook_audit,
+        'webhook_log_path': log_path,
+        'webhook_log_file_exists': log_file_exists,
     })
 
 
