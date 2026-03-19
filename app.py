@@ -33,6 +33,7 @@ def get_db_connection():
 WHATSAPP_API_VERSION = os.environ.get('WHATSAPP_API_VERSION', 'v20.0')
 WEBHOOK_VERIFY_TOKEN = os.environ.get('WEBHOOK_VERIFY_TOKEN', '')
 WHATSAPP_MEDIA_DIR = Path(app.root_path) / 'static' / 'uploads' / 'whatsapp'
+WEBHOOK_ASYNC_PROCESSING = os.environ.get('WEBHOOK_ASYNC_PROCESSING', 'true').strip().lower() in {'1', 'true', 'yes', 'on'}
 AUTO_NOTIFICATION_TEMPLATE_NAME = 'notification_team'
 AUTO_NOTIFICATION_TEMPLATE_LANGUAGE = 'en'
 AUTO_NOTIFICATION_RECIPIENTS = ['8149912379', '8055782345']
@@ -1457,7 +1458,12 @@ def webhook():
                 app.logger.warning("Webhook received no JSON payload.")
                 return 'ok', 200
 
-            threading.Thread(target=process_whatsapp_webhook_payload, args=(data,), daemon=True).start()
+            if WEBHOOK_ASYNC_PROCESSING:
+                app.logger.info("Webhook POST accepted. Processing asynchronously.")
+                threading.Thread(target=process_whatsapp_webhook_payload, args=(data,), daemon=True).start()
+            else:
+                app.logger.info("Webhook POST accepted. Processing synchronously because WEBHOOK_ASYNC_PROCESSING is disabled.")
+                process_whatsapp_webhook_payload(data)
             return 'ok', 200
 
         except Exception:
