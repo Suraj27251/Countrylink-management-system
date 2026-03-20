@@ -13,12 +13,15 @@ import time
 import mimetypes
 import uuid
 import requests
+import importlib
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
 import sqlite3
 from datetime import datetime
 from collections import defaultdict
 from functools import wraps
 from werkzeug.utils import secure_filename
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me')
@@ -109,7 +112,200 @@ def log_whatsapp_env_warnings():
 log_whatsapp_env_warnings()
 
 RAZORPAY_API_BASE = 'https://api.razorpay.com/v1'
+ZOHO_TOKEN_URL = "https://accounts.zoho.in/oauth/v2/token"
+ZOHO_TIMEOUT_SECONDS = int(os.environ.get("ZOHO_TIMEOUT_SECONDS", "30"))
+ZOHO_MAX_RETRIES = int(os.environ.get("ZOHO_MAX_RETRIES", "3"))
+ZOHO_RETRY_BACKOFF = float(os.environ.get("ZOHO_RETRY_BACKOFF", "1.0"))
+MYSQL_DB_HOST = "localhost"
+MYSQL_DB_NAME = "countrylinks_user_database"
+MYSQL_DB_USER = "countrylinks_Suraj27251"
+MYSQL_DB_PASSWORD = "Suraj@27251"
 
+
+def create_retryable_session():
+    retry = Retry(
+        total=ZOHO_MAX_RETRIES,
+        connect=ZOHO_MAX_RETRIES,
+        read=ZOHO_MAX_RETRIES,
+        backoff_factor=ZOHO_RETRY_BACKOFF,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=frozenset({"GET", "POST"}),
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session = requests.Session()
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
+def get_zoho_access_token():
+    org_client_id = os.environ.get("ZOHO_CLIENT_ID")
+    org_client_secret = os.environ.get("ZOHO_CLIENT_SECRET")
+    refresh_token = os.environ.get("ZOHO_REFRESH_TOKEN")
+    if not org_client_id or not org_client_secret or not refresh_token:
+        raise RuntimeError("Missing Zoho OAuth credentials in environment variables.")
+
+    payload = {
+        "refresh_token": refresh_token,
+        "client_id": org_client_id,
+        "client_secret": org_client_secret,
+        "grant_type": "refresh_token",
+    }
+    session = create_retryable_session()
+    try:
+        response = session.post(ZOHO_TOKEN_URL, data=payload, timeout=ZOHO_TIMEOUT_SECONDS)
+        response.raise_for_status()
+        token_data = response.json()
+    except requests.RequestException as exc:
+        app.logger.error("Failed to refresh Zoho access token: %s", exc, exc_info=True)
+        raise
+
+    access_token = token_data.get("access_token")
+    if not access_token:
+        app.logger.error("Zoho token response missing access_token: %s", token_data)
+        raise RuntimeError("Could not retrieve Zoho access token.")
+    return access_token
+
+
+def get_all_zoho_customers():
+    org_id = os.environ.get("ZOHO_ORG_ID")
+    api_domain = os.environ.get("ZOHO_API_DOMAIN")
+    if not org_id or not api_domain:
+        raise RuntimeError("Missing ZOHO_ORG_ID or ZOHO_API_DOMAIN in environment variables.")
+
+    access_token = get_zoho_access_token()
+    session = create_retryable_session()
+    headers = {"Authorization": f"Zoho-oauthtoken {access_token}"}
+    page = 1
+    per_page = 200
+    customers = []
+
+    while True:
+        url = f"{api_domain.rstrip('/')}/books/v3/contacts"
+        params = {
+            "organization_id": org_id,
+            "page": page,
+            "per_page": per_page,
+        }
+        try:
+            response = session.get(url, headers=headers, params=params, timeout=ZOHO_TIMEOUT_SECONDS)
+            response.raise_for_status()
+            payload = response.json()
+        except requests.RequestException as exc:
+            app.logger.error("Failed to fetch Zoho customers on page %s: %s", page, exc, exc_info=True)
+            raise
+
+        current_batch = payload.get("contacts", [])
+        customers.extend(current_batch)
+        app.logger.info("Fetched Zoho contacts page %s: %s records", page, len(current_batch))
+
+        if not current_batch or len(current_batch) < per_page:
+            break
+        page += 1
+
+    app.logger.info("Total Zoho customers fetched: %s", len(customers))
+    return customers
+
+
+def save_customers_to_db(customers):
+    if not customers:
+        return 0, 0
+
+    inserted = 0
+    updated = 0
+    conn = None
+    cursor = None
+    mysql_connector = None
+    mysql_error_type = Exception
+
+    query = """
+        INSERT INTO zoho_customers (
+            zoho_contact_id,
+            contact_name,
+            company_name,
+            email,
+            phone,
+            mobile,
+            status,
+            currency_code,
+            outstanding_amount,
+            created_time,
+            last_modified_time
+        ) VALUES (
+            %(zoho_contact_id)s,
+            %(contact_name)s,
+            %(company_name)s,
+            %(email)s,
+            %(phone)s,
+            %(mobile)s,
+            %(status)s,
+            %(currency_code)s,
+            %(outstanding_amount)s,
+            %(created_time)s,
+            %(last_modified_time)s
+        )
+        ON DUPLICATE KEY UPDATE
+            contact_name = VALUES(contact_name),
+            company_name = VALUES(company_name),
+            email = VALUES(email),
+            phone = VALUES(phone),
+            mobile = VALUES(mobile),
+            status = VALUES(status),
+            currency_code = VALUES(currency_code),
+            outstanding_amount = VALUES(outstanding_amount),
+            created_time = VALUES(created_time),
+            last_modified_time = VALUES(last_modified_time)
+    """
+
+    try:
+        mysql_connector = importlib.import_module("mysql.connector")
+        mysql_error_type = getattr(mysql_connector, "Error", Exception)
+        conn = mysql_connector.connect(
+            host=MYSQL_DB_HOST,
+            database=MYSQL_DB_NAME,
+            user=MYSQL_DB_USER,
+            password=MYSQL_DB_PASSWORD,
+        )
+        cursor = conn.cursor()
+
+        for customer in customers:
+            data = {
+                "zoho_contact_id": customer.get("contact_id"),
+                "contact_name": customer.get("contact_name"),
+                "company_name": customer.get("company_name"),
+                "email": customer.get("email"),
+                "phone": customer.get("phone"),
+                "mobile": customer.get("mobile"),
+                "status": customer.get("status"),
+                "currency_code": customer.get("currency_code"),
+                "outstanding_amount": customer.get("outstanding_receivable_amount"),
+                "created_time": customer.get("created_time"),
+                "last_modified_time": customer.get("last_modified_time"),
+            }
+            if not data["zoho_contact_id"]:
+                app.logger.warning("Skipping customer without contact_id: %s", customer)
+                continue
+
+            cursor.execute(query, data)
+            if cursor.rowcount == 1:
+                inserted += 1
+            elif cursor.rowcount == 2:
+                updated += 1
+
+        conn.commit()
+        app.logger.info("Zoho customer sync committed. Inserted=%s Updated=%s", inserted, updated)
+        return inserted, updated
+    except mysql_error_type as exc:
+        if conn and conn.is_connected():
+            conn.rollback()
+        app.logger.error("Database error while saving Zoho customers: %s", exc, exc_info=True)
+        raise
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
 
 
 def _get_first_env(*keys):
@@ -2620,5 +2816,16 @@ def ping():
 
 
 if __name__ == '__main__':
+    try:
+        zoho_customers = get_all_zoho_customers()
+        inserted_count, updated_count = save_customers_to_db(zoho_customers)
+        print(
+            f"Zoho customer sync complete. Total fetched: {len(zoho_customers)}, "
+            f"inserted: {inserted_count}, updated: {updated_count}"
+        )
+    except Exception as exc:
+        app.logger.error("Zoho customer sync failed during startup: %s", exc, exc_info=True)
+        print(f"Zoho customer sync failed: {exc}")
+
     _start_ping_thread()
     app.run(debug=True)
