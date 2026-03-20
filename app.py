@@ -13,8 +13,7 @@ import time
 import mimetypes
 import uuid
 import requests
-import mysql.connector
-from mysql.connector import Error as MySQLError
+import importlib
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
 import sqlite3
 from datetime import datetime
@@ -217,6 +216,8 @@ def save_customers_to_db(customers):
     updated = 0
     conn = None
     cursor = None
+    mysql_connector = None
+    mysql_error_type = Exception
 
     query = """
         INSERT INTO zoho_customers (
@@ -258,7 +259,9 @@ def save_customers_to_db(customers):
     """
 
     try:
-        conn = mysql.connector.connect(
+        mysql_connector = importlib.import_module("mysql.connector")
+        mysql_error_type = getattr(mysql_connector, "Error", Exception)
+        conn = mysql_connector.connect(
             host=MYSQL_DB_HOST,
             database=MYSQL_DB_NAME,
             user=MYSQL_DB_USER,
@@ -293,7 +296,7 @@ def save_customers_to_db(customers):
         conn.commit()
         app.logger.info("Zoho customer sync committed. Inserted=%s Updated=%s", inserted, updated)
         return inserted, updated
-    except MySQLError as exc:
+    except mysql_error_type as exc:
         if conn and conn.is_connected():
             conn.rollback()
         app.logger.error("Database error while saving Zoho customers: %s", exc, exc_info=True)
