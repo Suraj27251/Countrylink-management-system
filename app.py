@@ -1389,6 +1389,11 @@ def init_db():
         c.execute("ALTER TABLE complaints ADD COLUMN category TEXT DEFAULT 'Other'")
     except sqlite3.OperationalError:
         pass
+    try:
+        c.execute("ALTER TABLE complaints ADD COLUMN created_at TEXT")
+    except sqlite3.OperationalError:
+        pass
+    c.execute("UPDATE complaints SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)")
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS whatsapp_messages (
@@ -1494,6 +1499,11 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    try:
+        c.execute("ALTER TABLE connection_requests ADD COLUMN created_at TEXT")
+    except sqlite3.OperationalError:
+        pass
+    c.execute("UPDATE connection_requests SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)")
 
     c.execute('''CREATE TABLE IF NOT EXISTS stock (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
