@@ -1385,10 +1385,19 @@ def init_db():
         c.execute("ALTER TABLE complaints ADD COLUMN source TEXT DEFAULT 'Web'")
     except sqlite3.OperationalError:
         pass
-    try:
-        c.execute("ALTER TABLE complaints ADD COLUMN category TEXT DEFAULT 'Other'")
-    except sqlite3.OperationalError:
-        pass
+    for column_def in [
+        "name TEXT",
+        "mobile TEXT",
+        "complaint TEXT",
+        "category TEXT DEFAULT 'Other'",
+        "status TEXT DEFAULT 'Pending'",
+        "created_at TEXT",
+    ]:
+        try:
+            c.execute(f"ALTER TABLE complaints ADD COLUMN {column_def}")
+        except sqlite3.OperationalError:
+            pass
+    c.execute("UPDATE complaints SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)")
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS whatsapp_messages (
@@ -1494,6 +1503,18 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    for column_def in [
+        "name TEXT",
+        "mobile TEXT",
+        "area TEXT",
+        "status TEXT DEFAULT 'Pending'",
+        "created_at TEXT",
+    ]:
+        try:
+            c.execute(f"ALTER TABLE connection_requests ADD COLUMN {column_def}")
+        except sqlite3.OperationalError:
+            pass
+    c.execute("UPDATE connection_requests SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)")
 
     c.execute('''CREATE TABLE IF NOT EXISTS stock (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1556,6 +1577,8 @@ def dashboard():
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
+    complaint_columns = {row[1] for row in c.execute("PRAGMA table_info(complaints)").fetchall()}
+    connection_columns = {row[1] for row in c.execute("PRAGMA table_info(connection_requests)").fetchall()}
 
     c.execute('SELECT COUNT(*) FROM complaints')
     total = c.fetchone()[0]
@@ -1566,32 +1589,74 @@ def dashboard():
     c.execute("SELECT COUNT(*) FROM complaints WHERE status = 'Resolved'")
     resolved = c.fetchone()[0]
 
-    c.execute('''
-    SELECT * FROM (
-        SELECT * FROM complaints
+    has_mobile = "mobile" in complaint_columns
+    has_created_at = "created_at" in complaint_columns
+
+    if has_mobile and has_created_at:
+        c.execute('''
+        SELECT * FROM (
+            SELECT * FROM complaints
+            ORDER BY created_at DESC
+        )
+        GROUP BY mobile
         ORDER BY created_at DESC
-    )
-    GROUP BY mobile
-    ORDER BY created_at DESC
-    LIMIT 50
-''')
-    recent_complaints_raw = c.fetchall()
+        LIMIT 50
+    ''')
+        recent_complaints_raw = c.fetchall()
+    elif has_mobile:
+        c.execute('''
+        SELECT * FROM (
+            SELECT * FROM complaints
+            ORDER BY id DESC
+        )
+        GROUP BY mobile
+        ORDER BY id DESC
+        LIMIT 50
+    ''')
+        recent_complaints_raw = c.fetchall()
+    else:
+        order_column = "created_at" if has_created_at else "id"
+        c.execute(f"SELECT * FROM complaints ORDER BY {order_column} DESC LIMIT 50")
+        recent_complaints_raw = c.fetchall()
 
     priority_complaints = []
     for comp in recent_complaints_raw:
-        mobile = comp['mobile']
-        c.execute("""
-            SELECT COUNT(*) FROM complaints
-            WHERE mobile = ? AND date(created_at) >= date('now', '-30 day')
-        """, (mobile,))
+        mobile = comp['mobile'] if has_mobile else None
+        if mobile and has_created_at:
+            c.execute("""
+                SELECT COUNT(*) FROM complaints
+                WHERE mobile = ? AND date(created_at) >= date('now', '-30 day')
+            """, (mobile,))
+        elif mobile:
+            c.execute("SELECT COUNT(*) FROM complaints WHERE mobile = ?", (mobile,))
+        else:
+            c.execute("SELECT 1")
         count = c.fetchone()[0]
         priority = "High" if count >= 3 else "Medium" if count == 2 else "Low"
         priority_complaints.append(dict(comp) | {'priority': priority})
 
-    c.execute("SELECT id, name, mobile, area, status, created_at FROM connection_requests WHERE status = 'Pending' ORDER BY created_at DESC LIMIT 5")
+    pending_connection_order = "created_at" if "created_at" in connection_columns else "id"
+    pending_connection_fields = [
+        "id",
+        "name" if "name" in connection_columns else "'' AS name",
+        "mobile" if "mobile" in connection_columns else "'' AS mobile",
+        "area" if "area" in connection_columns else "'' AS area",
+        "status" if "status" in connection_columns else "'Pending' AS status",
+        "created_at" if "created_at" in connection_columns else "NULL AS created_at",
+    ]
+    c.execute(
+        f"SELECT {', '.join(pending_connection_fields)} "
+        f"FROM connection_requests "
+        f"WHERE {'status = ?' if 'status' in connection_columns else '1=1'} "
+        f"ORDER BY {pending_connection_order} DESC LIMIT 5",
+        ("Pending",) if "status" in connection_columns else ()
+    )
     pending_connections = c.fetchall()
 
-    c.execute("SELECT COUNT(*) FROM connection_requests WHERE status = 'Pending'")
+    if "status" in connection_columns:
+        c.execute("SELECT COUNT(*) FROM connection_requests WHERE status = 'Pending'")
+    else:
+        c.execute("SELECT COUNT(*) FROM connection_requests")
     pending_connection_count = c.fetchone()[0]
 
     device_types = ['Switch', 'WAN Router', 'ONT Router', 'ONU']
