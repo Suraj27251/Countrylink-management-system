@@ -13,7 +13,8 @@ import time
 import mimetypes
 import uuid
 import requests
-import importlib
+import mysql.connector
+from mysql.connector import Error as MySQLError
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
 import sqlite3
 from datetime import datetime
@@ -116,10 +117,10 @@ ZOHO_TOKEN_URL = "https://accounts.zoho.in/oauth/v2/token"
 ZOHO_TIMEOUT_SECONDS = int(os.environ.get("ZOHO_TIMEOUT_SECONDS", "30"))
 ZOHO_MAX_RETRIES = int(os.environ.get("ZOHO_MAX_RETRIES", "3"))
 ZOHO_RETRY_BACKOFF = float(os.environ.get("ZOHO_RETRY_BACKOFF", "1.0"))
-MYSQL_DB_HOST = "localhost"
-MYSQL_DB_NAME = "countrylinks_user_database"
-MYSQL_DB_USER = "countrylinks_Suraj27251"
-MYSQL_DB_PASSWORD = "Suraj@27251"
+MYSQL_DB_HOST = os.environ.get("MYSQL_DB_HOST", "localhost")
+MYSQL_DB_NAME = os.environ.get("MYSQL_DB_NAME", "countrylinks_user_database")
+MYSQL_DB_USER = os.environ.get("MYSQL_DB_USER", "countrylinks_Suraj27251")
+MYSQL_DB_PASSWORD = os.environ.get("MYSQL_DB_PASSWORD", "")
 
 
 def create_retryable_session():
@@ -216,8 +217,6 @@ def save_customers_to_db(customers):
     updated = 0
     conn = None
     cursor = None
-    mysql_connector = None
-    mysql_error_type = Exception
 
     query = """
         INSERT INTO zoho_customers (
@@ -259,9 +258,7 @@ def save_customers_to_db(customers):
     """
 
     try:
-        mysql_connector = importlib.import_module("mysql.connector")
-        mysql_error_type = getattr(mysql_connector, "Error", Exception)
-        conn = mysql_connector.connect(
+        conn = mysql.connector.connect(
             host=MYSQL_DB_HOST,
             database=MYSQL_DB_NAME,
             user=MYSQL_DB_USER,
@@ -296,7 +293,7 @@ def save_customers_to_db(customers):
         conn.commit()
         app.logger.info("Zoho customer sync committed. Inserted=%s Updated=%s", inserted, updated)
         return inserted, updated
-    except mysql_error_type as exc:
+    except MySQLError as exc:
         if conn and conn.is_connected():
             conn.rollback()
         app.logger.error("Database error while saving Zoho customers: %s", exc, exc_info=True)
@@ -2788,31 +2785,27 @@ def delete_complaint(complaint_id):
     return jsonify({"status": "success"})
 
 
-@app.route('/update_complaints_bulk', methods=['POST'])
-@login_required
-def update_complaints_bulk():
-    action = request.form.get('action')
-    ids = request.form.getlist('selected_ids[]')
-
-    if not ids:
-        return redirect(url_for('dashboard'))
-
-    conn = get_db_connection()
-    c = conn.cursor()
-
-    if action == 'resolve':
-        c.executemany("UPDATE complaints SET status = 'Resolved' WHERE id = ?", [(i,) for i in ids])
-    elif action == 'delete':
-        c.executemany("DELETE FROM complaints WHERE id = ?", [(i,) for i in ids])
-
-    conn.commit()
-    conn.close()
-    return redirect(url_for('dashboard'))
 
 
 @app.route('/ping')
 def ping():
     return 'pong', 200
+
+
+@app.route('/api/zoho/sync-customers', methods=['POST'])
+def sync_zoho_customers():
+    try:
+        customers = get_all_zoho_customers()
+        inserted, updated = save_customers_to_db(customers)
+        return jsonify({
+            "status": "ok",
+            "fetched": len(customers),
+            "inserted": inserted,
+            "updated": updated
+        })
+    except Exception as e:
+        app.logger.error("Zoho sync failed: %s", e, exc_info=True)
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 if __name__ == '__main__':
@@ -2826,6 +2819,5 @@ if __name__ == '__main__':
     except Exception as exc:
         app.logger.error("Zoho customer sync failed during startup: %s", exc, exc_info=True)
         print(f"Zoho customer sync failed: {exc}")
-
     _start_ping_thread()
     app.run(debug=True)
