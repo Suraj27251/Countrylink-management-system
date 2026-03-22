@@ -55,7 +55,11 @@
 
       <button type="submit" class="btn">{{ login_button_label or "Login" }}</button>
 
-      
+      <p class="muted">
+        No account? <a href="{{ url_for('auth.signup') }}">Sign up</a>
+      </p>
+    </form>
+  </div>
 
   <!-- 🌟 Footer -->
   <footer class="dev-footer">
