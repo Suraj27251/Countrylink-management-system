@@ -484,7 +484,7 @@
         position:relative;
         justify-content:center;
         padding-left:64px;
-        padding-right:150px;
+        padding-right:72px;
       }
       .back-btn{
         position:absolute;
@@ -501,17 +501,18 @@
         right:16px;
         top:50%;
         transform:translateY(-50%);
-        padding:5px 10px;
-        gap:6px;
-        font-size:0.66rem;
-        letter-spacing:0.05em;
+        padding:6px;
+        min-width:auto;
+      }
+      .secure-badge span{
+        display:none;
       }
     }
     @media(max-width:560px){
       .container{padding:0 14px 48px;}
-      .header{padding:14px 120px 14px 60px;gap:10px;}
-      .logo img{height:34px;}
-      .secure-badge{padding:4px 8px;font-size:0.64rem;letter-spacing:0.04em;}
+      .header{padding:14px 72px 14px 60px;gap:10px;}
+      .logo img{height:36px;}
+      .secure-badge{padding:5px;}
       .secure-dot{width:6px;height:6px;}
       .cycle-btn{padding:8px 10px;font-size:0.76rem;}
       .section-card{padding:18px;}
