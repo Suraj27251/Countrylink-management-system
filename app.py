@@ -1461,6 +1461,28 @@ def init_db():
     ''')
 
     c.execute('''
+        CREATE TABLE IF NOT EXISTS whatsapp_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            invoice_id TEXT,
+            invoice_number TEXT,
+            customer_name TEXT,
+            phone TEXT,
+            template_name TEXT,
+            status TEXT DEFAULT 'sent',
+            error_message TEXT,
+            message_id TEXT,
+            attempts INTEGER DEFAULT 1,
+            total_amount REAL,
+            due_date TEXT,
+            sent_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT
+        )
+    ''')
+    c.execute("CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_sent_at ON whatsapp_logs(sent_at)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_status ON whatsapp_logs(status)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_whatsapp_logs_invoice_status_date ON whatsapp_logs(invoice_id, status, sent_at)")
+
+    c.execute('''
         CREATE TABLE IF NOT EXISTS whatsapp_webhook_audit (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             note TEXT,
@@ -2240,6 +2262,81 @@ def whatsapp_messages_api():
         )
 
     return jsonify(response_payload)
+
+
+@app.route('/api/whatsapp/logs')
+@login_required
+def api_whatsapp_logs():
+    date_filter = (request.args.get('date') or 'today').strip().lower()
+    status_filter = (request.args.get('status') or 'all').strip().lower()
+
+    allowed_date_filters = {'today', 'last7days'}
+    allowed_statuses = {'all', 'sent', 'delivered', 'read', 'failed'}
+
+    if date_filter not in allowed_date_filters:
+        return jsonify({'error': 'Invalid date filter'}), 422
+    if status_filter not in allowed_statuses:
+        return jsonify({'error': 'Invalid status filter'}), 422
+
+    date_clause = "DATE(sent_at) = DATE('now', 'localtime')" if date_filter == 'today' else "datetime(sent_at) >= datetime('now', '-7 day', 'localtime')"
+    status_clause = ""
+    params = []
+    if status_filter != 'all':
+        status_clause = " AND status = ?"
+        params.append(status_filter)
+
+    conn = get_db_connection()
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+
+    try:
+        summary_query = f"""
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN status = 'delivered' THEN 1 ELSE 0 END) AS delivered,
+                SUM(CASE WHEN status = 'read' THEN 1 ELSE 0 END) AS read_count,
+                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed,
+                SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) AS sent_only
+            FROM whatsapp_logs
+            WHERE {date_clause}{status_clause}
+        """
+        c.execute(summary_query, tuple(params))
+        summary = c.fetchone()
+
+        rows_query = f"""
+            SELECT customer_name, invoice_id, invoice_number, total_amount AS total, status, sent_at
+            FROM whatsapp_logs
+            WHERE {date_clause}{status_clause}
+            ORDER BY datetime(sent_at) DESC
+            LIMIT 200
+        """
+        c.execute(rows_query, tuple(params))
+        rows = [dict(row) for row in c.fetchall()]
+
+        return jsonify({
+            'summary': {
+                'total_sent_today': int((summary['total'] if summary else 0) or 0),
+                'delivered': int((summary['delivered'] if summary else 0) or 0),
+                'read': int((summary['read_count'] if summary else 0) or 0),
+                'failed': int((summary['failed'] if summary else 0) or 0),
+                'sent': int((summary['sent_only'] if summary else 0) or 0),
+            },
+            'rows': rows
+        })
+    except Exception:
+        app.logger.exception("Failed to load WhatsApp analytics.")
+        return jsonify({
+            'summary': {
+                'total_sent_today': 0,
+                'delivered': 0,
+                'read': 0,
+                'failed': 0,
+                'sent': 0,
+            },
+            'rows': []
+        }), 200
+    finally:
+        conn.close()
 
 
 @app.route('/api/whatsapp/send', methods=['POST'])

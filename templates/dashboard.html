@@ -280,6 +280,78 @@
                 </table>
             </div>
         </section>
+
+        <section class="section-card">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">WhatsApp Notification Analytics</h2>
+                    <p class="section-meta">Track overdue invoice reminders and delivery outcomes.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <div class="stat-card bg-blue-500 text-white">
+                    <div class="stat-text">
+                        <div class="label">Total Sent Today</div>
+                        <div class="value" id="wa-total-sent">0</div>
+                    </div>
+                    <div class="stat-icon"><i class="fab fa-whatsapp"></i></div>
+                </div>
+                <div class="stat-card bg-green-500 text-white">
+                    <div class="stat-text">
+                        <div class="label">Delivered</div>
+                        <div class="value" id="wa-delivered">0</div>
+                    </div>
+                    <div class="stat-icon"><i class="fas fa-check"></i></div>
+                </div>
+                <div class="stat-card bg-yellow-500 text-white">
+                    <div class="stat-text">
+                        <div class="label">Read</div>
+                        <div class="value" id="wa-read">0</div>
+                    </div>
+                    <div class="stat-icon"><i class="fas fa-eye"></i></div>
+                </div>
+                <div class="stat-card bg-red-500 text-white">
+                    <div class="stat-text">
+                        <div class="label">Failed</div>
+                        <div class="value" id="wa-failed">0</div>
+                    </div>
+                    <div class="stat-icon"><i class="fas fa-triangle-exclamation"></i></div>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3 mb-4">
+                <select id="wa-date-filter" class="button outline-button">
+                    <option value="today">Today</option>
+                    <option value="last7days">Last 7 days</option>
+                </select>
+                <select id="wa-status-filter" class="button outline-button">
+                    <option value="all">All Statuses</option>
+                    <option value="sent">Sent</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="read">Read</option>
+                    <option value="failed">Failed</option>
+                </select>
+                <button type="button" id="wa-refresh" class="button">Refresh</button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="data-table compact-table">
+                    <thead>
+                        <tr>
+                            <th>Customer Name</th>
+                            <th>Invoice Number</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Sent Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="wa-log-rows">
+                        <tr><td colspan="5">Loading WhatsApp analytics...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
     </div>
 {% endblock %}
 {% block extra_scripts %}
@@ -387,5 +459,66 @@
     }
     updateIpStatus();
     setInterval(updateIpStatus, 5000);
+
+    const waRows = document.getElementById('wa-log-rows');
+    const waDateFilter = document.getElementById('wa-date-filter');
+    const waStatusFilter = document.getElementById('wa-status-filter');
+    const waRefreshBtn = document.getElementById('wa-refresh');
+
+    function statusBadge(status) {
+        const normalized = String(status || '').toLowerCase();
+        const colorMap = {
+            sent: '#3b82f6',
+            delivered: '#22c55e',
+            read: '#f59e0b',
+            failed: '#ef4444'
+        };
+        const bg = colorMap[normalized] || '#6b7280';
+        return `<span style="padding:4px 10px;border-radius:999px;color:#fff;background:${bg};font-size:12px;text-transform:capitalize;">${normalized || 'unknown'}</span>`;
+    }
+
+    async function loadWhatsAppAnalytics() {
+        const date = encodeURIComponent(waDateFilter.value);
+        const status = encodeURIComponent(waStatusFilter.value);
+
+        try {
+            const response = await fetch(`{{ url_for('api_whatsapp_logs') }}?date=${date}&status=${status}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch logs');
+            }
+
+            const data = await response.json();
+            const summary = data.summary || {};
+            const rows = data.rows || [];
+
+            document.getElementById('wa-total-sent').textContent = summary.total_sent_today || 0;
+            document.getElementById('wa-delivered').textContent = summary.delivered || 0;
+            document.getElementById('wa-read').textContent = summary.read || 0;
+            document.getElementById('wa-failed').textContent = summary.failed || 0;
+
+            if (!rows.length) {
+                waRows.innerHTML = '<tr><td colspan="5">No logs found for selected filters.</td></tr>';
+                return;
+            }
+
+            waRows.innerHTML = rows.map((row) => `
+                <tr>
+                    <td>${row.customer_name || '-'}</td>
+                    <td>${row.invoice_number || row.invoice_id || '-'}</td>
+                    <td>${row.total ?? '-'}</td>
+                    <td>${statusBadge(row.status)}</td>
+                    <td>${row.sent_at || '-'}</td>
+                </tr>
+            `).join('');
+        } catch (error) {
+            console.error(error);
+            waRows.innerHTML = '<tr><td colspan="5">Failed to load WhatsApp analytics.</td></tr>';
+        }
+    }
+
+    waDateFilter.addEventListener('change', loadWhatsAppAnalytics);
+    waStatusFilter.addEventListener('change', loadWhatsAppAnalytics);
+    waRefreshBtn.addEventListener('click', loadWhatsAppAnalytics);
+    loadWhatsAppAnalytics();
 </script>
 {% endblock %}
