@@ -482,7 +482,7 @@
         const status = encodeURIComponent(waStatusFilter.value);
 
         try {
-            const response = await fetch(`/get_whatsapp_logs.php?date=${date}&status=${status}`);
+            const response = await fetch(`{{ url_for('api_whatsapp_logs') }}?date=${date}&status=${status}`);
             if (!response.ok) {
                 throw new Error('Failed to fetch logs');
             }
