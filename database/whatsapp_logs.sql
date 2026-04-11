@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS whatsapp_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    invoice_id VARCHAR(100) NOT NULL,
+    customer_name VARCHAR(255) NOT NULL,
+    phone VARCHAR(30) NOT NULL,
+    template_name VARCHAR(100) NOT NULL,
+    status ENUM('sent','delivered','read','failed') NOT NULL DEFAULT 'sent',
+    error_message VARCHAR(255) DEFAULT NULL,
+    message_id VARCHAR(255) DEFAULT NULL,
+    attempts INT NOT NULL DEFAULT 1,
+    sent_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    sent_date DATE GENERATED ALWAYS AS (DATE(sent_at)) STORED,
+    updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_invoice_day (invoice_id, sent_date),
+    KEY idx_whatsapp_logs_invoice_id (invoice_id),
+    KEY idx_whatsapp_logs_status (status),
+    KEY idx_whatsapp_logs_sent_at (sent_at),
+    KEY idx_whatsapp_logs_message_id (message_id),
+    KEY idx_invoice_status_date (invoice_id, status, sent_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
