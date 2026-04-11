@@ -68,10 +68,36 @@ try {
     );
 
     // Backward-compatible hardening for existing deployments.
-    $pdo->exec("ALTER TABLE whatsapp_logs ADD COLUMN IF NOT EXISTS error_message VARCHAR(255) DEFAULT NULL");
-    $pdo->exec("ALTER TABLE whatsapp_logs ADD COLUMN IF NOT EXISTS sent_date DATE GENERATED ALWAYS AS (DATE(sent_at)) STORED");
-    $pdo->exec("ALTER TABLE whatsapp_logs ADD UNIQUE KEY IF NOT EXISTS unique_invoice_day (invoice_id, sent_date)");
-    $pdo->exec("ALTER TABLE whatsapp_logs ADD INDEX IF NOT EXISTS idx_invoice_status_date (invoice_id, status, sent_at)");
+    // IMPORTANT: do not fail app bootstrap if schema migration syntax differs across MySQL/MariaDB versions.
+    try {
+        $columnStmt = $pdo->query("SHOW COLUMNS FROM whatsapp_logs");
+        $existingColumns = [];
+        foreach ($columnStmt->fetchAll() as $column) {
+            $existingColumns[$column['Field']] = true;
+        }
+
+        if (!isset($existingColumns['error_message'])) {
+            $pdo->exec("ALTER TABLE whatsapp_logs ADD COLUMN error_message VARCHAR(255) DEFAULT NULL");
+        }
+        if (!isset($existingColumns['sent_date'])) {
+            $pdo->exec("ALTER TABLE whatsapp_logs ADD COLUMN sent_date DATE GENERATED ALWAYS AS (DATE(sent_at)) STORED");
+        }
+
+        $indexStmt = $pdo->query("SHOW INDEX FROM whatsapp_logs");
+        $existingIndexes = [];
+        foreach ($indexStmt->fetchAll() as $index) {
+            $existingIndexes[$index['Key_name']] = true;
+        }
+
+        if (!isset($existingIndexes['unique_invoice_day'])) {
+            $pdo->exec("ALTER TABLE whatsapp_logs ADD UNIQUE KEY unique_invoice_day (invoice_id, sent_date)");
+        }
+        if (!isset($existingIndexes['idx_invoice_status_date'])) {
+            $pdo->exec("CREATE INDEX idx_invoice_status_date ON whatsapp_logs (invoice_id, status, sent_at)");
+        }
+    } catch (PDOException $migrationException) {
+        error_log('whatsapp_logs migration warning: ' . $migrationException->getMessage());
+    }
 } catch (PDOException $e) {
     http_response_code(500);
     exit('Database connection failed.');
