@@ -1836,6 +1836,51 @@ def update_status(complaint_id, status):
     return redirect(url_for('dashboard'))
 
 
+
+
+@app.route('/update_complaints_bulk', methods=['POST'])
+@login_required
+def update_complaints_bulk():
+    action = (request.form.get('action') or '').strip().lower()
+    selected_ids = request.form.getlist('selected_ids[]')
+
+    valid_ids = []
+    for complaint_id in selected_ids:
+        try:
+            valid_ids.append(int(complaint_id))
+        except (TypeError, ValueError):
+            continue
+
+    if not valid_ids:
+        flash('No complaints selected.', 'warning')
+        return redirect(url_for('dashboard'))
+
+    placeholders = ','.join('?' for _ in valid_ids)
+    conn = get_db_connection()
+    c = conn.cursor()
+
+    if action == 'resolve':
+        c.execute(
+            f"UPDATE complaints SET status = 'Resolved' WHERE id IN ({placeholders})",
+            valid_ids
+        )
+        flash(f"Marked {c.rowcount} complaint(s) as resolved.", 'success')
+    elif action == 'delete':
+        c.execute(
+            f"DELETE FROM complaints WHERE id IN ({placeholders})",
+            valid_ids
+        )
+        flash(f"Deleted {c.rowcount} complaint(s).", 'success')
+    else:
+        conn.close()
+        flash('Invalid bulk action.', 'error')
+        return redirect(url_for('dashboard'))
+
+    conn.commit()
+    conn.close()
+    return redirect(url_for('dashboard'))
+
+
 @app.route('/webhook', methods=['GET', 'POST'])
 @app.route('/webhook/whatsapp', methods=['GET', 'POST'])
 def webhook():
