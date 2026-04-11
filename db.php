@@ -98,6 +98,29 @@ try {
     } catch (PDOException $migrationException) {
         error_log('whatsapp_logs migration warning: ' . $migrationException->getMessage());
     }
+
+    // Ensure invoices can be linked with Zoho customers by contact id.
+    try {
+        $invoiceColumnsStmt = $pdo->query("SHOW COLUMNS FROM invoices");
+        $invoiceColumns = [];
+        foreach ($invoiceColumnsStmt->fetchAll() as $column) {
+            $invoiceColumns[$column['Field']] = true;
+        }
+        if (!isset($invoiceColumns['zoho_contact_id'])) {
+            $pdo->exec("ALTER TABLE invoices ADD COLUMN zoho_contact_id VARCHAR(100) NULL AFTER customer_name");
+        }
+
+        $invoiceIndexStmt = $pdo->query("SHOW INDEX FROM invoices");
+        $invoiceIndexes = [];
+        foreach ($invoiceIndexStmt->fetchAll() as $index) {
+            $invoiceIndexes[$index['Key_name']] = true;
+        }
+        if (!isset($invoiceIndexes['idx_invoices_zoho_contact_id'])) {
+            $pdo->exec("CREATE INDEX idx_invoices_zoho_contact_id ON invoices (zoho_contact_id)");
+        }
+    } catch (PDOException $migrationException) {
+        error_log('invoices migration warning: ' . $migrationException->getMessage());
+    }
 } catch (PDOException $e) {
     http_response_code(500);
     exit('Database connection failed.');

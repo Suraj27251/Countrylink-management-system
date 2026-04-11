@@ -132,9 +132,11 @@ function columnExists(PDO $pdo, string $tableName, string $columnName): bool
 function fetchOverdueInvoices(PDO $pdo): array
 {
     $hasZohoCustomers = tableExists($pdo, 'zoho_customers');
-    $hasInvoiceCustomerId = columnExists($pdo, 'invoices', 'customer_id');
+    $hasInvoiceZohoContactId = columnExists($pdo, 'invoices', 'zoho_contact_id');
+    $hasInvoicePhone = columnExists($pdo, 'invoices', 'phone');
+    $phoneSelect = $hasInvoicePhone ? "i.phone AS invoice_phone" : "'' AS invoice_phone";
 
-    if ($hasZohoCustomers && $hasInvoiceCustomerId) {
+    if ($hasZohoCustomers && $hasInvoiceZohoContactId) {
         $sql = "
             SELECT
                 i.invoice_id,
@@ -142,11 +144,11 @@ function fetchOverdueInvoices(PDO $pdo): array
                 i.customer_name,
                 i.total,
                 i.due_date,
-                i.phone AS invoice_phone,
-                COALESCE(NULLIF(zc.phone, ''), NULLIF(i.phone, '')) AS resolved_phone
+                {$phoneSelect},
+                zc.mobile AS customer_mobile
             FROM invoices i
             LEFT JOIN zoho_customers zc
-                ON zc.zoho_contact_id = i.customer_id
+                ON zc.zoho_contact_id = i.zoho_contact_id
             WHERE i.status IN ('overdue', 'unpaid')
         ";
     } else {
@@ -157,8 +159,8 @@ function fetchOverdueInvoices(PDO $pdo): array
                 i.customer_name,
                 i.total,
                 i.due_date,
-                i.phone AS invoice_phone,
-                i.phone AS resolved_phone
+                {$phoneSelect},
+                '' AS customer_mobile
             FROM invoices i
             WHERE i.status IN ('overdue', 'unpaid')
         ";
@@ -167,6 +169,34 @@ function fetchOverdueInvoices(PDO $pdo): array
     $stmt = $pdo->prepare($sql);
     $stmt->execute();
     return $stmt->fetchAll();
+}
+
+function normalizeIndianMobile(string $mobile): string
+{
+    $cleaned = str_ireplace('Phone:', '', $mobile);
+    $cleaned = trim($cleaned);
+    $digits = preg_replace('/\D+/', '', $cleaned);
+
+    if ($digits === null || $digits === '') {
+        return '';
+    }
+
+    // Convert leading 0XXXXXXXXXX to 91XXXXXXXXXX.
+    if (strlen($digits) === 11 && str_starts_with($digits, '0')) {
+        $digits = substr($digits, 1);
+    }
+
+    // Add India country code if missing.
+    if (strlen($digits) === 10) {
+        $digits = '91' . $digits;
+    }
+
+    // Keep only valid India-format lengths (12 with country code).
+    if (strlen($digits) < 12) {
+        return '';
+    }
+
+    return $digits;
 }
 
 function fetchLatestStatusAndAttempts(PDO $pdo, string $invoiceId): ?array
@@ -240,16 +270,24 @@ try {
     foreach ($invoices as $invoice) {
         $invoiceId = trim((string) ($invoice['invoice_id'] ?? ''));
         $customerName = trim((string) ($invoice['customer_name'] ?? 'Unknown'));
-        $rawPhone = (string) ($invoice['resolved_phone'] ?? '');
-        $phone = preg_replace('/\D+/', '', $rawPhone);
+        $primaryMobile = (string) ($invoice['customer_mobile'] ?? '');
+        $fallbackMobile = (string) ($invoice['invoice_phone'] ?? '');
+        $phone = normalizeIndianMobile($primaryMobile);
+        if ($phone === '') {
+            $phone = normalizeIndianMobile($fallbackMobile);
+        }
+
+        echo "Processing invoice: {$invoiceId}\n";
 
         if ($invoiceId === '') {
             logCriticalError('Skipping row with missing invoice_id', ['invoice' => $invoice]);
+            echo "Skipped: missing invoice_id\n";
             continue;
         }
 
         // (1) Mandatory duplicate prevention for same invoice/day.
         if (alreadySentToday($pdo, $invoiceId)) {
+            echo "Skipped: already sent today\n";
             continue;
         }
 
@@ -257,11 +295,13 @@ try {
 
         // (2) Skip if already delivered/read.
         if ($latest !== null && in_array((string) $latest['status'], ['delivered', 'read'], true)) {
+            echo "Skipped: already delivered/read\n";
             continue;
         }
 
         $attempts = ($latest !== null ? (int) $latest['attempts'] : 0) + 1;
         if ($attempts > MAX_ATTEMPTS) {
+            echo "Skipped: max attempts reached\n";
             continue;
         }
 
@@ -277,6 +317,8 @@ try {
                 'message_id' => null,
                 'attempts' => $attempts,
             ]);
+            logCriticalError('Skipping due to invalid or missing mobile', ['invoice_id' => $invoiceId, 'customer_mobile' => $primaryMobile, 'invoice_phone' => $fallbackMobile]);
+            echo "Skipped: invalid or missing mobile\n";
             continue;
         }
 
@@ -294,6 +336,8 @@ try {
                 'message_id' => null,
                 'attempts' => $attempts,
             ]);
+            logCriticalError('Skipping due to invalid template params', ['invoice_id' => $invoiceId, 'error' => $errorMessage]);
+            echo "Skipped: invalid template data\n";
             continue;
         }
 
@@ -311,6 +355,8 @@ try {
                 'message_id' => $response['message_id'] ?? null,
                 'attempts' => $attempts,
             ]);
+            logCriticalError('API send failed', ['invoice_id' => $invoiceId, 'error' => $errorMessage]);
+            echo "Failed: API error\n";
             continue;
         }
 
@@ -327,6 +373,8 @@ try {
                 'message_id' => null,
                 'attempts' => $attempts,
             ]);
+            logCriticalError('API response missing message_id', ['invoice_id' => $invoiceId, 'response' => $response]);
+            echo "Failed: missing message_id\n";
             continue;
         }
 
@@ -340,6 +388,7 @@ try {
             'message_id' => $messageId,
             'attempts' => $attempts,
         ]);
+        echo "Sent: {$invoiceId} -> {$phone}\n";
     }
 } catch (PDOException $e) {
     logCriticalError('Database error in send_whatsapp_notifications.php', ['error' => $e->getMessage()]);
