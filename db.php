@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+date_default_timezone_set('Asia/Kolkata');
 
 $host = getenv('DB_HOST') ?: 'localhost';
 $dbName = getenv('DB_NAME') ?: 'countrylink_db';
@@ -42,6 +43,35 @@ try {
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
     );
+
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS whatsapp_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            invoice_id VARCHAR(100) NOT NULL,
+            customer_name VARCHAR(255) NOT NULL,
+            phone VARCHAR(30) NOT NULL,
+            template_name VARCHAR(100) NOT NULL,
+            status ENUM('sent','delivered','read','failed') NOT NULL DEFAULT 'sent',
+            error_message VARCHAR(255) DEFAULT NULL,
+            message_id VARCHAR(255) DEFAULT NULL,
+            attempts INT NOT NULL DEFAULT 1,
+            sent_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            sent_date DATE GENERATED ALWAYS AS (DATE(sent_at)) STORED,
+            updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_invoice_day (invoice_id, sent_date),
+            KEY idx_whatsapp_logs_invoice_id (invoice_id),
+            KEY idx_whatsapp_logs_status (status),
+            KEY idx_whatsapp_logs_sent_at (sent_at),
+            KEY idx_whatsapp_logs_message_id (message_id),
+            KEY idx_invoice_status_date (invoice_id, status, sent_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+    );
+
+    // Backward-compatible hardening for existing deployments.
+    $pdo->exec("ALTER TABLE whatsapp_logs ADD COLUMN IF NOT EXISTS error_message VARCHAR(255) DEFAULT NULL");
+    $pdo->exec("ALTER TABLE whatsapp_logs ADD COLUMN IF NOT EXISTS sent_date DATE GENERATED ALWAYS AS (DATE(sent_at)) STORED");
+    $pdo->exec("ALTER TABLE whatsapp_logs ADD UNIQUE KEY IF NOT EXISTS unique_invoice_day (invoice_id, sent_date)");
+    $pdo->exec("ALTER TABLE whatsapp_logs ADD INDEX IF NOT EXISTS idx_invoice_status_date (invoice_id, status, sent_at)");
 } catch (PDOException $e) {
     http_response_code(500);
     exit('Database connection failed.');
