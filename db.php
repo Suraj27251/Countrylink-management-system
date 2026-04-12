@@ -3,10 +3,10 @@
 declare(strict_types=1);
 date_default_timezone_set('Asia/Kolkata');
 
-$host = getenv('DB_HOST') ?: 'localhost';
-$dbName = getenv('DB_NAME') ?: 'countrylink_db';
-$dbUser = getenv('DB_USER') ?: 'root';
-$dbPass = getenv('DB_PASS') ?: '';
+$host = getenv('MYSQL_DB_HOST') ?: 'localhost';
+$dbName = getenv('MYSQL_DB_NAME') ?: 'countrylinks_user_database';
+$dbUser = getenv('MYSQL_DB_USER') ?: 'root';
+$dbPass = getenv('MYSQL_DB_PASSWORD') ?: '';
 $charset = 'utf8mb4';
 
 $dsn = "mysql:host={$host};dbname={$dbName};charset={$charset}";
@@ -100,6 +100,28 @@ try {
     }
 
     // Ensure invoices can be linked with Zoho customers by contact id.
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS invoices (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            invoice_id VARCHAR(100) NOT NULL UNIQUE,
+            invoice_number VARCHAR(50) NOT NULL,
+            customer_name VARCHAR(255) NOT NULL,
+            total DECIMAL(10, 2) NOT NULL,
+            due_date DATE NOT NULL,
+            status ENUM('paid', 'unpaid', 'overdue', 'draft', 'cancelled') DEFAULT 'unpaid',
+            zoho_invoice_id VARCHAR(255) NULL,
+            zoho_contact_id VARCHAR(100) NULL,
+            plan_name VARCHAR(255) DEFAULT NULL,
+            phone VARCHAR(30) NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+            KEY idx_invoice_status (status),
+            KEY idx_invoice_due_date (due_date),
+            KEY idx_invoice_customer (customer_name),
+            KEY idx_invoices_zoho_contact_id (zoho_contact_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+    );
+
     try {
         $invoiceColumnsStmt = $pdo->query("SHOW COLUMNS FROM invoices");
         $invoiceColumns = [];
