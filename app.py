@@ -3033,6 +3033,479 @@ def sync_zoho_customers():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+def normalize_invoice_phone(raw_phone):
+    digits = ''.join(ch for ch in str(raw_phone or '') if ch.isdigit())
+    if len(digits) == 10:
+        digits = f"91{digits}"
+    elif len(digits) == 11 and digits.startswith('0'):
+        digits = f"91{digits[1:]}"
+    if len(digits) == 12 and digits.startswith('91'):
+        return digits
+    return ''
+
+
+def format_due_date_for_whatsapp(due_date_value):
+    if not due_date_value:
+        return ''
+    try:
+        if isinstance(due_date_value, datetime):
+            due_dt = due_date_value.date()
+        else:
+            due_dt = datetime.strptime(str(due_date_value), '%Y-%m-%d').date()
+        return f"{due_dt.day} {due_dt.strftime('%B %Y')}"
+    except ValueError:
+        return str(due_date_value)
+
+
+def send_payment_overdue_whatsapp(phone, customer_name, plan_name, amount, due_date_str):
+    api_version = os.environ.get('WHATSAPP_API_VERSION', 'v19.0')
+    phone_number_id = os.environ.get('PHONE_NUMBER_ID')
+    token = os.environ.get('META_ACCESS_TOKEN')
+    if not phone_number_id:
+        raise RuntimeError('Missing PHONE_NUMBER_ID')
+    if not token:
+        raise RuntimeError('Missing META_ACCESS_TOKEN')
+
+    url = f"https://graph.facebook.com/{api_version}/{phone_number_id}/messages"
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": phone,
+        "type": "template",
+        "template": {
+            "name": "payment_overdue_2",
+            "language": {"code": "en"},
+            "components": [{
+                "type": "body",
+                "parameters": [
+                    {"type": "text", "text": customer_name},
+                    {"type": "text", "text": plan_name},
+                    {"type": "text", "text": amount},
+                    {"type": "text", "text": due_date_str},
+                ]
+            }]
+        }
+    }
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+    response = requests.post(url, json=payload, headers=headers, timeout=30)
+    response.raise_for_status()
+    return response.json()
+
+
+def log_invoice_whatsapp_attempt(
+    cursor,
+    invoice_id,
+    invoice_number,
+    customer_name,
+    phone,
+    status,
+    total_amount=None,
+    due_date=None,
+    message_id=None,
+    error_message=None,
+):
+    cursor.execute(
+        """
+        INSERT INTO whatsapp_logs
+            (invoice_id, invoice_number, customer_name, phone, template_name, status, error_message, message_id, attempts, total_amount, due_date)
+        VALUES
+            (%s, %s, %s, %s, 'payment_overdue_2', %s, %s, %s, 1, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            status = VALUES(status),
+            error_message = VALUES(error_message),
+            message_id = VALUES(message_id),
+            attempts = attempts + 1,
+            total_amount = VALUES(total_amount),
+            due_date = VALUES(due_date),
+            updated_at = CURRENT_TIMESTAMP
+        """,
+        (
+            invoice_id,
+            invoice_number,
+            customer_name,
+            phone,
+            status,
+            (error_message or '')[:500] if error_message else None,
+            message_id,
+            total_amount,
+            due_date,
+        ),
+    )
+
+
+@app.route('/invoices', endpoint='invoices_page')
+@login_required
+def invoices():
+    invoices_list = []
+    summary = {"total_overdue": 0, "total_amount_due": 0, "very_overdue": 0}
+    no_phone_count = 0
+    conn = None
+    cursor = None
+
+    try:
+        conn = mysql.connector.connect(
+            host=MYSQL_DB_HOST,
+            database=MYSQL_DB_NAME,
+            user=MYSQL_DB_USER,
+            password=MYSQL_DB_PASSWORD,
+        )
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT
+                i.invoice_id,
+                i.invoice_number,
+                i.customer_name,
+                i.plan_name,
+                i.total,
+                i.due_date,
+                i.status,
+                i.zoho_contact_id,
+                COALESCE(zc.mobile, zc.phone, '') AS customer_phone,
+                zc.email AS customer_email
+            FROM invoices i
+            LEFT JOIN zoho_customers zc ON zc.zoho_contact_id = i.zoho_contact_id
+            WHERE i.status IN ('overdue', 'sent', 'unpaid')
+            ORDER BY i.due_date ASC
+            """
+        )
+        invoices_list = cursor.fetchall() or []
+
+        cursor.execute(
+            """
+            SELECT
+                COUNT(*) AS total_overdue,
+                SUM(total) AS total_amount_due,
+                SUM(CASE WHEN DATEDIFF(CURDATE(), due_date) > 30 THEN 1 ELSE 0 END) AS very_overdue
+            FROM invoices
+            WHERE status IN ('overdue', 'sent', 'unpaid')
+            """
+        )
+        summary_row = cursor.fetchone() or {}
+        summary = {
+            "total_overdue": int(summary_row.get("total_overdue") or 0),
+            "total_amount_due": float(summary_row.get("total_amount_due") or 0),
+            "very_overdue": int(summary_row.get("very_overdue") or 0),
+        }
+
+        cursor.execute(
+            """
+            SELECT t.invoice_id, t.status, t.sent_at
+            FROM whatsapp_logs t
+            INNER JOIN (
+                SELECT invoice_id, MAX(sent_at) AS latest_sent_at
+                FROM whatsapp_logs
+                GROUP BY invoice_id
+            ) s ON s.invoice_id = t.invoice_id AND s.latest_sent_at = t.sent_at
+            """
+        )
+        latest_logs = {row["invoice_id"]: row for row in (cursor.fetchall() or [])}
+
+        now_utc = datetime.utcnow()
+        for row in invoices_list:
+            normalized_phone = normalize_invoice_phone(row.get("customer_phone"))
+            row["normalized_phone"] = normalized_phone
+            row["has_valid_phone"] = bool(normalized_phone)
+            if not normalized_phone:
+                no_phone_count += 1
+            log_row = latest_logs.get(row.get("invoice_id"))
+            if not log_row:
+                row["last_sent_label"] = "Not sent"
+                continue
+            last_status = (log_row.get("status") or '').lower()
+            sent_at = log_row.get("sent_at")
+            if last_status == "failed":
+                row["last_sent_label"] = "Failed"
+            elif last_status == "delivered":
+                row["last_sent_label"] = "Delivered"
+            elif sent_at:
+                diff_hours = max(0, int((now_utc - sent_at).total_seconds() // 3600))
+                row["last_sent_label"] = "Sent just now" if diff_hours == 0 else f"Sent {diff_hours}h ago"
+            else:
+                row["last_sent_label"] = "Sent"
+    except MySQLError as exc:
+        app.logger.error("MySQL error: %s", exc)
+        flash("Could not load invoice data. Please try again.", "error")
+        invoices_list = []
+        summary = {"total_overdue": 0, "total_amount_due": 0, "very_overdue": 0}
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
+
+    return render_template(
+        'invoices.html',
+        invoices=invoices_list,
+        summary=summary,
+        no_phone_count=no_phone_count,
+    )
+
+
+@app.route('/api/invoices/send-whatsapp', methods=['POST'])
+@login_required
+def send_invoice_whatsapp():
+    payload = request.get_json(silent=True) or {}
+    required_fields = ['invoice_id', 'phone', 'customer_name', 'plan_name', 'amount', 'due_date']
+    missing = [field for field in required_fields if not str(payload.get(field, '')).strip()]
+    if missing:
+        return jsonify({"status": "error", "message": f"Missing fields: {', '.join(missing)}"}), 400
+
+    invoice_id = str(payload.get('invoice_id')).strip()
+    phone_raw = str(payload.get('phone')).strip()
+    customer_name = str(payload.get('customer_name')).strip()
+    plan_name = str(payload.get('plan_name')).strip()
+    amount_value = str(payload.get('amount')).strip()
+    due_date_value = str(payload.get('due_date')).strip()
+    invoice_number = str(payload.get('invoice_number') or invoice_id).strip()
+
+    normalized_phone = normalize_invoice_phone(phone_raw)
+    if not normalized_phone:
+        return jsonify({"status": "error", "message": "Invalid phone number"}), 400
+
+    amount_display = amount_value if amount_value.startswith('₹') else f"₹{amount_value}"
+    due_date_str = format_due_date_for_whatsapp(due_date_value)
+
+    conn = None
+    cursor = None
+    try:
+        response_json = send_payment_overdue_whatsapp(
+            normalized_phone,
+            customer_name,
+            plan_name,
+            amount_display,
+            due_date_str,
+        )
+        message_id = (response_json.get('messages') or [{}])[0].get('id')
+        total_amount = None
+        try:
+            total_amount = float(str(amount_value).replace('₹', '').replace(',', '').strip())
+        except (TypeError, ValueError):
+            total_amount = None
+
+        conn = mysql.connector.connect(
+            host=MYSQL_DB_HOST,
+            database=MYSQL_DB_NAME,
+            user=MYSQL_DB_USER,
+            password=MYSQL_DB_PASSWORD,
+        )
+        cursor = conn.cursor(dictionary=True)
+        log_invoice_whatsapp_attempt(
+            cursor=cursor,
+            invoice_id=invoice_id,
+            invoice_number=invoice_number,
+            customer_name=customer_name,
+            phone=normalized_phone,
+            status='sent',
+            total_amount=total_amount,
+            due_date=due_date_value,
+            message_id=message_id,
+        )
+        conn.commit()
+        app.logger.info("Invoice WhatsApp sent for invoice_id=%s to %s", invoice_id, normalized_phone)
+        return jsonify({"status": "success", "message_id": message_id, "phone": normalized_phone}), 200
+    except requests.RequestException as exc:
+        app.logger.error("WhatsApp API error for invoice_id=%s: %s", invoice_id, exc)
+        error_text = str(exc)
+        try:
+            conn = mysql.connector.connect(
+                host=MYSQL_DB_HOST,
+                database=MYSQL_DB_NAME,
+                user=MYSQL_DB_USER,
+                password=MYSQL_DB_PASSWORD,
+            )
+            cursor = conn.cursor(dictionary=True)
+            log_invoice_whatsapp_attempt(
+                cursor=cursor,
+                invoice_id=invoice_id,
+                invoice_number=invoice_number,
+                customer_name=customer_name,
+                phone=normalized_phone,
+                status='failed',
+                due_date=due_date_value,
+                error_message=error_text,
+            )
+            conn.commit()
+        except MySQLError as db_exc:
+            app.logger.error("MySQL error: %s", db_exc)
+        return jsonify({"status": "error", "message": error_text}), 500
+    except MySQLError as exc:
+        app.logger.error("MySQL error: %s", exc)
+        return jsonify({"status": "error", "message": "Could not log send attempt."}), 500
+    except Exception as exc:
+        app.logger.error("Unexpected invoice send error: %s", exc, exc_info=True)
+        return jsonify({"status": "error", "message": str(exc)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
+
+
+@app.route('/api/invoices/send-bulk-whatsapp', methods=['POST'])
+@login_required
+def send_bulk_invoice_whatsapp():
+    payload = request.get_json(silent=True) or {}
+    invoice_ids = payload.get('invoice_ids') or []
+    if not isinstance(invoice_ids, list) or not invoice_ids:
+        return jsonify({"status": "error", "message": "invoice_ids must be a non-empty array"}), 400
+
+    cleaned_ids = [str(item).strip() for item in invoice_ids if str(item).strip()]
+    if not cleaned_ids:
+        return jsonify({"status": "error", "message": "invoice_ids must be a non-empty array"}), 400
+
+    sent_count = 0
+    failed_count = 0
+    results = []
+    conn = None
+    cursor = None
+
+    try:
+        conn = mysql.connector.connect(
+            host=MYSQL_DB_HOST,
+            database=MYSQL_DB_NAME,
+            user=MYSQL_DB_USER,
+            password=MYSQL_DB_PASSWORD,
+        )
+        cursor = conn.cursor(dictionary=True)
+        placeholders = ','.join(['%s'] * len(cleaned_ids))
+        cursor.execute(
+            f"""
+            SELECT
+                i.invoice_id,
+                i.invoice_number,
+                i.customer_name,
+                i.plan_name,
+                i.total,
+                i.due_date,
+                COALESCE(zc.mobile, zc.phone, '') AS customer_phone
+            FROM invoices i
+            LEFT JOIN zoho_customers zc ON zc.zoho_contact_id = i.zoho_contact_id
+            WHERE i.invoice_id IN ({placeholders})
+            """,
+            tuple(cleaned_ids),
+        )
+        invoice_rows = cursor.fetchall() or []
+        invoice_map = {row["invoice_id"]: row for row in invoice_rows}
+
+        for invoice_id in cleaned_ids:
+            row = invoice_map.get(invoice_id)
+            if not row:
+                failed_count += 1
+                results.append({"invoice_id": invoice_id, "status": "failed", "phone": ""})
+                continue
+
+            normalized_phone = normalize_invoice_phone(row.get("customer_phone"))
+            if not normalized_phone:
+                failed_count += 1
+                results.append({"invoice_id": invoice_id, "status": "failed", "phone": ""})
+                log_invoice_whatsapp_attempt(
+                    cursor=cursor,
+                    invoice_id=row.get("invoice_id"),
+                    invoice_number=row.get("invoice_number"),
+                    customer_name=row.get("customer_name"),
+                    phone='',
+                    status='failed',
+                    total_amount=row.get("total"),
+                    due_date=row.get("due_date"),
+                    error_message='Invalid or missing phone number',
+                )
+                continue
+
+            amount_value = float(row.get("total") or 0)
+            amount_display = f"₹{amount_value:,.2f}"
+            due_date_str = format_due_date_for_whatsapp(row.get("due_date"))
+
+            try:
+                response_json = send_payment_overdue_whatsapp(
+                    normalized_phone,
+                    (row.get("customer_name") or '').strip(),
+                    (row.get("plan_name") or '').strip(),
+                    amount_display,
+                    due_date_str,
+                )
+                message_id = (response_json.get('messages') or [{}])[0].get('id')
+                sent_count += 1
+                results.append({"invoice_id": invoice_id, "status": "sent", "phone": normalized_phone})
+                log_invoice_whatsapp_attempt(
+                    cursor=cursor,
+                    invoice_id=row.get("invoice_id"),
+                    invoice_number=row.get("invoice_number"),
+                    customer_name=row.get("customer_name"),
+                    phone=normalized_phone,
+                    status='sent',
+                    total_amount=amount_value,
+                    due_date=row.get("due_date"),
+                    message_id=message_id,
+                )
+            except Exception as exc:
+                failed_count += 1
+                results.append({"invoice_id": invoice_id, "status": "failed", "phone": normalized_phone})
+                log_invoice_whatsapp_attempt(
+                    cursor=cursor,
+                    invoice_id=row.get("invoice_id"),
+                    invoice_number=row.get("invoice_number"),
+                    customer_name=row.get("customer_name"),
+                    phone=normalized_phone,
+                    status='failed',
+                    total_amount=amount_value,
+                    due_date=row.get("due_date"),
+                    error_message=str(exc),
+                )
+                app.logger.error("Bulk WhatsApp send failed for invoice_id=%s: %s", invoice_id, exc)
+
+        conn.commit()
+        return jsonify({"sent": sent_count, "failed": failed_count, "results": results}), 200
+    except MySQLError as exc:
+        app.logger.error("MySQL error: %s", exc)
+        return jsonify({"status": "error", "message": "Could not process bulk send."}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
+
+
+@app.route('/api/invoices/check-sent/<invoice_id>')
+@login_required
+def check_invoice_sent_status(invoice_id):
+    conn = None
+    cursor = None
+    try:
+        conn = mysql.connector.connect(
+            host=MYSQL_DB_HOST,
+            database=MYSQL_DB_NAME,
+            user=MYSQL_DB_USER,
+            password=MYSQL_DB_PASSWORD,
+        )
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT
+                MAX(CASE WHEN DATE(sent_at) = CURDATE() THEN 1 ELSE 0 END) AS sent_today,
+                SUBSTRING_INDEX(GROUP_CONCAT(status ORDER BY sent_at DESC), ',', 1) AS last_status
+            FROM whatsapp_logs
+            WHERE invoice_id = %s
+            """,
+            (invoice_id,),
+        )
+        row = cursor.fetchone() or {}
+        return jsonify({
+            "sent_today": bool(row.get("sent_today")),
+            "last_status": row.get("last_status"),
+        }), 200
+    except MySQLError as exc:
+        app.logger.error("MySQL error: %s", exc)
+        return jsonify({"sent_today": False, "last_status": None}), 200
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
+
+
 if __name__ == '__main__':
     try:
         zoho_customers = get_all_zoho_customers()
