@@ -2323,18 +2323,27 @@ def api_whatsapp_logs():
     if status_filter not in allowed_statuses:
         return jsonify({'error': 'Invalid status filter'}), 422
 
-    date_clause = "DATE(sent_at) = DATE('now', 'localtime')" if date_filter == 'today' else "datetime(sent_at) >= datetime('now', '-7 day', 'localtime')"
+    # Use MySQL date functions instead of SQLite
+    if date_filter == 'today':
+        date_clause = "DATE(sent_at) = CURDATE()"
+    else:
+        date_clause = "sent_at >= NOW() - INTERVAL 7 DAY"
+
     status_clause = ""
     params = []
     if status_filter != 'all':
-        status_clause = " AND status = ?"
+        status_clause = " AND status = %s"
         params.append(status_filter)
 
-    conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-
     try:
+        conn = mysql.connector.connect(
+            host=MYSQL_DB_HOST,
+            database=MYSQL_DB_NAME,
+            user=MYSQL_DB_USER,
+            password=MYSQL_DB_PASSWORD,
+        )
+        cursor = conn.cursor(dictionary=True)
+
         summary_query = f"""
             SELECT
                 COUNT(*) AS total,
@@ -2345,18 +2354,25 @@ def api_whatsapp_logs():
             FROM whatsapp_logs
             WHERE {date_clause}{status_clause}
         """
-        c.execute(summary_query, tuple(params))
-        summary = c.fetchone()
+        cursor.execute(summary_query, tuple(params))
+        summary = cursor.fetchone()
 
         rows_query = f"""
-            SELECT customer_name, invoice_id, invoice_number, total_amount AS total, status, sent_at
+            SELECT customer_name, invoice_id, 
+                   COALESCE(invoice_id, 'N/A') AS invoice_number, 
+                   total AS total, status, sent_at
             FROM whatsapp_logs
             WHERE {date_clause}{status_clause}
-            ORDER BY datetime(sent_at) DESC
+            ORDER BY sent_at DESC
             LIMIT 200
         """
-        c.execute(rows_query, tuple(params))
-        rows = [dict(row) for row in c.fetchall()]
+        cursor.execute(rows_query, tuple(params))
+        rows = cursor.fetchall()
+
+        # Convert datetime objects to strings for JSON serialization
+        for row in rows:
+            if isinstance(row.get('sent_at'), datetime):
+                row['sent_at'] = row['sent_at'].strftime('%Y-%m-%d %H:%M:%S')
 
         return jsonify({
             'summary': {
@@ -2368,8 +2384,8 @@ def api_whatsapp_logs():
             },
             'rows': rows
         })
-    except Exception:
-        app.logger.exception("Failed to load WhatsApp analytics.")
+    except MySQLError as e:
+        app.logger.exception("Failed to load WhatsApp logs from MySQL.")
         return jsonify({
             'summary': {
                 'total_sent_today': 0,
@@ -2381,7 +2397,9 @@ def api_whatsapp_logs():
             'rows': []
         }), 200
     finally:
-        conn.close()
+        if conn:
+            cursor.close()
+            conn.close()
 
 
 @app.route('/api/whatsapp/send', methods=['POST'])
