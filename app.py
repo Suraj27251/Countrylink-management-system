@@ -11,6 +11,7 @@ import socket
 import threading
 import time
 import mimetypes
+import subprocess
 import uuid
 import requests
 import mysql.connector
@@ -3242,6 +3243,53 @@ def invoices():
         summary=summary,
         no_phone_count=no_phone_count,
     )
+
+
+@app.route('/api/invoices/manual-fetch', methods=['POST'])
+@login_required
+def manual_fetch_invoices():
+    """
+    Manually trigger the existing PHP Zoho invoice sync script, then allow staff to refresh /invoices.
+    """
+    script_path = Path(app.root_path) / 'sync_zoho_invoices.php'
+    if not script_path.exists():
+        return jsonify({"status": "error", "message": "Sync script not found."}), 404
+
+    try:
+        result = subprocess.run(
+            ['php', str(script_path)],
+            capture_output=True,
+            text=True,
+            timeout=180,
+            check=False,
+            cwd=app.root_path,
+        )
+        stdout_text = (result.stdout or '').strip()
+        stderr_text = (result.stderr or '').strip()
+        if result.returncode != 0:
+            app.logger.error(
+                "Manual invoice fetch failed. exit=%s stderr=%s",
+                result.returncode,
+                stderr_text[:500],
+            )
+            return jsonify({
+                "status": "error",
+                "message": "Manual fetch failed. Please try again.",
+                "details": stderr_text[:500] or stdout_text[:500],
+            }), 500
+
+        app.logger.info("Manual invoice fetch completed successfully.")
+        return jsonify({
+            "status": "success",
+            "message": "Invoice data fetched successfully. Refreshing list.",
+            "output": stdout_text[:500],
+        }), 200
+    except subprocess.TimeoutExpired:
+        app.logger.error("Manual invoice fetch timed out after 180 seconds.")
+        return jsonify({"status": "error", "message": "Manual fetch timed out. Please try again."}), 504
+    except Exception as exc:
+        app.logger.error("Manual invoice fetch error: %s", exc, exc_info=True)
+        return jsonify({"status": "error", "message": "Could not trigger manual fetch."}), 500
 
 
 @app.route('/api/invoices/send-whatsapp', methods=['POST'])

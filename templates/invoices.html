@@ -37,6 +37,7 @@
         <option value="overdue">Overdue</option>
         <option value="sent_unpaid">Sent/Unpaid</option>
       </select>
+      <button id="manualFetchBtn" class="btn btn-outline-primary" type="button">Fetch overdue data manually</button>
       <button id="sendVisibleBtn" class="btn btn-primary" type="button">Send to all visible</button>
       <span id="bulkProgress" class="text-muted"></span>
     </div>
@@ -114,6 +115,7 @@
   const selectedCountText = document.getElementById('selectedCountText');
   const sendSelectedBtn = document.getElementById('sendSelectedBtn');
   const sendVisibleBtn = document.getElementById('sendVisibleBtn');
+  const manualFetchBtn = document.getElementById('manualFetchBtn');
   const bulkProgress = document.getElementById('bulkProgress');
   const resultToast = document.getElementById('resultToast');
   const rows = Array.from(document.querySelectorAll('#invoicesTable tbody tr'));
@@ -326,6 +328,31 @@
       .filter(row => row.style.display !== 'none' && row.getAttribute('data-has-valid-phone') === '1')
       .map(row => row.getAttribute('data-invoice-id'));
     sendBulk(ids);
+  });
+
+  manualFetchBtn.addEventListener('click', async () => {
+    manualFetchBtn.disabled = true;
+    const originalText = manualFetchBtn.textContent;
+    manualFetchBtn.textContent = 'Fetching...';
+    try {
+      const response = await fetch("{{ url_for('manual_fetch_invoices') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await response.json();
+      if (!response.ok || data.status !== 'success') {
+        showToast(data.message || 'Manual fetch failed.', true);
+        return;
+      }
+      showToast(data.message || 'Manual fetch completed.', false);
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (err) {
+      showToast('Could not trigger manual fetch.', true);
+    } finally {
+      manualFetchBtn.disabled = false;
+      manualFetchBtn.textContent = originalText;
+    }
   });
 
   updateDaysOverdue();
