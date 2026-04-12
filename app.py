@@ -3249,7 +3249,7 @@ def invoices():
 @login_required
 def manual_fetch_invoices():
     """
-    Manually trigger the existing PHP Zoho invoice sync script.
+    Manually trigger the existing PHP Zoho invoice sync script, then allow staff to refresh /invoices.
     """
     script_path = Path(app.root_path) / 'sync_zoho_invoices.php'
     if not script_path.exists():
