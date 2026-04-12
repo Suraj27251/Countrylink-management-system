@@ -27,7 +27,7 @@ function sendOverdueTemplate(string $phone, string $templateName, array $params)
 
         // Fallback keeps the same credentials/config pattern used elsewhere in this codebase.
         $apiToken = getenv('META_ACCESS_TOKEN') ?: '';
-        $phoneNumberId = getenv('META_PHONE_NUMBER_ID') ?: '';
+        $phoneNumberId = getenv('PHONE_NUMBER_ID') ?: '';
 
         if ($apiToken === '' || $phoneNumberId === '') {
             return ['success' => false, 'message' => 'WhatsApp credentials are not configured.'];
@@ -134,7 +134,9 @@ function fetchOverdueInvoices(PDO $pdo): array
     $hasZohoCustomers = tableExists($pdo, 'zoho_customers');
     $hasInvoiceZohoContactId = columnExists($pdo, 'invoices', 'zoho_contact_id');
     $hasInvoicePhone = columnExists($pdo, 'invoices', 'phone');
+    $hasPlanName = columnExists($pdo, 'invoices', 'plan_name');
     $phoneSelect = $hasInvoicePhone ? "i.phone AS invoice_phone" : "'' AS invoice_phone";
+    $planSelect = $hasPlanName ? "i.plan_name" : "i.invoice_number AS plan_name";
 
     if ($hasZohoCustomers && $hasInvoiceZohoContactId) {
         $sql = "
@@ -144,6 +146,7 @@ function fetchOverdueInvoices(PDO $pdo): array
                 i.customer_name,
                 i.total,
                 i.due_date,
+                {$planSelect},
                 {$phoneSelect},
                 zc.mobile AS customer_mobile
             FROM invoices i
@@ -159,6 +162,7 @@ function fetchOverdueInvoices(PDO $pdo): array
                 i.customer_name,
                 i.total,
                 i.due_date,
+                {$planSelect},
                 {$phoneSelect},
                 '' AS customer_mobile
             FROM invoices i
@@ -236,11 +240,11 @@ function insertWhatsAppLog(PDO $pdo, array $data): void
 function buildTemplateParams(array $invoice): array
 {
     $customerName = trim((string) ($invoice['customer_name'] ?? ''));
-    $invoiceNumber = trim((string) ($invoice['invoice_number'] ?? ''));
+    $planName = trim((string) ($invoice['plan_name'] ?? ''));
     $totalRaw = $invoice['total'] ?? null;
     $dueDateRaw = trim((string) ($invoice['due_date'] ?? ''));
 
-    if ($customerName === '' || $invoiceNumber === '' || $totalRaw === null || $dueDateRaw === '') {
+    if ($customerName === '' || $planName === '' || $totalRaw === null || $dueDateRaw === '') {
         return ['ok' => false, 'error' => 'Missing template data'];
     }
 
@@ -257,7 +261,7 @@ function buildTemplateParams(array $invoice): array
         'ok' => true,
         'params' => [
             $customerName,
-            $invoiceNumber,
+            $planName,
             number_format((float) $totalRaw, 2, '.', ''),
             date('d-m-Y', $dueTimestamp),
         ],
