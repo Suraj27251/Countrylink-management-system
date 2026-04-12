@@ -1,0 +1,372 @@
+{% extends 'base.html' %}
+{% block title %}Overdue Invoices{% endblock %}
+{% block content %}
+<div class="container-fluid" style="max-width: 1400px;">
+  <h2 style="margin-bottom: 16px;">Overdue Invoices</h2>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ 'danger' if category in ['error', 'danger'] else category }}" role="alert">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div id="resultToast" class="alert" style="display:none;"></div>
+
+  <div class="row g-3" style="margin-bottom: 16px;">
+    <div class="col-md-3">
+      <div class="card"><div class="card-body"><small>Total overdue invoices</small><h4>{{ summary.total_overdue or 0 }}</h4></div></div>
+    </div>
+    <div class="col-md-3">
+      <div class="card"><div class="card-body"><small>Total amount due</small><h4>₹{{ '{:,.2f}'.format((summary.total_amount_due or 0)|float) }}</h4></div></div>
+    </div>
+    <div class="col-md-3">
+      <div class="card"><div class="card-body"><small>Very overdue (&gt;30 days)</small><h4>{{ summary.very_overdue or 0 }}</h4></div></div>
+    </div>
+    <div class="col-md-3">
+      <div class="card"><div class="card-body"><small>No phone number</small><h4>{{ no_phone_count or 0 }}</h4></div></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom: 16px;">
+    <div class="card-body d-flex flex-wrap gap-2 align-items-center">
+      <input id="searchInput" class="form-control" style="max-width: 300px;" placeholder="Search customer or invoice #" />
+      <select id="statusFilter" class="form-select" style="max-width: 200px;">
+        <option value="all">All</option>
+        <option value="overdue">Overdue</option>
+        <option value="sent_unpaid">Sent/Unpaid</option>
+      </select>
+      <button id="manualFetchBtn" class="btn btn-outline-primary" type="button">Fetch overdue data manually</button>
+      <button id="sendVisibleBtn" class="btn btn-primary" type="button">Send to all visible</button>
+      <span id="bulkProgress" class="text-muted"></span>
+    </div>
+  </div>
+
+  <div id="bulkActionBar" class="alert alert-info d-flex justify-content-between align-items-center" style="display:none;">
+    <span id="selectedCountText">0 selected</span>
+    <button id="sendSelectedBtn" class="btn btn-success btn-sm" type="button">Send WhatsApp to all selected</button>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-striped table-bordered" id="invoicesTable">
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="selectAll" /></th>
+          <th>Invoice #</th>
+          <th>Customer name</th>
+          <th>Plan name</th>
+          <th>Amount due</th>
+          <th>Due date</th>
+          <th>Days overdue</th>
+          <th>Phone number</th>
+          <th>Last sent</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in invoices %}
+        {% set due_iso = inv.due_date.strftime('%Y-%m-%d') if inv.due_date else '' %}
+        {% set due_display = inv.due_date.strftime('%d %b %Y') if inv.due_date else '-' %}
+        <tr
+          data-invoice-id="{{ inv.invoice_id }}"
+          data-invoice-number="{{ inv.invoice_number or '' }}"
+          data-customer-name="{{ inv.customer_name or '' }}"
+          data-plan-name="{{ inv.plan_name or '' }}"
+          data-amount="{{ '{:.2f}'.format((inv.total or 0)|float) }}"
+          data-due-date="{{ due_iso }}"
+          data-phone="{{ inv.customer_phone or '' }}"
+          data-status="{{ (inv.status or '')|lower }}"
+          data-has-valid-phone="{{ '1' if inv.has_valid_phone else '0' }}"
+        >
+          <td><input type="checkbox" class="row-checkbox" {{ 'disabled' if not inv.has_valid_phone else '' }} /></td>
+          <td>{{ inv.invoice_number or inv.invoice_id }}</td>
+          <td>{{ inv.customer_name }}</td>
+          <td>{{ inv.plan_name or '-' }}</td>
+          <td>₹{{ '{:,.2f}'.format((inv.total or 0)|float) }}</td>
+          <td>{{ due_display }}</td>
+          <td class="days-overdue" data-due-date="{{ due_iso }}">-</td>
+          <td>
+            {% if inv.has_valid_phone %}
+              {{ inv.normalized_phone }}
+            {% else %}
+              <span class="badge bg-danger">No phone</span>
+            {% endif %}
+          </td>
+          <td class="last-sent-cell">{{ inv.last_sent_label or 'Not sent' }}</td>
+          <td>
+            <button class="btn btn-sm btn-success send-btn" type="button" {{ 'disabled' if not inv.has_valid_phone else '' }}>
+              Send WhatsApp
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+(function () {
+  const searchInput = document.getElementById('searchInput');
+  const statusFilter = document.getElementById('statusFilter');
+  const selectAll = document.getElementById('selectAll');
+  const bulkActionBar = document.getElementById('bulkActionBar');
+  const selectedCountText = document.getElementById('selectedCountText');
+  const sendSelectedBtn = document.getElementById('sendSelectedBtn');
+  const sendVisibleBtn = document.getElementById('sendVisibleBtn');
+  const manualFetchBtn = document.getElementById('manualFetchBtn');
+  const bulkProgress = document.getElementById('bulkProgress');
+  const resultToast = document.getElementById('resultToast');
+  const rows = Array.from(document.querySelectorAll('#invoicesTable tbody tr'));
+
+  function showToast(message, isError) {
+    resultToast.style.display = 'block';
+    resultToast.className = 'alert ' + (isError ? 'alert-danger' : 'alert-success');
+    resultToast.textContent = message;
+    setTimeout(() => { resultToast.style.display = 'none'; }, 4000);
+  }
+
+  function formatAmount(amount) {
+    const value = Number(amount || 0);
+    return '₹' + value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function formatDueDateLong(isoDate) {
+    if (!isoDate) return '';
+    const dt = new Date(isoDate + 'T00:00:00');
+    if (Number.isNaN(dt.getTime())) return isoDate;
+    return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  function updateDaysOverdue() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    rows.forEach((row) => {
+      const cell = row.querySelector('.days-overdue');
+      const dueDateValue = cell.getAttribute('data-due-date');
+      if (!dueDateValue) {
+        cell.textContent = '-';
+        cell.className = 'days-overdue text-muted';
+        return;
+      }
+      const due = new Date(dueDateValue + 'T00:00:00');
+      if (Number.isNaN(due.getTime())) {
+        cell.textContent = '-';
+        cell.className = 'days-overdue text-muted';
+        return;
+      }
+      const diffDays = Math.floor((today - due) / (1000 * 60 * 60 * 24));
+      if (diffDays < 0) {
+        cell.textContent = 'Not yet due';
+        cell.className = 'days-overdue text-muted';
+      } else if (diffDays <= 7) {
+        cell.textContent = diffDays + ' day' + (diffDays === 1 ? '' : 's');
+        cell.className = 'days-overdue text-warning';
+      } else {
+        cell.textContent = diffDays + ' day' + (diffDays === 1 ? '' : 's');
+        cell.className = 'days-overdue text-danger fw-bold';
+      }
+    });
+  }
+
+  function rowMatchesFilters(row) {
+    const query = searchInput.value.trim().toLowerCase();
+    const statusChoice = statusFilter.value;
+    const customer = (row.getAttribute('data-customer-name') || '').toLowerCase();
+    const invoiceNo = (row.getAttribute('data-invoice-number') || '').toLowerCase();
+    const status = (row.getAttribute('data-status') || '').toLowerCase();
+
+    const searchOk = !query || customer.includes(query) || invoiceNo.includes(query);
+    let statusOk = true;
+    if (statusChoice === 'overdue') statusOk = status === 'overdue';
+    if (statusChoice === 'sent_unpaid') statusOk = status === 'sent' || status === 'unpaid';
+    return searchOk && statusOk;
+  }
+
+  function applyFilters() {
+    rows.forEach((row) => {
+      row.style.display = rowMatchesFilters(row) ? '' : 'none';
+    });
+    updateBulkBar();
+  }
+
+  function getVisibleSelectedInvoiceIds() {
+    const selected = [];
+    rows.forEach((row) => {
+      if (row.style.display === 'none') return;
+      const checkbox = row.querySelector('.row-checkbox');
+      if (checkbox && checkbox.checked && !checkbox.disabled) {
+        selected.push(row.getAttribute('data-invoice-id'));
+      }
+    });
+    return selected;
+  }
+
+  function updateBulkBar() {
+    const selected = getVisibleSelectedInvoiceIds();
+    if (selected.length) {
+      bulkActionBar.style.display = 'flex';
+      selectedCountText.textContent = selected.length + ' selected';
+    } else {
+      bulkActionBar.style.display = 'none';
+    }
+  }
+
+  async function sendSingle(row, button) {
+    const invoiceId = row.getAttribute('data-invoice-id');
+    const payload = {
+      invoice_id: invoiceId,
+      invoice_number: row.getAttribute('data-invoice-number'),
+      phone: row.getAttribute('data-phone'),
+      customer_name: row.getAttribute('data-customer-name'),
+      plan_name: row.getAttribute('data-plan-name'),
+      amount: row.getAttribute('data-amount'),
+      due_date: row.getAttribute('data-due-date')
+    };
+
+    button.disabled = true;
+    const originalText = button.textContent;
+    button.textContent = 'Sending...';
+
+    try {
+      const response = await fetch("{{ url_for('send_invoice_whatsapp') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      const statusCell = row.querySelector('.last-sent-cell');
+
+      if (!response.ok || data.status !== 'success') {
+        statusCell.textContent = 'Failed ✗';
+        statusCell.className = 'last-sent-cell text-danger fw-bold';
+        showToast(data.message || 'Send failed.', true);
+        return;
+      }
+
+      statusCell.textContent = 'Just sent ✓';
+      statusCell.className = 'last-sent-cell text-success fw-bold';
+      showToast('WhatsApp sent to ' + (data.phone || ''), false);
+    } catch (err) {
+      const statusCell = row.querySelector('.last-sent-cell');
+      statusCell.textContent = 'Failed ✗';
+      statusCell.className = 'last-sent-cell text-danger fw-bold';
+      showToast('Network error while sending.', true);
+    } finally {
+      button.disabled = row.getAttribute('data-has-valid-phone') !== '1';
+      button.textContent = originalText;
+    }
+  }
+
+  async function sendBulk(invoiceIds) {
+    if (!invoiceIds.length) return;
+    bulkProgress.textContent = 'Sending 0 of ' + invoiceIds.length + '...';
+
+    try {
+      invoiceIds.forEach((_, index) => {
+        bulkProgress.textContent = 'Sending ' + (index + 1) + ' of ' + invoiceIds.length + '...';
+      });
+
+      const response = await fetch("{{ url_for('send_bulk_invoice_whatsapp') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoice_ids: invoiceIds })
+      });
+      const data = await response.json();
+
+      (data.results || []).forEach((item) => {
+        const row = rows.find(r => r.getAttribute('data-invoice-id') === item.invoice_id);
+        if (!row) return;
+        const statusCell = row.querySelector('.last-sent-cell');
+        if (item.status === 'sent') {
+          statusCell.textContent = 'Just sent ✓';
+          statusCell.className = 'last-sent-cell text-success fw-bold';
+        } else {
+          statusCell.textContent = 'Failed ✗';
+          statusCell.className = 'last-sent-cell text-danger fw-bold';
+        }
+      });
+
+      showToast('Bulk send finished. Sent: ' + (data.sent || 0) + ', Failed: ' + (data.failed || 0), false);
+    } catch (err) {
+      showToast('Bulk send failed.', true);
+    } finally {
+      bulkProgress.textContent = '';
+      updateBulkBar();
+    }
+  }
+
+  rows.forEach((row) => {
+    const sendBtn = row.querySelector('.send-btn');
+    const checkbox = row.querySelector('.row-checkbox');
+    if (checkbox) checkbox.addEventListener('change', updateBulkBar);
+    if (sendBtn) {
+      sendBtn.addEventListener('click', () => sendSingle(row, sendBtn));
+    }
+  });
+
+  searchInput.addEventListener('input', applyFilters);
+  statusFilter.addEventListener('change', applyFilters);
+
+  selectAll.addEventListener('change', () => {
+    rows.forEach((row) => {
+      if (row.style.display === 'none') return;
+      const checkbox = row.querySelector('.row-checkbox');
+      if (checkbox && !checkbox.disabled) checkbox.checked = selectAll.checked;
+    });
+    updateBulkBar();
+  });
+
+  sendSelectedBtn.addEventListener('click', () => {
+    const ids = getVisibleSelectedInvoiceIds();
+    sendBulk(ids);
+  });
+
+  sendVisibleBtn.addEventListener('click', () => {
+    const ids = rows
+      .filter(row => row.style.display !== 'none' && row.getAttribute('data-has-valid-phone') === '1')
+      .map(row => row.getAttribute('data-invoice-id'));
+    sendBulk(ids);
+  });
+
+  manualFetchBtn.addEventListener('click', async () => {
+    manualFetchBtn.disabled = true;
+    const originalText = manualFetchBtn.textContent;
+    manualFetchBtn.textContent = 'Fetching...';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 50000);
+    try {
+      const response = await fetch("{{ url_for('manual_fetch_invoices') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+        signal: controller.signal
+      });
+      const rawText = await response.text();
+      let data = {};
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch (parseErr) {
+        data = { status: 'error', message: 'Unexpected server response.' };
+      }
+      if (!response.ok || data.status !== 'success') {
+        showToast(data.message || 'Manual fetch failed.', true);
+        return;
+      }
+      showToast(data.message || 'Manual fetch completed.', false);
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (err) {
+      showToast(err.name === 'AbortError' ? 'Manual fetch timed out.' : 'Could not trigger manual fetch.', true);
+    } finally {
+      clearTimeout(timeoutId);
+      manualFetchBtn.disabled = false;
+      manualFetchBtn.textContent = originalText;
+    }
+  });
+
+  updateDaysOverdue();
+  applyFilters();
+})();
+</script>
+{% endblock %}
