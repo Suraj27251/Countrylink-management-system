@@ -334,22 +334,13 @@
     manualFetchBtn.disabled = true;
     const originalText = manualFetchBtn.textContent;
     manualFetchBtn.textContent = 'Fetching...';
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 50000);
     try {
       const response = await fetch("{{ url_for('manual_fetch_invoices') }}", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-        signal: controller.signal
+        body: JSON.stringify({})
       });
-      const rawText = await response.text();
-      let data = {};
-      try {
-        data = rawText ? JSON.parse(rawText) : {};
-      } catch (parseErr) {
-        data = { status: 'error', message: 'Unexpected server response.' };
-      }
+      const data = await response.json();
       if (!response.ok || data.status !== 'success') {
         showToast(data.message || 'Manual fetch failed.', true);
         return;
@@ -357,9 +348,8 @@
       showToast(data.message || 'Manual fetch completed.', false);
       setTimeout(() => window.location.reload(), 1200);
     } catch (err) {
-      showToast(err.name === 'AbortError' ? 'Manual fetch timed out.' : 'Could not trigger manual fetch.', true);
+      showToast('Could not trigger manual fetch.', true);
     } finally {
-      clearTimeout(timeoutId);
       manualFetchBtn.disabled = false;
       manualFetchBtn.textContent = originalText;
     }
