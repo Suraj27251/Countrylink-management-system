@@ -30,6 +30,7 @@
     <div class="tab"><a href="{{ url_for('stock') }}"><i class="fas fa-boxes"></i> Stock</a></div>
     <div class="tab"><a href="{{ url_for('hr_dashboard') }}"><i class="fas fa-users"></i> Human Resource</a></div>
     <div class="tab"><a href="{{ url_for('whatsapp_complaints') }}"><i class="fab fa-whatsapp"></i> WhatsApp Inbox</a></div>
+    <div class="tab"><a href="/marketing/dashboard"><i class="fas fa-bullhorn"></i> Marketing</a></div>
 {% endblock %}
 {% block content %}
     <div class="dashboard-wrapper">
@@ -101,6 +102,18 @@
                     <div class="stat-subtext">Completed updates</div>
                 </div>
                 <div class="stat-icon"><i class="fas fa-circle-check"></i></div>
+            </div>
+        </section>
+
+        <section class="section-card">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">WhatsApp Marketing</h2>
+                    <p class="section-meta">Launch campaigns, sync approved templates, and track delivery analytics.</p>
+                </div>
+                <a href="/marketing/dashboard" class="button">
+                    <i class="fas fa-bullhorn"></i> Open Marketing Dashboard
+                </a>
             </div>
         </section>
 
