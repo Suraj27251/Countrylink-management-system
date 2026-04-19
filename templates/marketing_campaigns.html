@@ -1,0 +1,79 @@
+{% extends "marketing_base.html" %}
+
+{% block marketing_content %}
+<div x-data="campaignUI()" class="space-y-6">
+  <div class="flex items-center justify-between">
+    <h2 class="text-xl font-semibold">Campaigns</h2>
+    <button class="rounded-lg bg-blue-600 px-4 py-2 text-white" @click="open=true">Create Campaign</button>
+  </div>
+
+  <div class="rounded-xl bg-white p-6 shadow-md overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead><tr class="border-b text-left"><th class="p-2">Name</th><th class="p-2">Template</th><th class="p-2">Schedule</th><th class="p-2">Status</th></tr></thead>
+      <tbody>
+      {% for c in campaigns %}
+      <tr class="border-b">
+        <td class="p-2">{{ c.name }}</td>
+        <td class="p-2">{{ c.template_name }}</td>
+        <td class="p-2">{{ c.scheduled_time or '-' }}</td>
+        <td class="p-2"><span class="rounded-full px-2 py-1 text-xs bg-slate-100">{{ c.status }}</span></td>
+      </tr>
+      {% else %}
+      <tr><td class="p-2" colspan="4">No campaigns yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div x-show="open" x-transition class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div class="w-full max-w-2xl rounded-xl bg-white p-6 shadow-md">
+      <div class="mb-4 flex items-center justify-between">
+        <h3 class="text-lg font-semibold">Create Campaign</h3>
+        <button @click="open=false">✕</button>
+      </div>
+      <form class="space-y-4" @submit.prevent="submitCampaign">
+        <input class="w-full rounded-lg border p-3" placeholder="Campaign Name" x-model="form.name" required>
+        <select class="w-full rounded-lg border p-3" x-model="form.template_id" required>
+          <option value="">Select Template</option>
+          {% for t in templates %}
+          <option value="{{ t.id }}">{{ t.name }} ({{ t.language }})</option>
+          {% endfor %}
+        </select>
+        <input class="w-full rounded-lg border p-3" type="datetime-local" x-model="form.scheduled_time">
+        <label class="text-sm font-medium">Variable Mapping JSON (example: [{"variable_position":1,"field_name":"contact_name"}])</label>
+        <textarea class="w-full rounded-lg border p-3" rows="3" x-model="mappingJson"></textarea>
+        <label class="text-sm font-medium">Contacts</label>
+        <select multiple class="w-full rounded-lg border p-3 h-36" x-model="form.contact_ids">
+          {% for c in contacts %}
+          <option value="{{ c.contact_id }}">{{ c.contact_name }} ({{ c.mobile }})</option>
+          {% endfor %}
+        </select>
+        <div class="flex justify-end gap-2">
+          <button type="button" class="rounded-lg border px-4 py-2" @click="open=false">Cancel</button>
+          <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2 text-white">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function campaignUI() {
+  return {
+    open: false,
+    mappingJson: '[]',
+    form: { name: '', template_id: '', scheduled_time: '', contact_ids: [] },
+    async submitCampaign() {
+      let variable_mapping = [];
+      try { variable_mapping = JSON.parse(this.mappingJson || '[]'); } catch(e) { alert('Invalid mapping JSON'); return; }
+      const payload = { ...this.form, variable_mapping };
+      const res = await fetch('{{ url_for("marketing.create_campaign") }}', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      });
+      if (!res.ok) { alert('Failed to create campaign'); return; }
+      window.location.reload();
+    }
+  }
+}
+</script>
+{% endblock %}

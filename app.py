@@ -43,6 +43,14 @@ def get_db_connection():
         app.logger.warning("Unable to apply SQLite PRAGMA settings.", exc_info=True)
     return conn
 
+try:
+    from whatsapp_marketing import init_marketing
+
+    init_marketing(app, get_db_connection)
+    app.logger.info("WhatsApp marketing module registered at /marketing.")
+except Exception:
+    app.logger.warning("WhatsApp marketing module could not be initialized.", exc_info=True)
+
 WHATSAPP_API_VERSION = os.environ.get('WHATSAPP_API_VERSION', 'v20.0')
 WEBHOOK_VERIFY_TOKEN = os.environ.get('WEBHOOK_VERIFY_TOKEN', '')
 WHATSAPP_MEDIA_DIR = Path(app.root_path) / 'static' / 'uploads' / 'whatsapp'

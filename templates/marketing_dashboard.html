@@ -1,0 +1,44 @@
+{% extends "marketing_base.html" %}
+
+{% block marketing_content %}
+<div class="grid grid-cols-1 gap-4 md:grid-cols-4">
+  <div class="rounded-xl bg-white p-6 shadow-md"><p class="text-sm text-slate-500">Total Contacts</p><p class="text-2xl font-bold">{{ analytics.total_contacts }}</p></div>
+  <div class="rounded-xl bg-white p-6 shadow-md"><p class="text-sm text-slate-500">Campaigns</p><p class="text-2xl font-bold">{{ analytics.campaign_count }}</p></div>
+  <div class="rounded-xl bg-white p-6 shadow-md"><p class="text-sm text-slate-500">Messages Sent Today</p><p class="text-2xl font-bold">{{ analytics.sent_today }}</p></div>
+  <div class="rounded-xl bg-white p-6 shadow-md"><p class="text-sm text-slate-500">Delivery Rate</p><p class="text-2xl font-bold">{{ analytics.delivery_rate }}%</p></div>
+</div>
+
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+  <div class="rounded-xl bg-white p-6 shadow-md"><h2 class="mb-3 font-semibold">Messages Over Time</h2><canvas id="messagesOverTime"></canvas></div>
+  <div class="rounded-xl bg-white p-6 shadow-md"><h2 class="mb-3 font-semibold">Campaign Stats</h2><canvas id="campaignStats"></canvas></div>
+</div>
+
+<div class="rounded-xl bg-white p-6 shadow-md">
+  <h2 class="mb-3 font-semibold">Recent Campaigns</h2>
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead><tr class="border-b text-left"><th class="p-2">Name</th><th class="p-2">Template</th><th class="p-2">Status</th><th class="p-2">Sent</th></tr></thead>
+      <tbody>
+      {% for c in recent_campaigns %}
+      <tr class="border-b"><td class="p-2">{{ c.name }}</td><td class="p-2">{{ c.template_name }}</td><td class="p-2">{{ c.status }}</td><td class="p-2">{{ c.sent_count }}/{{ c.recipient_count }}</td></tr>
+      {% else %}
+      <tr><td class="p-2" colspan="4">No campaigns yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const msgData = {{ analytics.messages_over_time | tojson }};
+const campData = {{ analytics.campaign_stats | tojson }};
+new Chart(document.getElementById('messagesOverTime'), {
+  type: 'line',
+  data: { labels: msgData.map(i => i.day), datasets: [{ label: 'Sent', data: msgData.map(i => i.sent_count), borderColor: '#0f172a' }] }
+});
+new Chart(document.getElementById('campaignStats'), {
+  type: 'bar',
+  data: { labels: campData.map(i => i.name), datasets: [{ label: 'Sent', data: campData.map(i => i.sent_count), backgroundColor: '#2563eb' }] }
+});
+</script>
+{% endblock %}
