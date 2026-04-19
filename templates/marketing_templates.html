@@ -1,0 +1,43 @@
+{% extends "marketing_base.html" %}
+
+{% block marketing_content %}
+<div x-data="templatesUI()" class="space-y-6">
+  <div class="flex items-center justify-between">
+    <h2 class="text-xl font-semibold">Templates</h2>
+    <button class="rounded-lg bg-emerald-600 px-4 py-2 text-white" @click="syncTemplates">Sync Approved Templates</button>
+  </div>
+
+  <div class="rounded-xl bg-white p-6 shadow-md overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead><tr class="border-b text-left"><th class="p-2">Name</th><th class="p-2">Language</th><th class="p-2">Category</th><th class="p-2">Variables</th><th class="p-2">Preview</th></tr></thead>
+      <tbody>
+      {% for t in templates %}
+      <tr class="border-b">
+        <td class="p-2">{{ t.name }}</td>
+        <td class="p-2">{{ t.language }}</td>
+        <td class="p-2">{{ t.category }}</td>
+        <td class="p-2">{{ t.variables_count }}</td>
+        <td class="p-2">{{ t.body_text[:80] }}{% if t.body_text|length > 80 %}...{% endif %}</td>
+      </tr>
+      {% else %}
+      <tr><td class="p-2" colspan="5">No templates synced yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function templatesUI() {
+  return {
+    async syncTemplates() {
+      const res = await fetch('{{ url_for("marketing.sync_templates") }}', { method: 'POST' });
+      if (!res.ok) { alert('Template sync failed'); return; }
+      const data = await res.json();
+      alert(`Synced: ${data.synced}, Skipped: ${data.skipped}`);
+      window.location.reload();
+    }
+  }
+}
+</script>
+{% endblock %}

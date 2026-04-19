@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}WhatsApp Marketing{% endblock %}
+
+{% block content %}
+<script src="https://cdn.tailwindcss.com"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<div class="space-y-6" x-data="{ sidebarOpen: false }">
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-semibold text-slate-800">WhatsApp Marketing</h1>
+    <button class="rounded-lg bg-slate-900 px-4 py-2 text-white" @click="sidebarOpen = !sidebarOpen">Toggle Menu</button>
+  </div>
+
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
+    <a href="{{ url_for('marketing.dashboard') }}" class="rounded-xl bg-white p-4 shadow-md">Dashboard</a>
+    <a href="{{ url_for('marketing.campaigns_page') }}" class="rounded-xl bg-white p-4 shadow-md">Campaigns</a>
+    <a href="{{ url_for('marketing.templates_page') }}" class="rounded-xl bg-white p-4 shadow-md">Templates</a>
+    <button class="rounded-xl bg-white p-4 text-left shadow-md" @click="sidebarOpen = !sidebarOpen">Quick Actions</button>
+  </div>
+
+  <div class="rounded-xl border border-slate-200 bg-slate-50 p-4" x-show="sidebarOpen" x-transition>
+    <p class="text-sm text-slate-600">Use Quick Actions to sync templates or run queued campaigns from API endpoints.</p>
+  </div>
+
+  {% block marketing_content %}{% endblock %}
+</div>
+{% endblock %}
