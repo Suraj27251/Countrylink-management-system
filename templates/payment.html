@@ -23,6 +23,8 @@
       --border-hover: rgba(255, 107, 26, 0.45);
       --green: #39d98a;
       --gold: #ffba00;
+      --blue: #4f8ef7;
+      --red: #ef4444;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -103,6 +105,62 @@
     @keyframes pulse {
       0%,100%{opacity:1;transform:scale(1);}
       50%{opacity:0.5;transform:scale(1.5);}
+    }
+
+    /* ══════════════════════════════════════
+       INVOICE LOOKUP BANNER  (NEW)
+    ══════════════════════════════════════ */
+    .invoice-lookup-banner {
+      background: linear-gradient(135deg,
+        rgba(79,142,247,0.09) 0%,
+        rgba(57,217,138,0.06) 100%);
+      border: 1px solid rgba(79,142,247,0.22);
+      border-radius: 16px;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 22px;
+      animation: slideDown 0.5s cubic-bezier(0.22,1,0.36,1) 0.2s both;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+    .invoice-lookup-banner:hover {
+      border-color: rgba(79,142,247,0.45);
+      background: linear-gradient(135deg, rgba(79,142,247,0.13) 0%, rgba(57,217,138,0.09) 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 28px rgba(79,142,247,0.12);
+    }
+    .ilb-icon {
+      width: 40px; height: 40px; flex-shrink: 0;
+      background: rgba(79,142,247,0.12);
+      border: 1px solid rgba(79,142,247,0.2);
+      border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+    }
+    .ilb-text h4 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.88rem; font-weight: 700;
+      color: var(--text);
+    }
+    .ilb-text p {
+      font-size: 0.74rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .ilb-cta {
+      margin-left: auto; flex-shrink: 0;
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(79,142,247,0.14);
+      border: 1px solid rgba(79,142,247,0.28);
+      color: var(--blue);
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 0.73rem; font-weight: 700;
+      font-family: 'Outfit', sans-serif;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
     }
 
     /* MAIN GRID */
@@ -281,23 +339,15 @@
 
     /* CASH COLLECTION MODAL */
     .cash-modal {
-      position: fixed;
-      inset: 0;
+      position: fixed; inset: 0;
       background: rgba(5, 5, 8, 0.72);
       backdrop-filter: blur(10px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      z-index: 1200;
-      opacity: 0;
-      pointer-events: none;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px; z-index: 1200;
+      opacity: 0; pointer-events: none;
       transition: opacity 0.25s ease;
     }
-    .cash-modal.open {
-      opacity: 1;
-      pointer-events: auto;
-    }
+    .cash-modal.open { opacity: 1; pointer-events: auto; }
     .cash-modal-card {
       width: min(100%, 420px);
       background: linear-gradient(165deg, rgba(19,19,26,0.96), rgba(17,17,24,0.96));
@@ -313,82 +363,37 @@
     }
     .cash-modal-title {
       font-family: 'Outfit',sans-serif;
-      font-size: 1.1rem;
-      font-weight: 700;
-      margin-bottom: 8px;
+      font-size: 1.1rem; font-weight: 700; margin-bottom: 8px;
     }
     .cash-modal-copy {
-      color: var(--muted);
-      font-size: 0.85rem;
-      line-height: 1.55;
-      margin-bottom: 16px;
+      color: var(--muted); font-size: 0.85rem; line-height: 1.55; margin-bottom: 16px;
     }
     .cash-modal-label {
-      display: block;
-      font-size: 0.75rem;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      margin-bottom: 8px;
-      text-transform: uppercase;
-      font-weight: 700;
+      display: block; font-size: 0.75rem; letter-spacing: 0.08em;
+      color: var(--muted); margin-bottom: 8px; text-transform: uppercase; font-weight: 700;
     }
     .cash-modal-input {
-      width: 100%;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.03);
-      color: var(--text);
-      padding: 12px 14px;
-      font-size: 1rem;
-      font-family: 'Nunito', sans-serif;
+      width: 100%; border-radius: 12px; border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03); color: var(--text);
+      padding: 12px 14px; font-size: 1rem; font-family: 'Nunito', sans-serif;
       transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
     .cash-modal-input:focus {
-      outline: none;
-      border-color: var(--primary);
+      outline: none; border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(255,107,26,0.16);
     }
-    .cash-modal-hint {
-      margin-top: 8px;
-      color: var(--muted);
-      font-size: 0.72rem;
-    }
-    .cash-modal-error {
-      min-height: 20px;
-      margin-top: 10px;
-      color: #ff8ea8;
-      font-size: 0.78rem;
-    }
-    .cash-modal-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 8px;
-    }
+    .cash-modal-hint { margin-top: 8px; color: var(--muted); font-size: 0.72rem; }
+    .cash-modal-error { min-height: 20px; margin-top: 10px; color: #ff8ea8; font-size: 0.78rem; }
+    .cash-modal-actions { display: flex; gap: 10px; margin-top: 8px; }
     .cash-btn {
-      flex: 1;
-      border: 1px solid transparent;
-      border-radius: 11px;
-      font-family: 'Outfit',sans-serif;
-      font-weight: 700;
-      font-size: 0.9rem;
-      padding: 11px 14px;
-      cursor: pointer;
-      transition: transform 0.2s ease, opacity 0.2s ease;
+      flex: 1; border: 1px solid transparent; border-radius: 11px;
+      font-family: 'Outfit',sans-serif; font-weight: 700; font-size: 0.9rem;
+      padding: 11px 14px; cursor: pointer; transition: transform 0.2s ease, opacity 0.2s ease;
     }
     .cash-btn:active { transform: scale(0.98); }
-    .cash-btn.secondary {
-      background: transparent;
-      border-color: var(--border);
-      color: var(--muted);
-    }
-    .cash-btn.primary {
-      background: linear-gradient(135deg, #e63c00, #ff9500);
-      color: #fff;
-    }
-    .cash-btn:disabled {
-      opacity: 0.7;
-      cursor: not-allowed;
-    }
+    .cash-btn.secondary { background: transparent; border-color: var(--border); color: var(--muted); }
+    .cash-btn.primary { background: linear-gradient(135deg, #e63c00, #ff9500); color: #fff; }
+    .cash-btn:disabled { opacity: 0.7; cursor: not-allowed; }
 
     /* RIGHT PANEL */
     .right-panel { position:sticky; top:24px; animation:cardIn 0.6s cubic-bezier(0.22,1,0.36,1) 0.4s both; }
@@ -474,39 +479,426 @@
       100%{opacity:0;transform:scale(1.2);}
     }
 
+    /* ══════════════════════════════════════════════════════════
+       INVOICE LOOKUP DRAWER  (NEW)
+    ══════════════════════════════════════════════════════════ */
+
+    /* Overlay */
+    .lookup-overlay {
+      position: fixed; inset: 0;
+      background: rgba(4, 4, 8, 0.70);
+      backdrop-filter: blur(12px);
+      z-index: 1300;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .lookup-overlay.open { opacity: 1; pointer-events: auto; }
+
+    /* Side Drawer */
+    .lookup-drawer {
+      position: fixed;
+      top: 0; right: 0; bottom: 0;
+      width: min(100vw, 440px);
+      background: linear-gradient(180deg, #0f0f18 0%, #0c0c14 100%);
+      border-left: 1px solid rgba(79,142,247,0.22);
+      box-shadow: -24px 0 80px rgba(0,0,0,0.55);
+      z-index: 1310;
+      transform: translateX(100%);
+      transition: transform 0.38s cubic-bezier(0.22,1,0.36,1);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .lookup-drawer.open { transform: translateX(0); }
+
+    /* Drawer top accent */
+    .lookup-drawer::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(79,142,247,0.6) 30%,
+        rgba(57,217,138,0.5) 70%,
+        transparent 100%);
+    }
+
+    /* Drawer Header */
+    .ld-header {
+      padding: 20px 22px 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.055);
+      display: flex; align-items: center; gap: 12px;
+      flex-shrink: 0;
+    }
+    .ld-icon {
+      width: 38px; height: 38px; flex-shrink: 0;
+      background: rgba(79,142,247,0.12);
+      border: 1px solid rgba(79,142,247,0.22);
+      border-radius: 11px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+    }
+    .ld-title {
+      flex: 1;
+    }
+    .ld-title h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.95rem; font-weight: 700;
+      color: var(--text);
+    }
+    .ld-title p {
+      font-size: 0.72rem; color: var(--muted); margin-top: 2px;
+    }
+    .ld-close {
+      width: 34px; height: 34px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 9px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted); transition: all 0.2s ease;
+    }
+    .ld-close:hover { border-color: rgba(239,68,68,0.4); color: var(--red); background: rgba(239,68,68,0.06); }
+
+    /* Drawer Steps */
+    .ld-steps {
+      display: flex; padding: 14px 22px 0;
+      gap: 0;
+      flex-shrink: 0;
+    }
+    .ld-step {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px;
+      position: relative;
+    }
+    .ld-step:not(:last-child)::after {
+      content: '';
+      position: absolute; top: 14px; left: calc(50% + 14px); right: calc(-50% + 14px);
+      height: 1px;
+      background: rgba(255,255,255,0.08);
+      transition: background 0.4s ease;
+    }
+    .ld-step.done:not(:last-child)::after {
+      background: rgba(57,217,138,0.35);
+    }
+    .ld-step-circle {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.03);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Outfit',sans-serif; font-size: 0.72rem; font-weight: 700;
+      color: var(--muted);
+      transition: all 0.3s ease;
+    }
+    .ld-step.active .ld-step-circle {
+      border-color: var(--blue); color: var(--blue);
+      background: rgba(79,142,247,0.1);
+      box-shadow: 0 0 14px rgba(79,142,247,0.22);
+    }
+    .ld-step.done .ld-step-circle {
+      border-color: var(--green); color: var(--green);
+      background: rgba(57,217,138,0.1);
+      box-shadow: 0 0 12px rgba(57,217,138,0.2);
+    }
+    .ld-step-label {
+      font-size: 0.58rem; font-weight: 700; letter-spacing: 0.07em;
+      color: var(--muted); text-transform: uppercase;
+      font-family: 'Outfit', sans-serif;
+    }
+    .ld-step.active .ld-step-label { color: var(--blue); }
+    .ld-step.done .ld-step-label { color: var(--green); }
+
+    /* Drawer Body */
+    .ld-body {
+      flex: 1; overflow-y: auto; padding: 22px;
+    }
+    .ld-body::-webkit-scrollbar { width: 4px; }
+    .ld-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 4px; }
+
+    /* Drawer Panel */
+    .ld-panel { display: none; }
+    .ld-panel.active {
+      display: block;
+      animation: ldPanelIn 0.35s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    @keyframes ldPanelIn {
+      from { opacity: 0; transform: translateX(16px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Lookup Field */
+    .ld-field { margin-bottom: 18px; }
+    .ld-label {
+      display: block; font-size: 0.68rem; font-weight: 700;
+      letter-spacing: 0.09em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 8px;
+      font-family: 'Outfit', sans-serif;
+    }
+    .ld-input-wrap { position: relative; }
+    .ld-prefix {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      width: 52px; display: flex; align-items: center; justify-content: center;
+      font-size: 0.82rem; color: var(--muted);
+      border-right: 1px solid rgba(255,255,255,0.07);
+      pointer-events: none;
+      font-family: 'Outfit', sans-serif;
+    }
+    .ld-input {
+      width: 100%; padding: 12px 14px 12px 60px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px; color: var(--text);
+      font-family: 'Nunito', sans-serif; font-size: 0.98rem;
+      outline: none; letter-spacing: 0.04em;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .ld-input:focus {
+      border-color: rgba(79,142,247,0.5);
+      box-shadow: 0 0 0 3px rgba(79,142,247,0.10);
+    }
+    .ld-input::placeholder { color: rgba(255,255,255,0.18); }
+    .ld-hint {
+      font-size: 0.7rem; color: rgba(255,255,255,0.22);
+      margin-top: 7px; display: flex; align-items: center; gap: 5px;
+    }
+
+    /* WA hint box */
+    .ld-wa-hint {
+      display: flex; align-items: flex-start; gap: 10px;
+      background: rgba(57,217,138,0.06);
+      border: 1px solid rgba(57,217,138,0.14);
+      border-radius: 11px; padding: 12px 14px;
+      margin-bottom: 18px;
+    }
+    .ld-wa-hint p { font-size: 0.77rem; color: rgba(134,239,172,0.9); line-height: 1.5; }
+
+    /* Lookup Buttons */
+    .ld-btn {
+      width: 100%; padding: 13px; border: none; border-radius: 12px;
+      font-family: 'Outfit',sans-serif; font-size: 0.9rem; font-weight: 700;
+      cursor: pointer; letter-spacing: 0.03em;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: all 0.2s ease;
+    }
+    .ld-btn-primary {
+      background: linear-gradient(135deg, #1a4bd6, #4f8ef7);
+      color: #fff; box-shadow: 0 6px 22px rgba(79,142,247,0.38);
+    }
+    .ld-btn-primary:hover { box-shadow: 0 10px 32px rgba(79,142,247,0.55); transform: translateY(-1px); }
+    .ld-btn-ghost {
+      background: transparent; border: 1px solid rgba(255,255,255,0.08);
+      color: var(--muted); margin-top: 10px; font-size: 0.82rem; padding: 10px;
+    }
+    .ld-btn-ghost:hover { border-color: rgba(255,255,255,0.16); color: var(--text); }
+    .ld-btn:disabled { opacity: 0.55; pointer-events: none; }
+
+    /* OTP Boxes (lookup) */
+    .ld-otp-wrap {
+      text-align: center; margin-bottom: 18px;
+    }
+    .ld-otp-label {
+      font-size: 0.78rem; color: var(--muted);
+      margin-bottom: 16px; line-height: 1.55;
+    }
+    .ld-otp-boxes {
+      display: flex; gap: 8px; justify-content: center;
+      margin-bottom: 14px;
+    }
+    .ld-otp-box {
+      width: 46px; height: 56px;
+      background: rgba(255,255,255,0.04);
+      border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: 11px;
+      text-align: center;
+      font-family: 'Outfit',sans-serif; font-size: 1.4rem; font-weight: 800;
+      color: var(--text); outline: none;
+      transition: all 0.18s ease;
+      caret-color: var(--blue);
+    }
+    .ld-otp-box:focus {
+      border-color: rgba(79,142,247,0.55);
+      background: rgba(79,142,247,0.06);
+      box-shadow: 0 0 0 3px rgba(79,142,247,0.12);
+      transform: scale(1.06);
+    }
+    .ld-otp-box.filled {
+      border-color: rgba(79,142,247,0.35);
+      background: rgba(79,142,247,0.05);
+    }
+    .ld-otp-box.otp-error {
+      border-color: var(--red);
+      box-shadow: 0 0 0 3px rgba(239,68,68,0.12);
+      animation: ldShake 0.35s ease;
+    }
+    @keyframes ldShake {
+      0%,100%{transform:translateX(0);}20%{transform:translateX(-5px);}
+      40%{transform:translateX(5px);}60%{transform:translateX(-4px);}80%{transform:translateX(4px);}
+    }
+    .ld-otp-timer {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 0.74rem; color: var(--muted);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 9px; padding: 8px 12px;
+      margin-bottom: 16px;
+    }
+    .ld-timer { font-family: 'Outfit',sans-serif; font-weight: 700; color: var(--blue); font-size: 0.82rem; }
+    .ld-timer.expired { color: var(--red); }
+    .ld-resend {
+      background: none; border: none; color: var(--blue);
+      font-size: 0.74rem; font-weight: 600; cursor: pointer;
+      font-family: 'Nunito',sans-serif; padding: 0;
+    }
+    .ld-resend:disabled { color: var(--muted); cursor: default; }
+
+    /* Alert (lookup) */
+    .ld-alert {
+      display: none; padding: 10px 13px; border-radius: 10px;
+      font-size: 0.78rem; line-height: 1.5;
+      margin-bottom: 14px;
+      animation: ldPanelIn 0.2s ease;
+      gap: 8px;
+    }
+    .ld-alert.show { display: flex; align-items: flex-start; }
+    .ld-alert.err  { background: rgba(239,68,68,0.08); color: #fca5a5; border: 1px solid rgba(239,68,68,0.2); }
+    .ld-alert.ok   { background: rgba(57,217,138,0.08); color: #86efac; border: 1px solid rgba(57,217,138,0.18); }
+    .ld-alert.info { background: rgba(79,142,247,0.08); color: #93c5fd; border: 1px solid rgba(79,142,247,0.18); }
+
+    /* Spinner */
+    .ld-spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Invoice Result Cards */
+    .ld-customer-banner {
+      background: linear-gradient(135deg,
+        rgba(255,107,26,0.10) 0%,
+        rgba(255,149,0,0.06) 100%);
+      border: 1px solid rgba(255,107,26,0.18);
+      border-radius: 13px; padding: 14px 16px;
+      margin-bottom: 16px;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .ld-customer-name {
+      font-family: 'Outfit',sans-serif; font-weight: 700; font-size: 0.9rem;
+    }
+    .ld-customer-sub { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+    .ld-total-chip {
+      font-family: 'Outfit',sans-serif; font-weight: 800; font-size: 0.92rem;
+      color: var(--primary);
+      background: rgba(255,107,26,0.12); border: 1px solid rgba(255,107,26,0.2);
+      padding: 6px 12px; border-radius: 9px; white-space: nowrap; flex-shrink: 0;
+    }
+
+    .ld-inv-list { display: flex; flex-direction: column; gap: 10px; }
+    .ld-inv-item {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 14px; padding: 14px 16px;
+      animation: ldPanelIn 0.35s ease both;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .ld-inv-item:hover {
+      border-color: rgba(255,107,26,0.25);
+      transform: translateX(-3px);
+    }
+    .ld-inv-top {
+      display: flex; align-items: flex-start;
+      justify-content: space-between; gap: 10px;
+    }
+    .ld-inv-no {
+      font-family: 'Outfit',sans-serif; font-size: 0.68rem;
+      color: var(--blue); font-weight: 600; letter-spacing: 0.04em;
+    }
+    .ld-inv-name {
+      font-size: 0.86rem; font-weight: 600; color: var(--text);
+      margin: 4px 0;
+    }
+    .ld-inv-date {
+      font-size: 0.7rem; color: var(--muted);
+      display: flex; gap: 10px; flex-wrap: wrap;
+    }
+    .ld-inv-amount {
+      font-family: 'Outfit',sans-serif; font-weight: 800;
+      font-size: 1.05rem; color: var(--text);
+      text-align: right; white-space: nowrap;
+    }
+    .ld-inv-amount small {
+      display: block; font-size: 0.6rem;
+      color: var(--muted); font-weight: 400;
+      text-align: right; margin-top: 2px;
+    }
+    .ld-status-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 5px;
+      font-size: 0.58rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      font-family: 'Outfit',sans-serif;
+      margin-bottom: 10px;
+    }
+    .ld-status-badge.overdue { background: rgba(239,68,68,0.1); color: #fca5a5; }
+    .ld-status-badge.sent    { background: rgba(79,142,247,0.1); color: #93c5fd; }
+
+    /* "Use This Amount" button inside invoice card */
+    .ld-use-btn {
+      width: 100%; margin-top: 12px; padding: 9px 14px;
+      background: linear-gradient(135deg, #e63c00, #ff9500);
+      border: none; border-radius: 10px; color: #fff;
+      font-family: 'Outfit',sans-serif; font-size: 0.78rem; font-weight: 700;
+      cursor: pointer; letter-spacing: 0.03em;
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 16px rgba(255,107,26,0.35);
+    }
+    .ld-use-btn:hover { box-shadow: 0 6px 24px rgba(255,107,26,0.55); transform: translateY(-1px); }
+
+    .ld-empty {
+      text-align: center; padding: 36px 16px; color: var(--muted);
+    }
+    .ld-empty-icon { font-size: 2.4rem; margin-bottom: 12px; opacity: 0.5; }
+    .ld-empty h4 { font-family: 'Outfit',sans-serif; font-size: 0.9rem; color: var(--text); }
+    .ld-empty p  { font-size: 0.76rem; margin-top: 5px; }
+
+    /* Toast notification */
+    .lookup-toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(19,19,26,0.96); border: 1px solid rgba(57,217,138,0.3);
+      border-radius: 12px; padding: 12px 20px;
+      display: flex; align-items: center; gap: 10px;
+      font-size: 0.82rem; color: var(--green); font-weight: 600;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+      z-index: 1400; opacity: 0; pointer-events: none;
+      transition: all 0.35s cubic-bezier(0.22,1,0.36,1);
+    }
+    .lookup-toast.show {
+      opacity: 1; transform: translateX(-50%) translateY(0);
+    }
+
+    /* ══════ scrollbar, responsive (unchanged) ══════ */
     ::-webkit-scrollbar{width:5px;}
     ::-webkit-scrollbar-track{background:var(--bg);}
     ::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:3px;}
 
-    @media(max-width:960px){.main-content{grid-template-columns:1fr;}.right-panel{position:static;}}
+    @media(max-width:960px){
+      .main-content{grid-template-columns:1fr;}
+      .right-panel{position:static;}
+    }
     @media(max-width:767px){
       .header{
-        position:relative;
-        justify-content:center;
-        padding-left:64px;
-        padding-right:72px;
+        position:relative; justify-content:center;
+        padding-left:64px; padding-right:72px;
       }
-      .back-btn{
-        position:absolute;
-        left:16px;
-        top:50%;
-        transform:translateY(-50%);
-      }
-      .logo{
-        margin:0 auto;
-        text-align:center;
-      }
+      .back-btn{position:absolute;left:16px;top:50%;transform:translateY(-50%);}
+      .logo{margin:0 auto;text-align:center;}
       .secure-badge{
-        position:absolute;
-        right:16px;
-        top:50%;
-        transform:translateY(-50%);
-        padding:6px;
-        min-width:auto;
+        position:absolute;right:16px;top:50%;transform:translateY(-50%);
+        padding:6px;min-width:auto;
       }
-      .secure-badge span{
-        display:none;
-      }
+      .secure-badge span{display:none;}
+      .ilb-cta { display: none; }
+      .lookup-drawer { width: 100%; border-left: none; border-top: 1px solid rgba(79,142,247,0.22); border-radius: 22px 22px 0 0; top: auto; }
     }
     @media(max-width:560px){
       .container{padding:0 14px 48px;}
@@ -520,6 +912,8 @@
       .cash-modal{padding:14px;align-items:flex-end;}
       .cash-modal-card{border-radius:18px 18px 14px 14px;padding:18px;}
       .cash-modal-actions{flex-direction:column-reverse;}
+      .ld-otp-box { width: 40px; height: 50px; font-size: 1.2rem; }
+      .ld-otp-boxes { gap: 6px; }
     }
   </style>
 </head>
@@ -541,6 +935,24 @@
       <span>SECURE CHECKOUT</span>
     </div>
   </header>
+
+  <!-- ══════════════════════════════════════════════════
+       INVOICE LOOKUP BANNER  (NEW)
+  ══════════════════════════════════════════════════ -->
+  <div class="invoice-lookup-banner" onclick="openLookupDrawer()" role="button" tabindex="0"
+       aria-label="Check your invoice amount using your registered mobile number">
+    <div class="ilb-icon">🔍</div>
+    <div class="ilb-text">
+      <h4>Not sure about your plan or amount?</h4>
+      <p>Enter your registered mobile number to instantly fetch your invoice details.</p>
+    </div>
+    <div class="ilb-cta">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      Check Invoice
+    </div>
+  </div>
 
   <!-- MAIN -->
   <main class="main-content">
@@ -791,23 +1203,148 @@
   </main>
 </div>
 
+<!-- ══════════════════════════════════════════════════════════════
+     INVOICE LOOKUP DRAWER  (NEW)
+══════════════════════════════════════════════════════════════ -->
+<div class="lookup-overlay" id="lookupOverlay" onclick="closeLookupDrawer()"></div>
+
+<aside class="lookup-drawer" id="lookupDrawer" role="dialog" aria-modal="true" aria-label="Invoice Lookup">
+
+  <!-- Drawer Header -->
+  <div class="ld-header">
+    <div class="ld-icon">🔍</div>
+    <div class="ld-title">
+      <h3>Invoice Lookup</h3>
+      <p>Verify your mobile to see your invoice</p>
+    </div>
+    <button class="ld-close" onclick="closeLookupDrawer()" aria-label="Close">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M18 6L6 18M6 6l12 12"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Progress Steps -->
+  <div class="ld-steps">
+    <div class="ld-step active" id="ld-si-1">
+      <div class="ld-step-circle" id="ld-sc-1">1</div>
+      <div class="ld-step-label">Mobile</div>
+    </div>
+    <div class="ld-step" id="ld-si-2">
+      <div class="ld-step-circle" id="ld-sc-2">2</div>
+      <div class="ld-step-label">OTP</div>
+    </div>
+    <div class="ld-step" id="ld-si-3">
+      <div class="ld-step-circle" id="ld-sc-3">3</div>
+      <div class="ld-step-label">Invoice</div>
+    </div>
+  </div>
+
+  <!-- Drawer Body -->
+  <div class="ld-body">
+
+    <!-- ── PANEL 1: PHONE ── -->
+    <div class="ld-panel active" id="ld-panel-1">
+
+      <div class="ld-wa-hint">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="#22d370" style="flex-shrink:0;margin-top:1px">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+        </svg>
+        <p>We'll send a <strong>6-digit OTP on WhatsApp</strong> to your registered number to verify your identity.</p>
+      </div>
+
+      <div class="ld-alert" id="ld-alert-1"></div>
+
+      <div class="ld-field">
+        <label class="ld-label" for="ldPhoneInput">Registered WhatsApp Number</label>
+        <div class="ld-input-wrap">
+          <span class="ld-prefix">+91</span>
+          <input class="ld-input" type="tel" id="ldPhoneInput"
+                 maxlength="10" placeholder="9876543210"
+                 inputmode="numeric" autocomplete="tel">
+        </div>
+        <p class="ld-hint">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
+          </svg>
+          Enter the 10-digit number registered with Countrylink
+        </p>
+      </div>
+
+      <button class="ld-btn ld-btn-primary" id="ldSendOtpBtn" onclick="ldSendOtp()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+        </svg>
+        Send OTP on WhatsApp
+      </button>
+    </div>
+
+    <!-- ── PANEL 2: OTP ── -->
+    <div class="ld-panel" id="ld-panel-2">
+
+      <div class="ld-alert" id="ld-alert-2"></div>
+
+      <div class="ld-otp-wrap">
+        <div class="ld-otp-label" id="ldOtpLabel">Enter the 6-digit code sent to your WhatsApp</div>
+        <div class="ld-otp-boxes" id="ldOtpBoxes">
+          <input class="ld-otp-box" type="tel" maxlength="1" inputmode="numeric" data-i="0" autocomplete="one-time-code">
+          <input class="ld-otp-box" type="tel" maxlength="1" inputmode="numeric" data-i="1">
+          <input class="ld-otp-box" type="tel" maxlength="1" inputmode="numeric" data-i="2">
+          <input class="ld-otp-box" type="tel" maxlength="1" inputmode="numeric" data-i="3">
+          <input class="ld-otp-box" type="tel" maxlength="1" inputmode="numeric" data-i="4">
+          <input class="ld-otp-box" type="tel" maxlength="1" inputmode="numeric" data-i="5">
+        </div>
+        <div class="ld-otp-timer">
+          <span style="display:flex;align-items:center;gap:6px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            Expires in <span class="ld-timer" id="ldTimer">10:00</span>
+          </span>
+          <button class="ld-resend" id="ldResendBtn" disabled onclick="ldResendOtp()">Resend OTP</button>
+        </div>
+      </div>
+
+      <button class="ld-btn ld-btn-primary" id="ldVerifyBtn" onclick="ldVerifyOtp()">
+        Verify &amp; Fetch Invoice →
+      </button>
+      <button class="ld-btn ld-btn-ghost" onclick="ldGoToStep(1)">← Change Number</button>
+    </div>
+
+    <!-- ── PANEL 3: INVOICES ── -->
+    <div class="ld-panel" id="ld-panel-3">
+      <div id="ldInvoiceContent">
+        <!-- Skeleton -->
+        <div style="background:rgba(255,255,255,0.04);height:56px;border-radius:12px;margin-bottom:12px;animation:ldShimmer 1.5s infinite"
+             class="ld-skeleton"></div>
+        <div style="background:rgba(255,255,255,0.04);height:110px;border-radius:12px;margin-bottom:10px"
+             class="ld-skeleton"></div>
+        <div style="background:rgba(255,255,255,0.04);height:110px;border-radius:12px"
+             class="ld-skeleton"></div>
+      </div>
+    </div>
+
+  </div><!-- /.ld-body -->
+</aside>
+
+<!-- Toast -->
+<div class="lookup-toast" id="lookupToast">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+    <polyline points="20 6 9 17 4 12"/>
+  </svg>
+  <span id="lookupToastMsg">Invoice amount applied!</span>
+</div>
+
+<!-- CASH COLLECTION MODAL -->
 <div class="cash-modal" id="cashCollectionModal" aria-hidden="true">
   <div class="cash-modal-card" role="dialog" aria-modal="true" aria-labelledby="cashModalTitle">
     <h3 class="cash-modal-title" id="cashModalTitle">Cash Collection via WhatsApp</h3>
     <p class="cash-modal-copy">Share your WhatsApp number to receive our <strong>cash_collection</strong> flow form instantly.</p>
     <form id="cashCollectionForm">
       <label class="cash-modal-label" for="cashWhatsappNumber">WhatsApp Number</label>
-      <input
-        class="cash-modal-input"
-        id="cashWhatsappNumber"
-        type="tel"
-        inputmode="numeric"
-        autocomplete="tel"
-        placeholder="e.g. 9876543210"
-        maxlength="15"
-        required
-      >
-      <p class="cash-modal-hint">Enter with country code only if needed. We’ll validate automatically.</p>
+      <input class="cash-modal-input" id="cashWhatsappNumber" type="tel" inputmode="numeric"
+             autocomplete="tel" placeholder="e.g. 9876543210" maxlength="15" required>
+      <p class="cash-modal-hint">Enter with country code only if needed. We'll validate automatically.</p>
       <p class="cash-modal-error" id="cashModalMessage" aria-live="polite"></p>
       <div class="cash-modal-actions">
         <button type="button" class="cash-btn secondary" id="cashModalCancel">Cancel</button>
@@ -819,281 +1356,531 @@
 
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
-  const upiId = '9765009850@okbizaxis';
-  const upiName = 'COUNTRYLINK BROADBAND SERVICES';
-  const upiNote = 'Countrylink Broadband Subscription';
-  const cashFlowName = 'cash_collection';
-  const razorpayPublicKey = {{ razorpay_key_id | tojson }};
-  let billingCycle = 'monthly';
-  const cashModal = document.getElementById('cashCollectionModal');
-  const cashForm = document.getElementById('cashCollectionForm');
-  const cashInput = document.getElementById('cashWhatsappNumber');
-  const cashMessage = document.getElementById('cashModalMessage');
-  const cashCancelBtn = document.getElementById('cashModalCancel');
-  const cashSubmitBtn = document.getElementById('cashModalSubmit');
+/* ═══════════════════════════════════════════════════════════
+   ORIGINAL CHECKOUT LOGIC (unchanged)
+═══════════════════════════════════════════════════════════ */
+const upiId      = '9765009850@okbizaxis';
+const upiName    = 'COUNTRYLINK BROADBAND SERVICES';
+const upiNote    = 'Countrylink Broadband Subscription';
+const cashFlowName       = 'cash_collection';
+const razorpayPublicKey  = {{ razorpay_key_id | tojson }};
+let billingCycle = 'monthly';
 
-  document.querySelectorAll('.plan-option').forEach(option => {
-    option.addEventListener('click', () => {
-      document.querySelectorAll('.plan-option').forEach(o => o.classList.remove('selected'));
-      option.classList.add('selected');
-      const radio = option.querySelector('input[type="radio"]');
-      if (radio) radio.checked = true;
-      calculateTotal();
-    });
-  });
+const cashModal    = document.getElementById('cashCollectionModal');
+const cashForm     = document.getElementById('cashCollectionForm');
+const cashInput    = document.getElementById('cashWhatsappNumber');
+const cashMessage  = document.getElementById('cashModalMessage');
+const cashCancelBtn= document.getElementById('cashModalCancel');
+const cashSubmitBtn= document.getElementById('cashModalSubmit');
 
-  document.querySelectorAll('.payment-option').forEach(option => {
-    option.addEventListener('click', () => {
-      document.querySelectorAll('.payment-option').forEach(o => o.classList.remove('selected'));
-      option.classList.add('selected');
-      const radio = option.querySelector('input[type="radio"]');
-      if (radio) radio.checked = true;
-      if (radio?.value === 'cash') {
-        openCashModal();
-      }
-    });
-  });
-
-  function getValidWhatsappNumber() {
-    const raw = (cashInput?.value || '').replace(/\D/g, '');
-    if (raw.length < 10 || raw.length > 15) return '';
-    return raw;
-  }
-
-  function setCashMessage(message, isError = true) {
-    cashMessage.innerText = message;
-    cashMessage.style.color = isError ? '#ff8ea8' : '#39d98a';
-  }
-
-  function openCashModal() {
-    cashModal.classList.add('open');
-    cashModal.setAttribute('aria-hidden', 'false');
-    setCashMessage('');
-    setTimeout(() => cashInput?.focus(), 20);
-  }
-
-  function closeCashModal() {
-    cashModal.classList.remove('open');
-    cashModal.setAttribute('aria-hidden', 'true');
-    cashSubmitBtn.disabled = false;
-  }
-
-  cashCancelBtn?.addEventListener('click', closeCashModal);
-  cashModal?.addEventListener('click', (event) => {
-    if (event.target === cashModal) closeCashModal();
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && cashModal.classList.contains('open')) closeCashModal();
-  });
-
-  cashForm?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const mobile = getValidWhatsappNumber();
-    if (!mobile) {
-      setCashMessage('Please enter a valid WhatsApp number (10 to 15 digits).');
-      return;
-    }
-
-    cashSubmitBtn.disabled = true;
-    setCashMessage('Sending flow to your WhatsApp…', false);
-    try {
-      const res = await fetch('/api/check-availability', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mobile,
-          flow_name: cashFlowName,
-          body: 'Please complete this cash collection form to schedule a pickup.',
-          button_text: 'Cash Collection'
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setCashMessage(data.error || 'Unable to send WhatsApp flow right now.');
-        cashSubmitBtn.disabled = false;
-        return;
-      }
-
-      setCashMessage('Success! We sent the form on WhatsApp.', false);
-      setTimeout(() => {
-        closeCashModal();
-        alert('Cash collection request shared on WhatsApp ✅');
-      }, 900);
-    } catch (error) {
-      setCashMessage('Network issue while sending flow. Please try again.');
-      cashSubmitBtn.disabled = false;
-    }
-  });
-
-  function syncAddonSelectionStyles() {
-    document.querySelectorAll('.addon-option').forEach(option => {
-      const checkbox = option.querySelector('input[type="checkbox"]');
-      option.classList.toggle('checked', Boolean(checkbox?.checked));
-    });
-  }
-
-  document.querySelectorAll('.addon-option input[type="checkbox"]').forEach(input => {
-    input.addEventListener('change', syncAddonSelectionStyles);
-  });
-
-  document.querySelectorAll('.cycle-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.cycle-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      billingCycle = btn.dataset.cycle || 'monthly';
-      updatePrimeAddon();
-      calculateTotal();
-    });
-  });
-
-  function updatePrimeAddon() {
-    const prime = document.querySelector('input[value="prime"]');
-    if (!prime) return;
-    if (billingCycle !== 'annual') {
-      prime.checked = false; prime.disabled = true;
-      prime.closest('.addon-option').style.opacity = '0.5';
-    } else {
-      prime.disabled = false;
-      prime.closest('.addon-option').style.opacity = '1';
-    }
-    syncAddonSelectionStyles();
-  }
-
-  function calculateTotal() {
-    const planInput = document.querySelector('input[name="plan"]:checked');
-    let planPrice = Number(planInput?.dataset.price) || 0;
-    let months = 1, discountRate = 0;
-    if (billingCycle === 'quarterly')  { months = 3;  discountRate = 0.10; }
-    if (billingCycle === 'semiannual') { months = 6;  discountRate = 0.20; }
-    if (billingCycle === 'annual')     { months = 12; discountRate = 0.25; }
-    const basePlanTotal = planPrice * months;
-    const discountedPlan = basePlanTotal - basePlanTotal * discountRate;
-    document.getElementById('planCharges').innerText = `₹${Math.round(discountedPlan)}`;
-    let addonTotal = 0;
-    document.querySelectorAll('input[name="addon"]:checked').forEach(a => {
-      const price = Number(a.dataset.price) || 0;
-      if (a.value === 'prime') { if (billingCycle === 'annual') addonTotal += price; }
-      else addonTotal += price * months;
-    });
-    let subtotal = discountedPlan + addonTotal;
-    let gst = document.getElementById('gstCheckbox')?.checked ? subtotal * 0.18 : 0;
-    const total = Math.round(subtotal + gst);
-    document.querySelector('.total-amount').innerText = `₹${total}`;
-    document.querySelector('.final-amount').innerText = `₹${total}`;
-    document.getElementById('gstAmount').innerText = gst ? `₹${Math.round(gst)}` : '₹0';
-    document.querySelector('.pay-btn').innerText = `Pay Now ₹${total}`;
-  }
-
-  document.querySelectorAll('input').forEach(el => el.addEventListener('change', calculateTotal));
-
-  async function payWithRazorpay(amount) {
-    amount = Number(amount);
-    if (!amount || amount <= 0) { alert("Invalid payment amount. Please refresh the page."); return; }
-    const planName = document.querySelector('input[name="plan"]:checked')?.dataset.planName || 'Selected Plan';
-    let order;
-    try {
-      const res = await fetch('/api/payments/razorpay/order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, plan_name: planName, billing_cycle: billingCycle })
-      });
-      order = await res.json();
-      if (!res.ok) { alert(order.error || 'Unable to create payment order.'); return; }
-    } catch (err) {
-      alert('Network or server error: ' + err);
-      return;
-    }
-
-    const options = {
-      key: order.key || razorpayPublicKey,
-      amount: order.amount,
-      currency: order.currency || 'INR',
-      name: 'CountryLink Broadband',
-      description: `Internet Subscription - ${planName}`,
-      order_id: order.id,
-      handler: async function (response) {
-        try {
-          const verifyResponse = await fetch('/api/payments/razorpay/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(response)
-          });
-          const verification = await verifyResponse.json();
-          if (verifyResponse.ok && verification.verified) {
-            alert('Payment Successful ✅');
-          } else {
-            alert('Payment captured but signature verification failed. Please contact support.');
-          }
-        } catch (error) {
-          alert('Payment completed but verification failed due to network issue.');
-        }
-      },
-      theme: { color: '#ff6b1a' }
-    };
-
-    if (!options.key || !options.order_id) {
-      alert('Razorpay is not configured correctly. Please contact support.');
-      return;
-    }
-
-    const razorpay = new Razorpay(options);
-    razorpay.open();
-  }
-
-  function buildUpiQrUrl(amount, planName) {
-    const payload = new URLSearchParams({
-      pa: upiId, pn: upiName,
-      tn: planName ? `${upiNote} - ${planName}` : upiNote,
-      am: amount.toFixed(2), cu: 'INR'
-    });
-    return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent('upi://pay?' + payload.toString())}`;
-  }
-
-  function showUpiQrPopup({ amount, planName }) {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(10px);';
-    const card = document.createElement('div');
-    card.style.cssText = 'background:#13131a;border:1px solid rgba(255,107,26,0.25);border-radius:20px;padding:28px;display:flex;flex-direction:column;gap:16px;align-items:center;max-width:90%;width:360px;text-align:center;box-shadow:0 0 60px rgba(255,107,26,0.15);';
-    const title = document.createElement('h3');
-    title.innerText = 'Scan & Pay with UPI';
-    title.style.cssText = 'margin:0;font-family:Outfit,sans-serif;font-size:1.1rem;color:#f0ede8;';
-    const summary = document.createElement('p');
-    summary.innerHTML = `<strong style="color:#ff6b1a">₹${amount.toFixed(2)}</strong> · ${planName || 'Selected Plan'}`;
-    summary.style.cssText = 'margin:0;font-size:0.88rem;color:#8a8490;';
-    const img = document.createElement('img');
-    img.src = buildUpiQrUrl(amount, planName);
-    img.alt = 'UPI QR code';
-    img.style.cssText = 'max-width:100%;border:1px solid rgba(255,107,26,0.15);border-radius:12px;';
-    const upiText = document.createElement('p');
-    upiText.innerHTML = `UPI ID: <strong style="color:#ff6b1a">${upiId}</strong><br><span style="color:#8a8490">${upiName}</span>`;
-    upiText.style.cssText = 'margin:0;font-size:0.82rem;line-height:1.6;color:#f0ede8;';
-    const close = document.createElement('button');
-    close.innerText = 'Close';
-    close.style.cssText = 'padding:10px 24px;border-radius:999px;border:none;background:linear-gradient(135deg,#e63c00,#ff9500);color:#fff;cursor:pointer;font-family:Outfit,sans-serif;font-weight:800;';
-    close.onclick = () => document.body.removeChild(overlay);
-    card.append(title, summary, img, upiText, close);
-    overlay.appendChild(card);
-    document.body.appendChild(overlay);
-  }
-
-  document.querySelector('.pay-btn').addEventListener('click', () => {
+document.querySelectorAll('.plan-option').forEach(option => {
+  option.addEventListener('click', () => {
+    document.querySelectorAll('.plan-option').forEach(o => o.classList.remove('selected'));
+    option.classList.add('selected');
+    const radio = option.querySelector('input[type="radio"]');
+    if (radio) radio.checked = true;
     calculateTotal();
-    setTimeout(() => {
-      const selectedPayment = document.querySelector('input[name="payment"]:checked')?.value;
-      const amount = parseInt(document.querySelector('.final-amount').innerText.replace(/[^0-9]/g, ''), 10);
-      if (!amount || isNaN(amount) || amount < 10) { alert("Invalid or too low payment amount. Please check your selection."); return; }
-      if (selectedPayment === 'upi') {
-        const planName = document.querySelector('input[name="plan"]:checked')?.dataset.planName;
-        showUpiQrPopup({ amount, planName });
-      }
-      if (selectedPayment === 'card') payWithRazorpay(amount);
-      if (selectedPayment === 'cash') openCashModal();
-    }, 0);
+  });
+});
+
+document.querySelectorAll('.payment-option').forEach(option => {
+  option.addEventListener('click', () => {
+    document.querySelectorAll('.payment-option').forEach(o => o.classList.remove('selected'));
+    option.classList.add('selected');
+    const radio = option.querySelector('input[type="radio"]');
+    if (radio) radio.checked = true;
+    if (radio?.value === 'cash') openCashModal();
+  });
+});
+
+function getValidWhatsappNumber() {
+  const raw = (cashInput?.value || '').replace(/\D/g, '');
+  if (raw.length < 10 || raw.length > 15) return '';
+  return raw;
+}
+function setCashMessage(message, isError = true) {
+  cashMessage.innerText = message;
+  cashMessage.style.color = isError ? '#ff8ea8' : '#39d98a';
+}
+function openCashModal() {
+  cashModal.classList.add('open');
+  cashModal.setAttribute('aria-hidden', 'false');
+  setCashMessage('');
+  setTimeout(() => cashInput?.focus(), 20);
+}
+function closeCashModal() {
+  cashModal.classList.remove('open');
+  cashModal.setAttribute('aria-hidden', 'true');
+  cashSubmitBtn.disabled = false;
+}
+cashCancelBtn?.addEventListener('click', closeCashModal);
+cashModal?.addEventListener('click', e => { if (e.target === cashModal) closeCashModal(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (cashModal.classList.contains('open')) closeCashModal();
+    if (document.getElementById('lookupOverlay').classList.contains('open')) closeLookupDrawer();
+  }
+});
+
+cashForm?.addEventListener('submit', async e => {
+  e.preventDefault();
+  const mobile = getValidWhatsappNumber();
+  if (!mobile) { setCashMessage('Please enter a valid WhatsApp number (10 to 15 digits).'); return; }
+  cashSubmitBtn.disabled = true;
+  setCashMessage('Sending flow to your WhatsApp…', false);
+  try {
+    const res  = await fetch('/api/check-availability', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ mobile, flow_name: cashFlowName, body: 'Please complete this cash collection form to schedule a pickup.', button_text: 'Cash Collection' }),
+    });
+    const data = await res.json();
+    if (!res.ok) { setCashMessage(data.error || 'Unable to send WhatsApp flow right now.'); cashSubmitBtn.disabled = false; return; }
+    setCashMessage('Success! We sent the form on WhatsApp.', false);
+    setTimeout(() => { closeCashModal(); alert('Cash collection request shared on WhatsApp ✅'); }, 900);
+  } catch { setCashMessage('Network issue while sending flow. Please try again.'); cashSubmitBtn.disabled = false; }
+});
+
+function syncAddonSelectionStyles() {
+  document.querySelectorAll('.addon-option').forEach(option => {
+    const cb = option.querySelector('input[type="checkbox"]');
+    option.classList.toggle('checked', Boolean(cb?.checked));
+  });
+}
+document.querySelectorAll('.addon-option input[type="checkbox"]').forEach(i => i.addEventListener('change', syncAddonSelectionStyles));
+
+document.querySelectorAll('.cycle-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.cycle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    billingCycle = btn.dataset.cycle || 'monthly';
+    updatePrimeAddon();
+    calculateTotal();
+  });
+});
+
+function updatePrimeAddon() {
+  const prime = document.querySelector('input[value="prime"]');
+  if (!prime) return;
+  if (billingCycle !== 'annual') {
+    prime.checked = false; prime.disabled = true;
+    prime.closest('.addon-option').style.opacity = '0.5';
+  } else { prime.disabled = false; prime.closest('.addon-option').style.opacity = '1'; }
+  syncAddonSelectionStyles();
+}
+
+function calculateTotal() {
+  const planInput = document.querySelector('input[name="plan"]:checked');
+  let planPrice = Number(planInput?.dataset.price) || 0;
+  let months = 1, discountRate = 0;
+  if (billingCycle === 'quarterly')  { months = 3;  discountRate = 0.10; }
+  if (billingCycle === 'semiannual') { months = 6;  discountRate = 0.20; }
+  if (billingCycle === 'annual')     { months = 12; discountRate = 0.25; }
+  const basePlanTotal   = planPrice * months;
+  const discountedPlan  = basePlanTotal - basePlanTotal * discountRate;
+  document.getElementById('planCharges').innerText = `₹${Math.round(discountedPlan)}`;
+  let addonTotal = 0;
+  document.querySelectorAll('input[name="addon"]:checked').forEach(a => {
+    const price = Number(a.dataset.price) || 0;
+    if (a.value === 'prime') { if (billingCycle === 'annual') addonTotal += price; }
+    else addonTotal += price * months;
+  });
+  let subtotal = discountedPlan + addonTotal;
+  let gst = document.getElementById('gstCheckbox')?.checked ? subtotal * 0.18 : 0;
+  const total = Math.round(subtotal + gst);
+  document.querySelector('.total-amount').innerText  = `₹${total}`;
+  document.querySelector('.final-amount').innerText  = `₹${total}`;
+  document.getElementById('gstAmount').innerText     = gst ? `₹${Math.round(gst)}` : '₹0';
+  document.querySelector('.pay-btn').innerText       = `Pay Now ₹${total}`;
+}
+document.querySelectorAll('input').forEach(el => el.addEventListener('change', calculateTotal));
+
+async function payWithRazorpay(amount) {
+  amount = Number(amount);
+  if (!amount || amount <= 0) { alert('Invalid payment amount. Please refresh the page.'); return; }
+  const planName = document.querySelector('input[name="plan"]:checked')?.dataset.planName || 'Selected Plan';
+  let order;
+  try {
+    const res = await fetch('/api/payments/razorpay/order', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ amount, plan_name: planName, billing_cycle: billingCycle }),
+    });
+    order = await res.json();
+    if (!res.ok) { alert(order.error || 'Unable to create payment order.'); return; }
+  } catch(err) { alert('Network or server error: ' + err); return; }
+  const options = {
+    key: order.key || razorpayPublicKey,
+    amount: order.amount, currency: order.currency || 'INR',
+    name: 'CountryLink Broadband',
+    description: `Internet Subscription - ${planName}`,
+    order_id: order.id,
+    handler: async function(response) {
+      try {
+        const vr = await fetch('/api/payments/razorpay/verify', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(response),
+        });
+        const verification = await vr.json();
+        if (vr.ok && verification.verified) alert('Payment Successful ✅');
+        else alert('Payment captured but signature verification failed. Please contact support.');
+      } catch { alert('Payment completed but verification failed due to network issue.'); }
+    },
+    theme: { color: '#ff6b1a' },
+  };
+  if (!options.key || !options.order_id) { alert('Razorpay is not configured correctly. Please contact support.'); return; }
+  new Razorpay(options).open();
+}
+
+function buildUpiQrUrl(amount, planName) {
+  const payload = new URLSearchParams({
+    pa: upiId, pn: upiName,
+    tn: planName ? `${upiNote} - ${planName}` : upiNote,
+    am: amount.toFixed(2), cu: 'INR',
+  });
+  return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent('upi://pay?' + payload.toString())}`;
+}
+
+function showUpiQrPopup({ amount, planName }) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(10px);';
+  const card = document.createElement('div');
+  card.style.cssText = 'background:#13131a;border:1px solid rgba(255,107,26,0.25);border-radius:20px;padding:28px;display:flex;flex-direction:column;gap:16px;align-items:center;max-width:90%;width:360px;text-align:center;box-shadow:0 0 60px rgba(255,107,26,0.15);';
+  const title = document.createElement('h3'); title.innerText = 'Scan & Pay with UPI'; title.style.cssText = 'margin:0;font-family:Outfit,sans-serif;font-size:1.1rem;color:#f0ede8;';
+  const summary = document.createElement('p'); summary.innerHTML = `<strong style="color:#ff6b1a">₹${amount.toFixed(2)}</strong> · ${planName || 'Selected Plan'}`; summary.style.cssText = 'margin:0;font-size:0.88rem;color:#8a8490;';
+  const img = document.createElement('img'); img.src = buildUpiQrUrl(amount, planName); img.alt = 'UPI QR code'; img.style.cssText = 'max-width:100%;border:1px solid rgba(255,107,26,0.15);border-radius:12px;';
+  const upiText = document.createElement('p'); upiText.innerHTML = `UPI ID: <strong style="color:#ff6b1a">${upiId}</strong><br><span style="color:#8a8490">${upiName}</span>`; upiText.style.cssText = 'margin:0;font-size:0.82rem;line-height:1.6;color:#f0ede8;';
+  const close = document.createElement('button'); close.innerText = 'Close'; close.style.cssText = 'padding:10px 24px;border-radius:999px;border:none;background:linear-gradient(135deg,#e63c00,#ff9500);color:#fff;cursor:pointer;font-family:Outfit,sans-serif;font-weight:800;'; close.onclick = () => document.body.removeChild(overlay);
+  card.append(title, summary, img, upiText, close);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+}
+
+document.querySelector('.pay-btn').addEventListener('click', () => {
+  calculateTotal();
+  setTimeout(() => {
+    const selectedPayment = document.querySelector('input[name="payment"]:checked')?.value;
+    const amount = parseInt(document.querySelector('.final-amount').innerText.replace(/[^0-9]/g, ''), 10);
+    if (!amount || isNaN(amount) || amount < 10) { alert('Invalid or too low payment amount. Please check your selection.'); return; }
+    if (selectedPayment === 'upi') {
+      const planName = document.querySelector('input[name="plan"]:checked')?.dataset.planName;
+      showUpiQrPopup({ amount, planName });
+    }
+    if (selectedPayment === 'card') payWithRazorpay(amount);
+    if (selectedPayment === 'cash') openCashModal();
+  }, 0);
+});
+
+updatePrimeAddon();
+syncAddonSelectionStyles();
+calculateTotal();
+
+/* ═══════════════════════════════════════════════════════════
+   INVOICE LOOKUP DRAWER — NEW LOGIC
+═══════════════════════════════════════════════════════════ */
+const ldState = {
+  phone:        '',
+  sessionToken: '',
+  customer:     null,
+  invoices:     [],
+  timerInt:     null,
+  timerSecs:    600,
+};
+
+// ── Open / Close ────────────────────────────────────────
+function openLookupDrawer() {
+  document.getElementById('lookupOverlay').classList.add('open');
+  document.getElementById('lookupDrawer').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('ldPhoneInput')?.focus(), 380);
+}
+function closeLookupDrawer() {
+  document.getElementById('lookupOverlay').classList.remove('open');
+  document.getElementById('lookupDrawer').classList.remove('open');
+  document.body.style.overflow = '';
+}
+// Keyboard shortcut on banner
+document.querySelector('.invoice-lookup-banner').addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLookupDrawer(); }
+});
+
+// ── Step Navigation ──────────────────────────────────────
+function ldGoToStep(n) {
+  document.querySelectorAll('.ld-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`ld-panel-${n}`).classList.add('active');
+  [1,2,3].forEach(i => {
+    const si = document.getElementById(`ld-si-${i}`);
+    si.classList.remove('active','done');
+    if (i < n) { si.classList.add('done'); document.getElementById(`ld-sc-${i}`).textContent = '✓'; }
+    else        { document.getElementById(`ld-sc-${i}`).textContent = i; }
+    if (i === n) si.classList.add('active');
+  });
+  // Scroll drawer body to top
+  document.querySelector('.ld-body').scrollTop = 0;
+}
+
+// ── Alert helper ─────────────────────────────────────────
+function ldShowAlert(id, type, msg) {
+  const el = document.getElementById(id);
+  const icons = { err:'⚠', ok:'✓', info:'ℹ' };
+  el.className = `ld-alert show ${type}`;
+  el.innerHTML = `<span style="flex-shrink:0">${icons[type]||'ℹ'}</span><span>${msg}</span>`;
+}
+function ldHideAlert(id) { document.getElementById(id).className = 'ld-alert'; }
+
+// ── Button loading state ──────────────────────────────────
+function ldSetLoading(btnId, loading, label) {
+  const btn = document.getElementById(btnId);
+  btn.disabled = loading;
+  btn.innerHTML = loading
+    ? `<div class="ld-spinner"></div>${label}`
+    : label;
+}
+
+// ── STEP 1: Send OTP ─────────────────────────────────────
+async function ldSendOtp() {
+  ldHideAlert('ld-alert-1');
+  const raw = document.getElementById('ldPhoneInput').value.trim().replace(/[^0-9]/g,'');
+  if (raw.length !== 10) { ldShowAlert('ld-alert-1','err','Enter a valid 10-digit mobile number.'); return; }
+  ldState.phone = raw;
+  ldSetLoading('ldSendOtpBtn', true, 'Sending OTP…');
+  try {
+    const res  = await fetch('payment_otp_api.php?action=send', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone: raw }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      ldGoToStep(2);
+      document.getElementById('ldOtpLabel').innerHTML =
+        `Code sent to <strong style="color:var(--text)">+91 ${raw}</strong>`;
+      ldStartTimer(data.expires_in || 600);
+      ldFocusBox(0);
+    } else {
+      ldShowAlert('ld-alert-1','err', data.error || 'Failed to send OTP.');
+    }
+  } catch { ldShowAlert('ld-alert-1','err','Network error. Please try again.'); }
+  ldSetLoading('ldSendOtpBtn', false, `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>Send OTP on WhatsApp`);
+}
+document.getElementById('ldPhoneInput').addEventListener('keydown', e => { if (e.key === 'Enter') ldSendOtp(); });
+
+// ── OTP Boxes ────────────────────────────────────────────
+const ldBoxes = Array.from(document.querySelectorAll('.ld-otp-box'));
+
+ldBoxes.forEach((box, idx) => {
+  box.addEventListener('input', e => {
+    const val = e.target.value.replace(/[^0-9]/g,'');
+    e.target.value = val.slice(-1);
+    e.target.classList.toggle('filled', !!e.target.value);
+    if (val && idx < 5) ldFocusBox(idx + 1);
+    if (ldGetOtp().length === 6) ldVerifyOtp();
+  });
+  box.addEventListener('keydown', e => {
+    if (e.key === 'Backspace' && !box.value && idx > 0) {
+      ldFocusBox(idx - 1); ldBoxes[idx-1].value = ''; ldBoxes[idx-1].classList.remove('filled');
+    }
+    if (e.key === 'ArrowLeft'  && idx > 0) ldFocusBox(idx - 1);
+    if (e.key === 'ArrowRight' && idx < 5) ldFocusBox(idx + 1);
+  });
+  box.addEventListener('paste', e => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text').replace(/[^0-9]/g,'');
+    [...text.slice(0,6)].forEach((ch, i) => { if (ldBoxes[i]) { ldBoxes[i].value = ch; ldBoxes[i].classList.add('filled'); } });
+    ldFocusBox(Math.min(text.length, 5));
+    if (text.length >= 6) ldVerifyOtp();
+  });
+});
+
+function ldFocusBox(i) { if (ldBoxes[i]) { ldBoxes[i].focus(); ldBoxes[i].select(); } }
+function ldGetOtp()    { return ldBoxes.map(b => b.value).join(''); }
+function ldClearBoxes(shake = false) {
+  ldBoxes.forEach(b => {
+    b.value = ''; b.classList.remove('filled');
+    if (shake) { b.classList.add('otp-error'); setTimeout(() => b.classList.remove('otp-error'), 400); }
+  });
+}
+
+// ── Timer ─────────────────────────────────────────────────
+function ldStartTimer(seconds) {
+  clearInterval(ldState.timerInt);
+  ldState.timerSecs = seconds;
+  const el = document.getElementById('ldTimer');
+  const rb = document.getElementById('ldResendBtn');
+  el.classList.remove('expired');
+  rb.disabled = true;
+  ldState.timerInt = setInterval(() => {
+    ldState.timerSecs--;
+    const m = Math.floor(ldState.timerSecs / 60);
+    const s = ldState.timerSecs % 60;
+    el.textContent = `${m}:${String(s).padStart(2,'0')}`;
+    if (ldState.timerSecs <= 0) {
+      clearInterval(ldState.timerInt);
+      el.textContent = 'Expired'; el.classList.add('expired');
+      rb.disabled = false;
+    }
+  }, 1000);
+}
+
+async function ldResendOtp() {
+  ldHideAlert('ld-alert-2');
+  try {
+    const res  = await fetch('payment_otp_api.php?action=send', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone: ldState.phone }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      ldClearBoxes(); ldStartTimer(data.expires_in || 600);
+      ldShowAlert('ld-alert-2','ok','New OTP sent on WhatsApp!');
+      setTimeout(() => ldHideAlert('ld-alert-2'), 3000);
+      ldFocusBox(0);
+    } else { ldShowAlert('ld-alert-2','err', data.error || 'Failed to resend.'); }
+  } catch { ldShowAlert('ld-alert-2','err','Network error. Please try again.'); }
+}
+
+// ── STEP 2: Verify OTP ───────────────────────────────────
+async function ldVerifyOtp() {
+  const otp = ldGetOtp();
+  if (otp.length !== 6) { ldShowAlert('ld-alert-2','err','Enter all 6 digits.'); return; }
+  ldHideAlert('ld-alert-2');
+  ldSetLoading('ldVerifyBtn', true, 'Verifying…');
+  try {
+    const res  = await fetch('payment_otp_api.php?action=verify', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone: ldState.phone, otp }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      clearInterval(ldState.timerInt);
+      ldState.sessionToken = data.session_token;
+      ldGoToStep(3);
+      ldLoadInvoices();
+    } else {
+      ldClearBoxes(true);
+      ldShowAlert('ld-alert-2','err', data.error || 'Incorrect OTP.');
+      ldFocusBox(0);
+      if (data.expired) document.getElementById('ldResendBtn').disabled = false;
+    }
+  } catch { ldShowAlert('ld-alert-2','err','Network error. Please try again.'); }
+  ldSetLoading('ldVerifyBtn', false, 'Verify &amp; Fetch Invoice →');
+}
+
+// ── STEP 3: Load Invoices ────────────────────────────────
+async function ldLoadInvoices() {
+  try {
+    const url  = `payment_invoices_api.php?session_token=${encodeURIComponent(ldState.sessionToken)}&phone=${encodeURIComponent('91' + ldState.phone)}`;
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (!data.success) {
+      ldRenderError(data.error || 'Failed to load invoices.');
+      if (data.session_expired) setTimeout(() => ldGoToStep(1), 2500);
+      return;
+    }
+    ldState.customer = data.customer;
+    ldState.invoices = data.invoices;
+    ldRenderInvoices(data);
+  } catch { ldRenderError('Network error. Please refresh the page.'); }
+}
+
+function ldRenderInvoices(data) {
+  const today  = new Date(); today.setHours(0,0,0,0);
+  let html = `
+    <div class="ld-customer-banner">
+      <div>
+        <div class="ld-customer-name">${ldEsc(data.customer.name)}</div>
+        <div class="ld-customer-sub">📞 +91 ${ldState.phone}</div>
+      </div>
+      <div class="ld-total-chip">₹${ldFmt(data.total_due)} due</div>
+    </div>`;
+
+  if (!data.invoices.length) {
+    html += `<div class="ld-empty">
+      <div class="ld-empty-icon">🎉</div>
+      <h4>No Pending Invoices</h4>
+      <p>All your invoices are settled. You're up to date!</p>
+    </div>`;
+    document.getElementById('ldInvoiceContent').innerHTML = html;
+    return;
+  }
+
+  html += '<div class="ld-inv-list">';
+  data.invoices.forEach((inv, idx) => {
+    const dueDate = inv.due_date ? new Date(inv.due_date) : null;
+    let dueTxt = '';
+    if (dueDate) {
+      const diff = Math.round((dueDate - today) / 86400000);
+      if      (diff < 0)   dueTxt = `<span style="color:var(--red)">⚠ ${Math.abs(diff)}d overdue</span>`;
+      else if (diff === 0) dueTxt = `<span style="color:var(--gold)">Due today</span>`;
+      else if (diff <= 7)  dueTxt = `<span style="color:var(--gold)">Due in ${diff}d</span>`;
+    }
+    const isOverdue = inv.status === 'overdue';
+    html += `
+      <div class="ld-inv-item" style="animation-delay:${idx*0.07}s">
+        <div class="ld-inv-top">
+          <div style="flex:1;min-width:0">
+            <div class="ld-inv-no">${ldEsc(inv.invoice_number)}</div>
+            <div class="ld-inv-name">${ldEsc(inv.customer_name)}</div>
+          </div>
+          <div>
+            <div class="ld-inv-amount">₹${ldFmt(inv.total)}<small>incl. GST</small></div>
+          </div>
+        </div>
+        <span class="ld-status-badge ${isOverdue ? 'overdue' : 'sent'}">${ldUcfirst(inv.status)}</span>
+        <div class="ld-inv-date">
+          ${inv.invoice_date ? `<span>📅 ${inv.invoice_date}</span>` : ''}
+          ${inv.due_date     ? `<span>⏰ ${inv.due_date} ${dueTxt}</span>` : ''}
+        </div>
+        <button class="ld-use-btn" onclick='ldApplyInvoiceAmount(${JSON.stringify(inv)})'>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Use ₹${ldFmt(inv.total)} for Payment
+        </button>
+      </div>`;
+  });
+  html += '</div>';
+  document.getElementById('ldInvoiceContent').innerHTML = html;
+}
+
+function ldRenderError(msg) {
+  document.getElementById('ldInvoiceContent').innerHTML = `
+    <div class="ld-empty" style="color:var(--red)">
+      <div class="ld-empty-icon">⚠️</div>
+      <h4 style="color:var(--text)">${msg}</h4>
+      <p>Please try again or contact support.</p>
+    </div>`;
+}
+
+// ── Apply Invoice Amount to Checkout ─────────────────────
+function ldApplyInvoiceAmount(inv) {
+  // Highlight the closest matching plan by price, or do a custom override
+  const rawAmount = Math.round(parseFloat(inv.total));
+
+  // Try matching a plan by price
+  let matched = false;
+  document.querySelectorAll('input[name="plan"]').forEach(radio => {
+    const planPrice = Number(radio.dataset.price);
+    if (planPrice === rawAmount) {
+      radio.closest('.plan-option').click();
+      matched = true;
+    }
   });
 
-  updatePrimeAddon();
-  syncAddonSelectionStyles();
-  calculateTotal();
+  // If no exact plan match, we set the summary total directly as a note
+  // and close the drawer — the customer knows the amount now
+  closeLookupDrawer();
+
+  // Show toast
+  const toast = document.getElementById('lookupToast');
+  document.getElementById('lookupToastMsg').textContent = matched
+    ? `Plan matched! ₹${ldFmt(inv.total)} applied.`
+    : `Invoice found: ₹${ldFmt(inv.total)} · Invoice ${inv.invoice_number}`;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3800);
+}
+
+// ── Helpers ───────────────────────────────────────────────
+function ldFmt(n)     { return parseFloat(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function ldEsc(s)     { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function ldUcfirst(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
 </script>
 </body>
 </html>
