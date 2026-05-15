@@ -557,52 +557,7 @@
     }
     .ld-close:hover { border-color: rgba(239,68,68,0.4); color: var(--red); background: rgba(239,68,68,0.06); }
 
-    /* Drawer Steps */
-    .ld-steps {
-      display: flex; padding: 14px 22px 0;
-      gap: 0;
-      flex-shrink: 0;
-    }
-    .ld-step {
-      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px;
-      position: relative;
-    }
-    .ld-step:not(:last-child)::after {
-      content: '';
-      position: absolute; top: 14px; left: calc(50% + 14px); right: calc(-50% + 14px);
-      height: 1px;
-      background: rgba(255,255,255,0.08);
-      transition: background 0.4s ease;
-    }
-    .ld-step.done:not(:last-child)::after {
-      background: rgba(57,217,138,0.35);
-    }
-    .ld-step-circle {
-      width: 28px; height: 28px; border-radius: 50%;
-      border: 1.5px solid rgba(255,255,255,0.1);
-      background: rgba(255,255,255,0.03);
-      display: flex; align-items: center; justify-content: center;
-      font-family: 'Outfit',sans-serif; font-size: 0.72rem; font-weight: 700;
-      color: var(--muted);
-      transition: all 0.3s ease;
-    }
-    .ld-step.active .ld-step-circle {
-      border-color: var(--blue); color: var(--blue);
-      background: rgba(79,142,247,0.1);
-      box-shadow: 0 0 14px rgba(79,142,247,0.22);
-    }
-    .ld-step.done .ld-step-circle {
-      border-color: var(--green); color: var(--green);
-      background: rgba(57,217,138,0.1);
-      box-shadow: 0 0 12px rgba(57,217,138,0.2);
-    }
-    .ld-step-label {
-      font-size: 0.58rem; font-weight: 700; letter-spacing: 0.07em;
-      color: var(--muted); text-transform: uppercase;
-      font-family: 'Outfit', sans-serif;
-    }
-    .ld-step.active .ld-step-label { color: var(--blue); }
-    .ld-step.done .ld-step-label { color: var(--green); }
+    /* No steps nav needed — 2-panel direct flow */
 
     /* Drawer Body */
     .ld-body {
@@ -658,15 +613,7 @@
       margin-top: 7px; display: flex; align-items: center; gap: 5px;
     }
 
-    /* WA hint box */
-    .ld-wa-hint {
-      display: flex; align-items: flex-start; gap: 10px;
-      background: rgba(57,217,138,0.06);
-      border: 1px solid rgba(57,217,138,0.14);
-      border-radius: 11px; padding: 12px 14px;
-      margin-bottom: 18px;
-    }
-    .ld-wa-hint p { font-size: 0.77rem; color: rgba(134,239,172,0.9); line-height: 1.5; }
+    /* wa hint removed */
 
     /* Lookup Buttons */
     .ld-btn {
@@ -688,64 +635,7 @@
     .ld-btn-ghost:hover { border-color: rgba(255,255,255,0.16); color: var(--text); }
     .ld-btn:disabled { opacity: 0.55; pointer-events: none; }
 
-    /* OTP Boxes (lookup) */
-    .ld-otp-wrap {
-      text-align: center; margin-bottom: 18px;
-    }
-    .ld-otp-label {
-      font-size: 0.78rem; color: var(--muted);
-      margin-bottom: 16px; line-height: 1.55;
-    }
-    .ld-otp-boxes {
-      display: flex; gap: 8px; justify-content: center;
-      margin-bottom: 14px;
-    }
-    .ld-otp-box {
-      width: 46px; height: 56px;
-      background: rgba(255,255,255,0.04);
-      border: 1.5px solid rgba(255,255,255,0.1);
-      border-radius: 11px;
-      text-align: center;
-      font-family: 'Outfit',sans-serif; font-size: 1.4rem; font-weight: 800;
-      color: var(--text); outline: none;
-      transition: all 0.18s ease;
-      caret-color: var(--blue);
-    }
-    .ld-otp-box:focus {
-      border-color: rgba(79,142,247,0.55);
-      background: rgba(79,142,247,0.06);
-      box-shadow: 0 0 0 3px rgba(79,142,247,0.12);
-      transform: scale(1.06);
-    }
-    .ld-otp-box.filled {
-      border-color: rgba(79,142,247,0.35);
-      background: rgba(79,142,247,0.05);
-    }
-    .ld-otp-box.otp-error {
-      border-color: var(--red);
-      box-shadow: 0 0 0 3px rgba(239,68,68,0.12);
-      animation: ldShake 0.35s ease;
-    }
-    @keyframes ldShake {
-      0%,100%{transform:translateX(0);}20%{transform:translateX(-5px);}
-      40%{transform:translateX(5px);}60%{transform:translateX(-4px);}80%{transform:translateX(4px);}
-    }
-    .ld-otp-timer {
-      display: flex; align-items: center; justify-content: space-between;
-      font-size: 0.74rem; color: var(--muted);
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 9px; padding: 8px 12px;
-      margin-bottom: 16px;
-    }
-    .ld-timer { font-family: 'Outfit',sans-serif; font-weight: 700; color: var(--blue); font-size: 0.82rem; }
-    .ld-timer.expired { color: var(--red); }
-    .ld-resend {
-      background: none; border: none; color: var(--blue);
-      font-size: 0.74rem; font-weight: 600; cursor: pointer;
-      font-family: 'Nunito',sans-serif; padding: 0;
-    }
-    .ld-resend:disabled { color: var(--muted); cursor: default; }
+    /* OTP styles removed */
 
     /* Alert (lookup) */
     .ld-alert {
@@ -912,8 +802,7 @@
       .cash-modal{padding:14px;align-items:flex-end;}
       .cash-modal-card{border-radius:18px 18px 14px 14px;padding:18px;}
       .cash-modal-actions{flex-direction:column-reverse;}
-      .ld-otp-box { width: 40px; height: 50px; font-size: 1.2rem; }
-      .ld-otp-boxes { gap: 6px; }
+      /* otp removed */
     }
   </style>
 </head>
@@ -1215,7 +1104,7 @@
     <div class="ld-icon">🔍</div>
     <div class="ld-title">
       <h3>Invoice Lookup</h3>
-      <p>Verify your mobile to see your invoice</p>
+      <p>Enter your registered mobile to see your invoice</p>
     </div>
     <button class="ld-close" onclick="closeLookupDrawer()" aria-label="Close">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -1224,39 +1113,16 @@
     </button>
   </div>
 
-  <!-- Progress Steps -->
-  <div class="ld-steps">
-    <div class="ld-step active" id="ld-si-1">
-      <div class="ld-step-circle" id="ld-sc-1">1</div>
-      <div class="ld-step-label">Mobile</div>
-    </div>
-    <div class="ld-step" id="ld-si-2">
-      <div class="ld-step-circle" id="ld-sc-2">2</div>
-      <div class="ld-step-label">OTP</div>
-    </div>
-    <div class="ld-step" id="ld-si-3">
-      <div class="ld-step-circle" id="ld-sc-3">3</div>
-      <div class="ld-step-label">Invoice</div>
-    </div>
-  </div>
-
   <!-- Drawer Body -->
   <div class="ld-body">
 
     <!-- ── PANEL 1: PHONE ── -->
     <div class="ld-panel active" id="ld-panel-1">
 
-      <div class="ld-wa-hint">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="#22d370" style="flex-shrink:0;margin-top:1px">
-          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-        </svg>
-        <p>We'll send a <strong>6-digit OTP on WhatsApp</strong> to your registered number to verify your identity.</p>
-      </div>
-
       <div class="ld-alert" id="ld-alert-1"></div>
 
       <div class="ld-field">
-        <label class="ld-label" for="ldPhoneInput">Registered WhatsApp Number</label>
+        <label class="ld-label" for="ldPhoneInput">Registered Mobile Number</label>
         <div class="ld-input-wrap">
           <span class="ld-prefix">+91</span>
           <input class="ld-input" type="tel" id="ldPhoneInput"
@@ -1271,56 +1137,24 @@
         </p>
       </div>
 
-      <button class="ld-btn ld-btn-primary" id="ldSendOtpBtn" onclick="ldSendOtp()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+      <button class="ld-btn ld-btn-primary" id="ldFetchBtn" onclick="ldFetchInvoices()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
         </svg>
-        Send OTP on WhatsApp
+        Fetch My Invoice
       </button>
     </div>
 
-    <!-- ── PANEL 2: OTP ── -->
+    <!-- ── PANEL 2: INVOICES ── -->
     <div class="ld-panel" id="ld-panel-2">
-
-      <div class="ld-alert" id="ld-alert-2"></div>
-
-      <div class="ld-otp-wrap">
-        <div class="ld-otp-label" id="ldOtpLabel">Enter the 6-digit code sent to your WhatsApp</div>
-        <div class="ld-otp-boxes" id="ldOtpBoxes">
-          <input class="ld-otp-box" type="tel" maxlength="1" inputmode="numeric" data-i="0" autocomplete="one-time-code">
-          <input class="ld-otp-box" type="tel" maxlength="1" inputmode="numeric" data-i="1">
-          <input class="ld-otp-box" type="tel" maxlength="1" inputmode="numeric" data-i="2">
-          <input class="ld-otp-box" type="tel" maxlength="1" inputmode="numeric" data-i="3">
-          <input class="ld-otp-box" type="tel" maxlength="1" inputmode="numeric" data-i="4">
-          <input class="ld-otp-box" type="tel" maxlength="1" inputmode="numeric" data-i="5">
-        </div>
-        <div class="ld-otp-timer">
-          <span style="display:flex;align-items:center;gap:6px;">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-            </svg>
-            Expires in <span class="ld-timer" id="ldTimer">10:00</span>
-          </span>
-          <button class="ld-resend" id="ldResendBtn" disabled onclick="ldResendOtp()">Resend OTP</button>
-        </div>
-      </div>
-
-      <button class="ld-btn ld-btn-primary" id="ldVerifyBtn" onclick="ldVerifyOtp()">
-        Verify &amp; Fetch Invoice →
+      <button class="ld-btn ld-btn-ghost" style="margin-bottom:16px" onclick="ldGoBack()">
+        ← Search Another Number
       </button>
-      <button class="ld-btn ld-btn-ghost" onclick="ldGoToStep(1)">← Change Number</button>
-    </div>
-
-    <!-- ── PANEL 3: INVOICES ── -->
-    <div class="ld-panel" id="ld-panel-3">
       <div id="ldInvoiceContent">
         <!-- Skeleton -->
-        <div style="background:rgba(255,255,255,0.04);height:56px;border-radius:12px;margin-bottom:12px;animation:ldShimmer 1.5s infinite"
-             class="ld-skeleton"></div>
-        <div style="background:rgba(255,255,255,0.04);height:110px;border-radius:12px;margin-bottom:10px"
-             class="ld-skeleton"></div>
-        <div style="background:rgba(255,255,255,0.04);height:110px;border-radius:12px"
-             class="ld-skeleton"></div>
+        <div style="background:rgba(255,255,255,0.04);height:56px;border-radius:12px;margin-bottom:12px"></div>
+        <div style="background:rgba(255,255,255,0.04);height:110px;border-radius:12px;margin-bottom:10px"></div>
+        <div style="background:rgba(255,255,255,0.04);height:110px;border-radius:12px"></div>
       </div>
     </div>
 
@@ -1574,15 +1408,12 @@ syncAddonSelectionStyles();
 calculateTotal();
 
 /* ═══════════════════════════════════════════════════════════
-   INVOICE LOOKUP DRAWER — NEW LOGIC
+   INVOICE LOOKUP DRAWER — SIMPLIFIED (no OTP)
 ═══════════════════════════════════════════════════════════ */
 const ldState = {
-  phone:        '',
-  sessionToken: '',
-  customer:     null,
-  invoices:     [],
-  timerInt:     null,
-  timerSecs:    600,
+  phone:    '',
+  customer: null,
+  invoices: [],
 };
 
 // ── Open / Close ────────────────────────────────────────
@@ -1597,24 +1428,19 @@ function closeLookupDrawer() {
   document.getElementById('lookupDrawer').classList.remove('open');
   document.body.style.overflow = '';
 }
-// Keyboard shortcut on banner
 document.querySelector('.invoice-lookup-banner').addEventListener('keydown', e => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLookupDrawer(); }
 });
 
-// ── Step Navigation ──────────────────────────────────────
-function ldGoToStep(n) {
+// ── Panel switch ─────────────────────────────────────────
+function ldShowPanel(n) {
   document.querySelectorAll('.ld-panel').forEach(p => p.classList.remove('active'));
   document.getElementById(`ld-panel-${n}`).classList.add('active');
-  [1,2,3].forEach(i => {
-    const si = document.getElementById(`ld-si-${i}`);
-    si.classList.remove('active','done');
-    if (i < n) { si.classList.add('done'); document.getElementById(`ld-sc-${i}`).textContent = '✓'; }
-    else        { document.getElementById(`ld-sc-${i}`).textContent = i; }
-    if (i === n) si.classList.add('active');
-  });
-  // Scroll drawer body to top
   document.querySelector('.ld-body').scrollTop = 0;
+}
+function ldGoBack() {
+  ldShowPanel(1);
+  ldHideAlert('ld-alert-1');
 }
 
 // ── Alert helper ─────────────────────────────────────────
@@ -1626,162 +1452,57 @@ function ldShowAlert(id, type, msg) {
 }
 function ldHideAlert(id) { document.getElementById(id).className = 'ld-alert'; }
 
-// ── Button loading state ──────────────────────────────────
+// ── Button loading ────────────────────────────────────────
 function ldSetLoading(btnId, loading, label) {
   const btn = document.getElementById(btnId);
   btn.disabled = loading;
-  btn.innerHTML = loading
-    ? `<div class="ld-spinner"></div>${label}`
-    : label;
+  btn.innerHTML = loading ? `<div class="ld-spinner"></div>Fetching…` : label;
 }
 
-// ── STEP 1: Send OTP ─────────────────────────────────────
-async function ldSendOtp() {
+// ── FETCH INVOICES directly (no OTP) ─────────────────────
+async function ldFetchInvoices() {
   ldHideAlert('ld-alert-1');
-  const raw = document.getElementById('ldPhoneInput').value.trim().replace(/[^0-9]/g,'');
-  if (raw.length !== 10) { ldShowAlert('ld-alert-1','err','Enter a valid 10-digit mobile number.'); return; }
+  const raw = document.getElementById('ldPhoneInput').value.trim().replace(/[^0-9]/g, '');
+  if (raw.length !== 10) {
+    ldShowAlert('ld-alert-1', 'err', 'Enter a valid 10-digit mobile number.');
+    return;
+  }
   ldState.phone = raw;
-  ldSetLoading('ldSendOtpBtn', true, 'Sending OTP…');
+  ldSetLoading('ldFetchBtn', true, '');
+
   try {
-    const res  = await fetch('payment_otp_api.php?action=send', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ phone: raw }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      ldGoToStep(2);
-      document.getElementById('ldOtpLabel').innerHTML =
-        `Code sent to <strong style="color:var(--text)">+91 ${raw}</strong>`;
-      ldStartTimer(data.expires_in || 600);
-      ldFocusBox(0);
-    } else {
-      ldShowAlert('ld-alert-1','err', data.error || 'Failed to send OTP.');
-    }
-  } catch { ldShowAlert('ld-alert-1','err','Network error. Please try again.'); }
-  ldSetLoading('ldSendOtpBtn', false, `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>Send OTP on WhatsApp`);
-}
-document.getElementById('ldPhoneInput').addEventListener('keydown', e => { if (e.key === 'Enter') ldSendOtp(); });
-
-// ── OTP Boxes ────────────────────────────────────────────
-const ldBoxes = Array.from(document.querySelectorAll('.ld-otp-box'));
-
-ldBoxes.forEach((box, idx) => {
-  box.addEventListener('input', e => {
-    const val = e.target.value.replace(/[^0-9]/g,'');
-    e.target.value = val.slice(-1);
-    e.target.classList.toggle('filled', !!e.target.value);
-    if (val && idx < 5) ldFocusBox(idx + 1);
-    if (ldGetOtp().length === 6) ldVerifyOtp();
-  });
-  box.addEventListener('keydown', e => {
-    if (e.key === 'Backspace' && !box.value && idx > 0) {
-      ldFocusBox(idx - 1); ldBoxes[idx-1].value = ''; ldBoxes[idx-1].classList.remove('filled');
-    }
-    if (e.key === 'ArrowLeft'  && idx > 0) ldFocusBox(idx - 1);
-    if (e.key === 'ArrowRight' && idx < 5) ldFocusBox(idx + 1);
-  });
-  box.addEventListener('paste', e => {
-    e.preventDefault();
-    const text = (e.clipboardData || window.clipboardData).getData('text').replace(/[^0-9]/g,'');
-    [...text.slice(0,6)].forEach((ch, i) => { if (ldBoxes[i]) { ldBoxes[i].value = ch; ldBoxes[i].classList.add('filled'); } });
-    ldFocusBox(Math.min(text.length, 5));
-    if (text.length >= 6) ldVerifyOtp();
-  });
-});
-
-function ldFocusBox(i) { if (ldBoxes[i]) { ldBoxes[i].focus(); ldBoxes[i].select(); } }
-function ldGetOtp()    { return ldBoxes.map(b => b.value).join(''); }
-function ldClearBoxes(shake = false) {
-  ldBoxes.forEach(b => {
-    b.value = ''; b.classList.remove('filled');
-    if (shake) { b.classList.add('otp-error'); setTimeout(() => b.classList.remove('otp-error'), 400); }
-  });
-}
-
-// ── Timer ─────────────────────────────────────────────────
-function ldStartTimer(seconds) {
-  clearInterval(ldState.timerInt);
-  ldState.timerSecs = seconds;
-  const el = document.getElementById('ldTimer');
-  const rb = document.getElementById('ldResendBtn');
-  el.classList.remove('expired');
-  rb.disabled = true;
-  ldState.timerInt = setInterval(() => {
-    ldState.timerSecs--;
-    const m = Math.floor(ldState.timerSecs / 60);
-    const s = ldState.timerSecs % 60;
-    el.textContent = `${m}:${String(s).padStart(2,'0')}`;
-    if (ldState.timerSecs <= 0) {
-      clearInterval(ldState.timerInt);
-      el.textContent = 'Expired'; el.classList.add('expired');
-      rb.disabled = false;
-    }
-  }, 1000);
-}
-
-async function ldResendOtp() {
-  ldHideAlert('ld-alert-2');
-  try {
-    const res  = await fetch('payment_otp_api.php?action=send', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ phone: ldState.phone }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      ldClearBoxes(); ldStartTimer(data.expires_in || 600);
-      ldShowAlert('ld-alert-2','ok','New OTP sent on WhatsApp!');
-      setTimeout(() => ldHideAlert('ld-alert-2'), 3000);
-      ldFocusBox(0);
-    } else { ldShowAlert('ld-alert-2','err', data.error || 'Failed to resend.'); }
-  } catch { ldShowAlert('ld-alert-2','err','Network error. Please try again.'); }
-}
-
-// ── STEP 2: Verify OTP ───────────────────────────────────
-async function ldVerifyOtp() {
-  const otp = ldGetOtp();
-  if (otp.length !== 6) { ldShowAlert('ld-alert-2','err','Enter all 6 digits.'); return; }
-  ldHideAlert('ld-alert-2');
-  ldSetLoading('ldVerifyBtn', true, 'Verifying…');
-  try {
-    const res  = await fetch('payment_otp_api.php?action=verify', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ phone: ldState.phone, otp }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      clearInterval(ldState.timerInt);
-      ldState.sessionToken = data.session_token;
-      ldGoToStep(3);
-      ldLoadInvoices();
-    } else {
-      ldClearBoxes(true);
-      ldShowAlert('ld-alert-2','err', data.error || 'Incorrect OTP.');
-      ldFocusBox(0);
-      if (data.expired) document.getElementById('ldResendBtn').disabled = false;
-    }
-  } catch { ldShowAlert('ld-alert-2','err','Network error. Please try again.'); }
-  ldSetLoading('ldVerifyBtn', false, 'Verify &amp; Fetch Invoice →');
-}
-
-// ── STEP 3: Load Invoices ────────────────────────────────
-async function ldLoadInvoices() {
-  try {
-    const url  = `payment_invoices_api.php?session_token=${encodeURIComponent(ldState.sessionToken)}&phone=${encodeURIComponent('91' + ldState.phone)}`;
+    const url  = `payment_invoices_api.php?phone=${encodeURIComponent('91' + raw)}`;
     const res  = await fetch(url);
     const data = await res.json();
+
     if (!data.success) {
-      ldRenderError(data.error || 'Failed to load invoices.');
-      if (data.session_expired) setTimeout(() => ldGoToStep(1), 2500);
+      ldShowAlert('ld-alert-1', 'err', data.error || 'No invoices found for this number.');
+      ldSetLoading('ldFetchBtn', false, '');
+      document.getElementById('ldFetchBtn').innerHTML =
+        `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>Fetch My Invoice`;
       return;
     }
+
     ldState.customer = data.customer;
     ldState.invoices = data.invoices;
+    ldShowPanel(2);
     ldRenderInvoices(data);
-  } catch { ldRenderError('Network error. Please refresh the page.'); }
+  } catch {
+    ldShowAlert('ld-alert-1', 'err', 'Network error. Please try again.');
+  }
+
+  ldSetLoading('ldFetchBtn', false, '');
+  document.getElementById('ldFetchBtn').innerHTML =
+    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>Fetch My Invoice`;
 }
 
+document.getElementById('ldPhoneInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') ldFetchInvoices();
+});
+
+// ── Render invoices ───────────────────────────────────────
 function ldRenderInvoices(data) {
-  const today  = new Date(); today.setHours(0,0,0,0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
   let html = `
     <div class="ld-customer-banner">
       <div>
@@ -1813,7 +1534,7 @@ function ldRenderInvoices(data) {
     }
     const isOverdue = inv.status === 'overdue';
     html += `
-      <div class="ld-inv-item" style="animation-delay:${idx*0.07}s">
+      <div class="ld-inv-item" style="animation-delay:${idx * 0.07}s">
         <div class="ld-inv-top">
           <div style="flex:1;min-width:0">
             <div class="ld-inv-no">${ldEsc(inv.invoice_number)}</div>
@@ -1840,39 +1561,21 @@ function ldRenderInvoices(data) {
   document.getElementById('ldInvoiceContent').innerHTML = html;
 }
 
-function ldRenderError(msg) {
-  document.getElementById('ldInvoiceContent').innerHTML = `
-    <div class="ld-empty" style="color:var(--red)">
-      <div class="ld-empty-icon">⚠️</div>
-      <h4 style="color:var(--text)">${msg}</h4>
-      <p>Please try again or contact support.</p>
-    </div>`;
-}
-
-// ── Apply Invoice Amount to Checkout ─────────────────────
+// ── Apply to checkout ─────────────────────────────────────
 function ldApplyInvoiceAmount(inv) {
-  // Highlight the closest matching plan by price, or do a custom override
   const rawAmount = Math.round(parseFloat(inv.total));
-
-  // Try matching a plan by price
   let matched = false;
   document.querySelectorAll('input[name="plan"]').forEach(radio => {
-    const planPrice = Number(radio.dataset.price);
-    if (planPrice === rawAmount) {
+    if (Number(radio.dataset.price) === rawAmount) {
       radio.closest('.plan-option').click();
       matched = true;
     }
   });
-
-  // If no exact plan match, we set the summary total directly as a note
-  // and close the drawer — the customer knows the amount now
   closeLookupDrawer();
-
-  // Show toast
   const toast = document.getElementById('lookupToast');
   document.getElementById('lookupToastMsg').textContent = matched
     ? `Plan matched! ₹${ldFmt(inv.total)} applied.`
-    : `Invoice found: ₹${ldFmt(inv.total)} · Invoice ${inv.invoice_number}`;
+    : `Invoice ₹${ldFmt(inv.total)} · ${inv.invoice_number}`;
   toast.classList.add('show');
   setTimeout(() => toast.classList.remove('show'), 3800);
 }
