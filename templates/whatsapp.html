@@ -3,8 +3,39 @@
 {% block extra_head %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+  :root {
+    --wa-green:#22c55e;
+    --wa-green-strong:#16a34a;
+    --wa-green-soft:#dcfce7;
+    --wa-mint:#ecfdf5;
+    --wa-ink:#0f172a;
+    --wa-muted:#64748b;
+    --wa-line:rgba(148,163,184,.28);
+    --wa-card:rgba(255,255,255,.82);
+    --wa-glass:rgba(255,255,255,.72);
+    --wa-panel:#f8fafc;
+    --wa-bg:#eef6f1;
+    --wa-shadow:0 24px 70px rgba(15,23,42,.16);
+    --wa-soft-shadow:0 14px 36px rgba(15,23,42,.10);
+    --wa-radius:24px;
+    --wa-sidebar:380px;
+    --wa-info:390px;
+  }
+
   html, body {height:100%;}
-  body {overflow:hidden; display:flex; flex-direction:column;}
+  body {
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    font-family:'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color:var(--wa-ink);
+    background:
+      radial-gradient(circle at top left, rgba(34,197,94,.18), transparent 30%),
+      radial-gradient(circle at bottom right, rgba(20,184,166,.16), transparent 34%),
+      #f4f7fb;
+  }
   main.container.mx-auto.p-4 {
     max-width:100% !important;
     width:100% !important;
@@ -14,178 +45,151 @@
     padding:0 !important;
     display:flex;
   }
-  .wa-page {height:100%; width:100%; min-height:0; overflow:hidden; padding:0 !important; max-width:none !important;}
-  .wa-shell {height:100%; width:100%; min-height:0; background:#fff; border-radius:0; overflow:hidden; box-shadow:none; display:grid; grid-template-columns:320px minmax(0, 1fr);}
-  .wa-sidebar {background:#f8fafc; border-right:1px solid #e2e8f0; display:flex; flex-direction:column; height:100%; min-height:0; overflow:hidden;}
-  .wa-sidebar-header {padding:14px 18px; border-bottom:1px solid #e2e8f0; font-weight:700; display:flex; align-items:center; justify-content:space-between;}
-  .wa-new-chat-btn {border-radius:8px;}
-  .wa-search {padding:12px 16px;}
-  .wa-search input {border-radius:999px;}
-  .wa-list {flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable;}
-  .wa-item {display:flex; gap:10px; align-items:center; padding:12px 16px; text-decoration:none; color:inherit; border-left:3px solid transparent;}
-  .wa-item:hover {background:#e2e8f0;}
-  .wa-item.active {background:#dbeafe; border-left-color:#25d366;}
-  .wa-avatar {width:38px; height:38px; border-radius:50%; background:linear-gradient(135deg,#25d366,#16a34a); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700;}
+
+  .wa-page {height:100%; width:100%; min-height:0; overflow:hidden; padding:16px !important; max-width:none !important;}
+  .wa-shell {
+    height:100%; width:100%; min-height:0;
+    border:1px solid rgba(255,255,255,.8);
+    border-radius:32px;
+    overflow:hidden;
+    box-shadow:var(--wa-shadow);
+    display:grid;
+    grid-template-columns:var(--wa-sidebar) minmax(0, 1fr) var(--wa-info);
+    background:rgba(255,255,255,.58);
+    backdrop-filter: blur(24px);
+    position:relative;
+  }
+
+  .wa-shell.info-collapsed {grid-template-columns:var(--wa-sidebar) minmax(0, 1fr) 0;}
+  .wa-shell.info-collapsed .support-panel {border-left:0; opacity:0; pointer-events:none;}
+  .wa-sidebar {
+    background:linear-gradient(180deg, rgba(255,255,255,.88), rgba(248,250,252,.78));
+    border-right:1px solid var(--wa-line);
+    display:flex; flex-direction:column; height:100%; min-height:0; overflow:hidden;
+  }
+  .wa-sidebar-header {padding:20px 20px 14px; display:flex; align-items:flex-start; justify-content:space-between; gap:12px;}
+  .wa-brand {display:flex; gap:12px; align-items:center; min-width:0;}
+  .wa-brand-mark {width:44px; height:44px; border-radius:16px; display:grid; place-items:center; color:#fff; background:linear-gradient(135deg,#22c55e,#0f766e); box-shadow:0 14px 30px rgba(34,197,94,.28); font-size:20px; flex:0 0 auto;}
+  .wa-brand-title {font-weight:800; letter-spacing:-.03em; font-size:1.15rem; line-height:1.05;}
+  .wa-brand-subtitle {font-size:.78rem; color:var(--wa-muted); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .wa-new-chat-btn, .wa-icon-btn {
+    width:40px; height:40px; border-radius:14px !important; display:inline-grid; place-items:center; border:1px solid var(--wa-line) !important;
+    background:rgba(255,255,255,.72) !important; color:#0f766e !important; box-shadow:0 8px 24px rgba(15,23,42,.06); transition:all .18s ease;
+  }
+  .wa-new-chat-btn:hover, .wa-icon-btn:hover {transform:translateY(-1px); box-shadow:0 12px 28px rgba(15,23,42,.12); border-color:rgba(34,197,94,.45) !important;}
+  .wa-sidebar-stats {display:grid; grid-template-columns:repeat(3,1fr); gap:8px; padding:0 18px 14px;}
+  .wa-stat-card {border:1px solid var(--wa-line); border-radius:18px; padding:10px; background:rgba(255,255,255,.66); box-shadow:0 8px 20px rgba(15,23,42,.04);}
+  .wa-stat-value {font-weight:800; font-size:1rem; letter-spacing:-.02em;}
+  .wa-stat-label {font-size:.68rem; color:var(--wa-muted); text-transform:uppercase; letter-spacing:.06em;}
+
+  .wa-search {padding:0 18px 12px; position:relative;}
+  .wa-search i {position:absolute; left:32px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:.9rem;}
+  .wa-search input {height:44px; border-radius:16px !important; padding-left:42px; border:1px solid var(--wa-line); background:rgba(255,255,255,.75); box-shadow:inset 0 1px 0 rgba(255,255,255,.8);}
+  .wa-search input:focus {border-color:rgba(34,197,94,.55); box-shadow:0 0 0 4px rgba(34,197,94,.12);}
+  .wa-filter-tabs {display:flex; gap:8px; overflow-x:auto; padding:0 18px 12px; scrollbar-width:none;}
+  .wa-filter-tabs::-webkit-scrollbar {display:none;}
+  .wa-filter-tab {border:0; border-radius:999px; padding:8px 12px; white-space:nowrap; color:#475569; background:rgba(226,232,240,.62); font-weight:700; font-size:.78rem; transition:all .18s ease;}
+  .wa-filter-tab.active, .wa-filter-tab:hover {background:linear-gradient(135deg,#22c55e,#14b8a6); color:#fff; box-shadow:0 10px 22px rgba(34,197,94,.24);}
+  .wa-list {flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; padding:4px 10px 14px;}
+  .wa-item {display:flex; gap:12px; align-items:center; padding:12px; margin:4px 0; text-decoration:none; color:inherit; border:1px solid transparent; border-radius:22px; position:relative; transition:all .18s ease; outline:none;}
+  .wa-item:hover {background:rgba(255,255,255,.78); transform:translateX(2px); box-shadow:0 12px 26px rgba(15,23,42,.08);}
+  .wa-item.active {background:linear-gradient(135deg, rgba(236,253,245,.96), rgba(255,255,255,.92)); border-color:rgba(34,197,94,.35); box-shadow:0 16px 34px rgba(34,197,94,.15);}
+  .wa-avatar-wrap {position:relative; flex:0 0 auto;}
+  .wa-avatar {width:46px; height:46px; border-radius:18px; background:linear-gradient(135deg,#25d366,#0f766e); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; box-shadow:inset 0 1px 0 rgba(255,255,255,.28), 0 12px 24px rgba(34,197,94,.18);}
+  .wa-status-dot {position:absolute; right:-1px; bottom:-1px; width:13px; height:13px; border-radius:999px; border:2px solid #fff; background:#94a3b8; box-shadow:0 0 0 3px rgba(148,163,184,.14);}
+  .wa-status-dot.online {background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,.16);}
   .wa-item-meta {min-width:0; flex:1;}
-  .wa-name {font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .wa-preview {font-size:.82rem; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .wa-time {font-size:.72rem; color:#94a3b8;}
-  .wa-main,.chat-container {display:flex; flex-direction:column; background:#efeae2; min-height:0; min-width:0; height:100%; position:relative; overflow:hidden;}
-  .wa-head {background:#fff; border-bottom:1px solid #e2e8f0; padding:12px 16px; display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap;}
+  .wa-item-top {display:flex; justify-content:space-between; align-items:center; gap:8px;}
+  .wa-name {font-weight:800; font-size:.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing:-.01em;}
+  .wa-preview {font-size:.8rem; color:var(--wa-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:3px;}
+  .wa-contact-tags {display:flex; gap:5px; margin-top:7px; align-items:center;}
+  .wa-mini-tag {font-size:.62rem; font-weight:800; padding:3px 7px; border-radius:999px; background:#ecfeff; color:#0e7490; text-transform:uppercase; letter-spacing:.04em;}
+  .wa-mini-tag.green {background:#dcfce7; color:#166534;}
+  .wa-time {font-size:.7rem; color:#94a3b8; white-space:nowrap;}
+  .wa-unread {min-width:20px; height:20px; padding:0 6px; border-radius:999px; background:#22c55e; color:#fff; display:inline-grid; place-items:center; font-size:.68rem; font-weight:800;}
+  .wa-pin {color:#94a3b8; font-size:.72rem;}
+  .wa-empty, .wa-skeleton {border-radius:22px; background:rgba(255,255,255,.62); padding:18px; margin:8px; color:var(--wa-muted); text-align:center;}
+  .wa-skeleton-line {height:12px; border-radius:999px; background:linear-gradient(90deg,#e2e8f0,#f8fafc,#e2e8f0); background-size:200% 100%; animation:skeleton 1.4s infinite; margin:8px 0;}
+
+  .wa-main,.chat-container {display:flex; flex-direction:column; background:var(--wa-bg); min-height:0; min-width:0; height:100%; position:relative; overflow:hidden;}
+  .wa-main::before {content:""; position:absolute; inset:0; pointer-events:none; background-image:radial-gradient(circle at 1px 1px, rgba(15,23,42,.06) 1px, transparent 0), linear-gradient(135deg, rgba(34,197,94,.08), transparent 35%, rgba(14,165,233,.06)); background-size:24px 24px, 100% 100%;}
+  .wa-head {position:sticky; top:0; z-index:10; background:rgba(255,255,255,.82); backdrop-filter:blur(20px); border-bottom:1px solid var(--wa-line); padding:14px 18px; display:flex; gap:14px; align-items:center; justify-content:space-between; min-height:74px;}
+  .wa-customer-mini {display:flex; gap:12px; align-items:center; min-width:0;}
+  .wa-active-name {font-weight:850; letter-spacing:-.025em; font-size:1.02rem;}
+  .wa-active-meta {display:flex; gap:8px; align-items:center; color:var(--wa-muted); font-size:.78rem; flex-wrap:wrap;}
+  .wa-status-chip {display:inline-flex; align-items:center; gap:6px; padding:4px 9px; border-radius:999px; background:rgba(34,197,94,.12); color:#15803d; font-weight:800; font-size:.72rem;}
   .wa-head-actions {display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;}
-  .poll-status {display:inline-flex; align-items:center; gap:6px; font-size:.72rem; color:#475569; margin-right:4px;}
-  .poll-status-dot {width:9px; height:9px; border-radius:999px; background:#ef4444; box-shadow:0 0 0 2px rgba(239,68,68,.18);}
-  .poll-status-dot.online {background:#22c55e; box-shadow:0 0 0 2px rgba(34,197,94,.18);}
-  .volume {
-    --line: #0f172a;
-    --line-width: 5px;
-    --duration: .5s;
-    position: relative;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    margin: 0;
-    padding: 0;
-    width: 34px;
-    height: 30px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .volume input {display:none;}
-  .volume svg {
-    display:block;
-    fill:none;
-    stroke:var(--line);
-    stroke-linecap:round;
-    stroke-linejoin:round;
-    stroke-width:var(--line-width);
-    width:30px;
-    height:26px;
-  }
-  .volume svg path {animation:var(--name) var(--duration) ease forwards;}
-  .volume svg path:nth-child(2), .volume svg path:nth-child(3) {stroke-dashoffset:1px;}
-  .volume input:checked + svg path:nth-child(1) {--name:shape;}
-  .volume input:checked + svg path:nth-child(2) {--name:small;}
-  .volume input:checked + svg path:nth-child(3) {--name:large;}
-  .volume input:not(:checked) + svg path:nth-child(1) {--name:shape-r;}
-  .volume input:not(:checked) + svg path:nth-child(2) {--name:small-r;}
-  .volume input:not(:checked) + svg path:nth-child(3) {--name:large-r;}
-  @keyframes small {
-    0%, 30% {stroke-dasharray:0 0 30px 64px;}
-    40% {stroke-dashoffset:16px;}
-    80%, 100% {stroke-dashoffset:1px;}
-    70% {stroke-dasharray:0 43px 30px 64px;}
-    100% {stroke-dasharray:0 39px 30px 64px;}
-  }
-  @keyframes small-r {
-    0% {stroke-dasharray:0 39px 30px 64px;}
-    0%, 40% {stroke-dashoffset:1px;}
-    70% {stroke-dashoffset:16px;}
-    70%, 100% {stroke-dasharray:0 0 30px 64px;}
-  }
-  @keyframes large {
-    0%, 30% {stroke-dasharray:0 0 50px 84px;}
-    40% {stroke-dashoffset:16px;}
-    80%, 100% {stroke-dashoffset:1px;}
-    70% {stroke-dasharray:0 82px 32px 84px;}
-    100% {stroke-dasharray:0 78px 32px 84px;}
-  }
-  @keyframes large-r {
-    0% {stroke-dasharray:0 78px 32px 84px;}
-    0%, 40% {stroke-dashoffset:1px;}
-    70% {stroke-dashoffset:16px;}
-    70%, 100% {stroke-dasharray:0 0 50px 84px;}
-  }
-  @keyframes shape {
-    0% {stroke-dasharray:60px 0 184px;stroke-dashoffset:0;}
-    70% {stroke-dasharray:63px 51px 184px;stroke-dashoffset:21px;}
-    100% {stroke-dasharray:59px 47px 184px;stroke-dashoffset:17px;}
-  }
-  @keyframes shape-r {
-    0% {stroke-dasharray:59px 47px 184px;stroke-dashoffset:17px;}
-    100% {stroke-dasharray:60px 0 184px;stroke-dashoffset:0;}
-  }
-  .wa-body,.chat-messages {flex:1; min-height:0; overflow-y:auto; padding:12px 18px; background:#efeae2; background-image:radial-gradient(circle at 1px 1px,#e2e8f0 1px,transparent 0); background-size:20px 20px; scrollbar-gutter:stable;}
-  .msg-row {display:flex; margin-bottom:14px;}
+  .wa-action-btn, .wa-head-actions .btn {border-radius:14px !important; border:1px solid var(--wa-line) !important; background:rgba(255,255,255,.74) !important; color:#334155 !important; font-weight:800 !important; box-shadow:0 8px 20px rgba(15,23,42,.05); transition:all .18s ease;}
+  .wa-action-btn:hover, .wa-head-actions .btn:hover {transform:translateY(-1px); border-color:rgba(34,197,94,.45) !important; color:#0f766e !important;}
+  .poll-status {display:inline-flex; align-items:center; gap:7px; font-size:.75rem; color:#475569; padding:8px 10px; border-radius:999px; background:rgba(255,255,255,.68); border:1px solid var(--wa-line); font-weight:800;}
+  .poll-status-dot {width:9px; height:9px; border-radius:999px; background:#ef4444; box-shadow:0 0 0 4px rgba(239,68,68,.12);}
+  .poll-status-dot.online {background:#22c55e; box-shadow:0 0 0 4px rgba(34,197,94,.14);}
+
+  .volume {--line:#0f172a;--line-width:5px;--duration:.5s;position:relative;cursor:pointer;-webkit-tap-highlight-color:transparent;margin:0;padding:0;width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;border-radius:14px;background:rgba(255,255,255,.72);border:1px solid var(--wa-line);}
+  .volume input {display:none;} .volume svg {display:block;fill:none;stroke:var(--line);stroke-linecap:round;stroke-linejoin:round;stroke-width:var(--line-width);width:26px;height:23px;} .volume svg path {animation:var(--name) var(--duration) ease forwards;} .volume svg path:nth-child(2), .volume svg path:nth-child(3) {stroke-dashoffset:1px;}
+  .volume input:checked + svg path:nth-child(1) {--name:shape;} .volume input:checked + svg path:nth-child(2) {--name:small;} .volume input:checked + svg path:nth-child(3) {--name:large;} .volume input:not(:checked) + svg path:nth-child(1) {--name:shape-r;} .volume input:not(:checked) + svg path:nth-child(2) {--name:small-r;} .volume input:not(:checked) + svg path:nth-child(3) {--name:large-r;}
+  @keyframes small {0%,30%{stroke-dasharray:0 0 30px 64px;}40%{stroke-dashoffset:16px;}80%,100%{stroke-dashoffset:1px;}70%{stroke-dasharray:0 43px 30px 64px;}100%{stroke-dasharray:0 39px 30px 64px;}} @keyframes small-r {0%{stroke-dasharray:0 39px 30px 64px;}0%,40%{stroke-dashoffset:1px;}70%{stroke-dashoffset:16px;}70%,100%{stroke-dasharray:0 0 30px 64px;}} @keyframes large {0%,30%{stroke-dasharray:0 0 50px 84px;}40%{stroke-dashoffset:16px;}80%,100%{stroke-dashoffset:1px;}70%{stroke-dasharray:0 82px 32px 84px;}100%{stroke-dasharray:0 78px 32px 84px;}} @keyframes large-r {0%{stroke-dasharray:0 78px 32px 84px;}0%,40%{stroke-dashoffset:1px;}70%{stroke-dashoffset:16px;}70%,100%{stroke-dasharray:0 0 50px 84px;}} @keyframes shape {0%{stroke-dasharray:60px 0 184px;stroke-dashoffset:0;}70%{stroke-dasharray:63px 51px 184px;stroke-dashoffset:21px;}100%{stroke-dasharray:59px 47px 184px;stroke-dashoffset:17px;}} @keyframes shape-r {0%{stroke-dasharray:59px 47px 184px;stroke-dashoffset:17px;}100%{stroke-dasharray:60px 0 184px;stroke-dashoffset:0;}}
+
+  .wa-alert-strip {position:relative; z-index:2; padding:10px 18px 0;}
+  .warn {background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; border-radius:16px; padding:10px 12px; font-size:.84rem; box-shadow:0 10px 24px rgba(154,52,18,.08);}
+  .wa-body,.chat-messages {position:relative; z-index:1; flex:1; min-height:0; overflow-y:auto; padding:24px clamp(16px,3vw,44px); scrollbar-gutter:stable; scroll-behavior:smooth;}
+  .wa-date-separator {display:flex; justify-content:center; margin:10px 0 22px;}
+  .wa-date-separator span {font-size:.72rem; font-weight:800; color:#64748b; background:rgba(255,255,255,.78); border:1px solid var(--wa-line); border-radius:999px; padding:6px 12px; box-shadow:0 8px 20px rgba(15,23,42,.05);}
+  .msg-row {display:flex; margin-bottom:12px; animation:messageIn .22s ease both;}
   .msg-row.outbound {justify-content:flex-end;}
-  .msg-bubble {max-width:75%; background:#fff; border-radius:14px; padding:10px 12px; box-shadow:0 4px 10px rgba(15,23,42,.08);}
-  .msg-row.outbound .msg-bubble {background:#dcfce7;}
-  .msg-text {margin:0; white-space:pre-wrap;}
-  .msg-time {font-size:.7rem; color:#64748b; margin-top:4px; text-align:right;}
-  .msg-status {font-size:.72rem; margin-top:4px; color:#475569; text-align:right;}
-  .msg-status.failed {color:#b91c1c; font-weight:600;}
-  .msg-error {font-size:.74rem; margin-top:3px; color:#b91c1c;}
-  .msg-media {display:block; width:100%; max-width:420px; max-height:320px; object-fit:contain; border-radius:8px; margin-bottom:6px; background:#fff;}
-  .msg-media-thumb {cursor:pointer;}
-  .msg-location-map {border:0; width:100%; max-width:420px; height:220px; border-radius:8px; margin-bottom:6px;}
-  .msg-location-link {display:inline-block; font-size:.78rem; margin-bottom:6px;}
-  .media-viewer-dialog {max-width:min(920px, 92vw);}
-  .media-viewer-body {max-height:78vh; overflow:auto; display:flex; align-items:center; justify-content:center; padding:14px;}
-  .media-viewer-image,.media-viewer-video {max-height:70vh; width:auto; max-width:100%; border-radius:8px;}
-  .msg-audio {max-width:320px; width:100%; margin-bottom:6px;}
-  .wa-compose,.chat-typebar {display:flex; align-items:flex-end; gap:10px; padding:10px 12px; margin:0; background:#f0f2f5; border-top:1px solid #ddd; flex-shrink:0;}
-  .wa-compose-form {display:flex; align-items:flex-end; gap:10px; width:100%; margin:0 !important; max-width:none !important; padding:0 !important; background:transparent !important; border-radius:0 !important; box-shadow:none !important;}
-  .wa-attach-btn,.wa-send-btn,.attach-btn,.send-btn {width:40px; height:40px; border-radius:50%; border:none; display:inline-flex; align-items:center; justify-content:center; flex:0 0 40px; font-size:1rem; line-height:1; transition:background-color .2s ease, color .2s ease; user-select:none; margin:0 !important;}
-  .wa-attach-btn,.attach-btn {background:transparent; color:#54656f; cursor:pointer; margin:0;} .wa-attach-btn:hover,.attach-btn:hover {background:#e9edef; color:#3b4a54;}
-  .wa-send-btn,.send-btn {background:#00a884; color:#fff;} .wa-send-btn:hover,.send-btn:hover {background:#029477;}
-  .wa-send-btn:disabled,.send-btn:disabled {background:#94a3b8; cursor:not-allowed;}
-  .wa-message-box {flex:1; min-width:0; display:flex;}
-  .wa-message-box textarea,.wa-message-box input {width:100%; flex:1; border-radius:20px; border:none; padding:10px 14px; font-size:14px; line-height:1.4; outline:none; background:#fff; color:#111b21; resize:none; overflow-y:auto; min-height:40px; max-height:120px; box-shadow:none;}
-  .wa-message-box textarea:focus,.wa-message-box input:focus {box-shadow:inset 0 0 0 2px rgba(0,168,132,.22);} .wa-message-box textarea::placeholder,.wa-message-box input::placeholder {color:#667781;}
-  .wa-file-input {display:none;}
-  .warn {background:#fef3c7; color:#92400e; padding:6px 10px; border-radius:8px; font-size:.82rem;}
-  .modal .btn-outline-secondary {border-color:#cbd5e1;}
-  .info-panel-overlay {position:absolute; inset:0; background:rgba(15,23,42,.35); opacity:0; visibility:hidden; transition:opacity .25s ease; z-index:20;}
-  .info-panel-overlay.open {opacity:1; visibility:visible;}
-  .support-panel {position:absolute; right:0; top:0; bottom:0; width:min(440px,100%); background:#fff; border-left:1px solid #e2e8f0; transform:translateX(102%); transition:transform .3s ease; z-index:25; display:flex; flex-direction:column; box-shadow:-10px 0 30px rgba(2,6,23,.12);}
-  .support-panel.open {transform:translateX(0);}
+  .msg-bubble {max-width:min(680px,76%); background:rgba(255,255,255,.94); border:1px solid rgba(255,255,255,.75); border-radius:22px 22px 22px 8px; padding:10px 12px 8px; box-shadow:0 12px 30px rgba(15,23,42,.10); position:relative; overflow:hidden;}
+  .msg-row.outbound .msg-bubble {background:linear-gradient(135deg,#dcfce7,#bbf7d0); border-color:rgba(34,197,94,.28); border-radius:22px 22px 8px 22px;}
+  .msg-row.system {justify-content:center;} .msg-row.system .msg-bubble {max-width:70%; background:rgba(15,23,42,.72); color:#fff; border-radius:999px; font-size:.82rem;}
+  .msg-text {margin:0; white-space:pre-wrap; line-height:1.45; font-size:.94rem; color:#172033;}
+  .msg-time {font-size:.68rem; color:#64748b; margin-top:5px; text-align:right; font-weight:700;}
+  .msg-status {font-size:.68rem; margin-top:4px; color:#0f766e; text-align:right; font-weight:900; letter-spacing:.04em;}
+  .msg-status.failed,.msg-error {color:#dc2626;} .msg-error {font-size:.78rem; margin-top:6px; background:#fee2e2; border-radius:12px; padding:6px 8px;}
+  .msg-media {max-width:300px; border-radius:18px; display:block; cursor:pointer; box-shadow:0 10px 24px rgba(15,23,42,.12);} .msg-media-thumb:hover {filter:brightness(.96);}
+  .msg-audio {width:min(320px,68vw); height:42px;} .msg-location-map {width:min(320px,68vw); height:180px; border:0; border-radius:18px; display:block; margin-bottom:8px;} .msg-location-link {font-size:.78rem; font-weight:800; color:#0f766e; text-decoration:none;}
+  .typing-indicator {position:relative; z-index:2; margin:0 0 10px clamp(16px,3vw,44px); display:inline-flex; align-items:center; gap:7px; width:max-content; padding:9px 12px; border-radius:999px; background:rgba(255,255,255,.82); border:1px solid var(--wa-line); box-shadow:0 10px 24px rgba(15,23,42,.07); color:#64748b; font-size:.78rem; font-weight:800;}
+  .typing-indicator span:not(:first-child) {width:6px; height:6px; border-radius:999px; background:#22c55e; animation:typing 1.2s infinite ease-in-out;} .typing-indicator span:nth-child(3){animation-delay:.15s}.typing-indicator span:nth-child(4){animation-delay:.3s}
+  .scroll-bottom-btn {position:absolute; right:24px; bottom:104px; z-index:8; width:44px; height:44px; border-radius:999px; border:1px solid var(--wa-line); background:#fff; color:#0f766e; box-shadow:var(--wa-soft-shadow); display:none; place-items:center;} .scroll-bottom-btn.show {display:grid;}
+
+  .wa-compose,.chat-typebar {position:relative; z-index:8; padding:14px 18px 18px; background:linear-gradient(180deg, rgba(238,246,241,0), rgba(255,255,255,.88) 30%); backdrop-filter:blur(14px);}
+  .wa-composer-tools {display:flex; gap:8px; align-items:center; margin:0 0 10px; overflow-x:auto; scrollbar-width:none;} .wa-composer-tools::-webkit-scrollbar{display:none;}
+  .wa-quick-chip {border:1px solid var(--wa-line); background:rgba(255,255,255,.8); border-radius:999px; padding:7px 11px; color:#475569; font-size:.76rem; font-weight:800; white-space:nowrap; transition:all .18s ease;} .wa-quick-chip:hover {background:#ecfdf5; color:#0f766e; border-color:rgba(34,197,94,.35); transform:translateY(-1px);}
+  .wa-compose-form {display:flex; gap:10px; align-items:flex-end; width:100%;}
+  .wa-attach-btn,.wa-send-btn,.attach-btn,.send-btn,.wa-compose-action {width:46px; height:46px; flex:0 0 46px; border-radius:16px; border:1px solid var(--wa-line); display:grid; place-items:center; cursor:pointer; transition:all .18s ease;}
+  .wa-attach-btn,.wa-compose-action {background:rgba(255,255,255,.82); color:#475569; box-shadow:0 8px 20px rgba(15,23,42,.05);} .wa-attach-btn:hover,.wa-compose-action:hover {color:#0f766e; border-color:rgba(34,197,94,.4); transform:translateY(-1px);}
+  .wa-send-btn,.send-btn {border:0; color:#fff; background:linear-gradient(135deg,#22c55e,#0f766e); box-shadow:0 14px 28px rgba(34,197,94,.28);} .wa-send-btn:hover:not(:disabled){transform:translateY(-2px) scale(1.02);} .wa-send-btn:disabled{opacity:.45; cursor:not-allowed;}
+  .wa-file-input {display:none;} .wa-message-box {flex:1; min-width:0; position:relative;}
+  .wa-message-box textarea,.wa-message-box input {width:100%; resize:none; min-height:46px; max-height:130px; border-radius:18px; border:1px solid var(--wa-line); background:rgba(255,255,255,.9); padding:12px 16px; outline:none; box-shadow:inset 0 1px 0 rgba(255,255,255,.9), 0 10px 24px rgba(15,23,42,.05); transition:all .18s ease;}
+  .wa-message-box textarea:focus,.wa-message-box input:focus {border-color:rgba(34,197,94,.55); box-shadow:0 0 0 4px rgba(34,197,94,.12), 0 12px 28px rgba(15,23,42,.08);}
+
+  .support-panel {background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(248,250,252,.88)); border-left:1px solid var(--wa-line); display:flex; flex-direction:column; min-width:0; overflow:hidden; position:relative; z-index:4;}
+  .support-panel-header {padding:18px; border-bottom:1px solid var(--wa-line); display:flex; justify-content:space-between; align-items:center; gap:10px;}
+  .panel-header-title {font-weight:850; letter-spacing:-.025em;}
   .support-panel-body {overflow-y:auto; padding:14px;}
-  .panel-header-title {font-size:1rem; font-weight:700;}
-  .panel-section {border:1px solid #e2e8f0; border-radius:12px; margin-bottom:12px; overflow:hidden; background:#fff;}
-  .panel-section-head {display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 12px; background:#f8fafc; cursor:pointer;}
-  .panel-section-body {padding:12px;}
-  .panel-section.collapsed .panel-section-body {display:none;}
-  .support-grid {display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;}
-  .support-grid button,.support-grid select {font-size:.78rem;}
-  .meta-list {display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; font-size:.82rem;}
-  .meta-label {color:#64748b; display:block;}
-  .meta-value {font-weight:600;}
-  .status-badge-online,.status-badge-offline {padding:2px 8px; border-radius:999px; font-size:.7rem; font-weight:700;}
-  .status-badge-online {background:#dcfce7; color:#166534;}
-  .status-badge-offline {background:#fee2e2; color:#991b1b;}
-  .timeline-list, .simple-list {list-style:none; margin:0; padding:0;}
-  .timeline-list li, .simple-list li {padding:8px 0; border-bottom:1px dashed #e2e8f0;}
-  .timeline-list li:last-child, .simple-list li:last-child {border-bottom:none;}
-  .tag-badge {display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:3px 10px; font-size:.74rem; background:#e2e8f0; margin:3px 4px 0 0;}
-  .tag-badge button {border:none; background:transparent; color:#334155; padding:0; line-height:1;}
-  .install-photos {display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px;}
-  .install-photos img {width:100%; height:80px; object-fit:cover; border-radius:8px; border:1px solid #cbd5e1;}
-  .section-loading {font-size:.82rem; color:#64748b;}
-  .section-error {font-size:.82rem; color:#b91c1c;}
-  .panel-anim-slide-in {animation:panelSlideIn .3s ease both;}
-  @keyframes panelSlideIn {from {transform:translateX(102%);} to {transform:translateX(0);}}
-  .wa-list::-webkit-scrollbar,
-  .wa-body::-webkit-scrollbar {width:10px;}
-  .wa-list::-webkit-scrollbar-thumb,
-  .wa-body::-webkit-scrollbar-thumb {background:#cbd5e1; border-radius:999px; border:2px solid transparent; background-clip:content-box;}
-  .wa-list::-webkit-scrollbar-track,
-  .wa-body::-webkit-scrollbar-track {background:transparent;}
-  @media (max-width: 992px) {
-    .wa-page {height:100%;}
-    .wa-shell {grid-template-columns:1fr; grid-template-rows:minmax(220px, 42%) minmax(0, 1fr);}
-    .wa-sidebar {height:100%;}
+  .panel-section {border:1px solid var(--wa-line); border-radius:22px; background:rgba(255,255,255,.74); margin-bottom:12px; overflow:hidden; box-shadow:0 10px 28px rgba(15,23,42,.05);}
+  .panel-section-head {padding:13px 14px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;}
+  .panel-section-body {padding:0 14px 14px;} .panel-section.collapsed .panel-section-body {display:none;} .panel-section.collapsed .panel-section-head i {transform:rotate(-90deg);}
+  .status-badge-online,.status-badge-offline {border-radius:999px; padding:6px 10px; font-size:.72rem; font-weight:900;} .status-badge-online{background:#dcfce7;color:#166534}.status-badge-offline{background:#fee2e2;color:#991b1b}
+  .meta-list {display:grid; gap:8px;} .meta-list>div {display:flex; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px dashed rgba(148,163,184,.35);} .meta-label {color:#64748b; font-size:.8rem;} .meta-value {font-weight:800; text-align:right;}
+  .support-grid {display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;} .support-grid button,.support-grid select {font-size:.76rem; border-radius:13px; font-weight:800;}
+  .simple-list,.timeline-list {padding-left:18px; margin-bottom:0;} .simple-list li,.timeline-list li {margin-bottom:10px;} .tag-badge {display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:6px 10px; margin:0 6px 6px 0; font-size:.76rem; font-weight:800;} .tag-badge button {border:none; background:transparent; color:#334155; padding:0; line-height:1;}
+  .install-photos {display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px;} .install-photos img {width:100%; height:80px; object-fit:cover; border-radius:14px; border:1px solid var(--wa-line);}
+  .section-loading,.section-error {font-size:.84rem; color:#64748b; padding:14px;} .section-error {color:#b91c1c;}
+  .info-panel-overlay {display:none;}
+
+  .command-palette {position:fixed; inset:0; z-index:2000; display:none; align-items:flex-start; justify-content:center; padding-top:10vh; background:rgba(15,23,42,.36); backdrop-filter:blur(10px);} .command-palette.open {display:flex;}
+  .command-card {width:min(620px,92vw); border-radius:28px; background:rgba(255,255,255,.94); box-shadow:var(--wa-shadow); border:1px solid rgba(255,255,255,.7); overflow:hidden;} .command-card input {border:0; width:100%; padding:18px 20px; outline:none; font-size:1rem;} .command-list {padding:10px; border-top:1px solid var(--wa-line);} .command-item {display:flex; align-items:center; gap:12px; padding:12px; border-radius:16px; color:#334155; font-weight:800;} .command-item:hover {background:#f1f5f9;}
+
+  .media-viewer-dialog {max-width:min(920px,95vw);} .media-viewer-body {display:grid; place-items:center; min-height:240px; background:#020617;} .media-viewer-image,.media-viewer-video {max-width:100%; max-height:75vh; border-radius:12px;}
+  .wa-list::-webkit-scrollbar,.wa-body::-webkit-scrollbar,.support-panel-body::-webkit-scrollbar {width:10px;} .wa-list::-webkit-scrollbar-thumb,.wa-body::-webkit-scrollbar-thumb,.support-panel-body::-webkit-scrollbar-thumb {background:#cbd5e1; border-radius:999px; border:2px solid transparent; background-clip:content-box;} .wa-list::-webkit-scrollbar-track,.wa-body::-webkit-scrollbar-track,.support-panel-body::-webkit-scrollbar-track {background:transparent;}
+  @keyframes skeleton {to{background-position:-200% 0;}} @keyframes messageIn {from{opacity:0; transform:translateY(8px) scale(.98);} to{opacity:1; transform:translateY(0) scale(1);}} @keyframes typing {0%,80%,100%{opacity:.35; transform:translateY(0);} 40%{opacity:1; transform:translateY(-3px);}}
+
+  @media (prefers-color-scheme: dark) {
+    :root {--wa-ink:#e5e7eb; --wa-muted:#94a3b8; --wa-line:rgba(148,163,184,.18); --wa-card:rgba(15,23,42,.78); --wa-glass:rgba(15,23,42,.72); --wa-bg:#0b141a; --wa-panel:#111827;}
+    body {background:#020617; color:var(--wa-ink);} .wa-shell,.wa-sidebar,.wa-head,.support-panel {background:rgba(15,23,42,.82);} .wa-item:hover,.wa-item.active,.wa-search input,.wa-stat-card,.wa-action-btn,.wa-head-actions .btn,.poll-status,.wa-quick-chip,.wa-message-box textarea,.wa-attach-btn,.wa-compose-action {background:rgba(30,41,59,.82) !important; color:#e5e7eb !important;} .msg-bubble {background:rgba(30,41,59,.94);} .msg-row.outbound .msg-bubble {background:linear-gradient(135deg,#14532d,#166534);} .msg-text {color:#e5e7eb;} .panel-section {background:rgba(30,41,59,.74);} .wa-main::before {opacity:.38;}
   }
-  @media (max-width: 768px) {
-    .wa-head {padding:10px 12px;}
-    .wa-head-actions {width:100%; justify-content:flex-start;}
-    .wa-head-actions .btn {font-size:.74rem; padding:4px 8px;}
-    .wa-compose,.chat-typebar {padding:8px 10px; gap:8px;}
-    .wa-attach-btn,.wa-send-btn,.attach-btn,.send-btn {width:36px; height:36px; flex-basis:36px;}
-    .wa-message-box textarea,.wa-message-box input {font-size:13px; padding:9px 12px;}
-    .support-panel {width:100%;}
-    .support-grid {grid-template-columns:1fr;}
-    .install-photos {grid-template-columns:repeat(2,minmax(0,1fr));}
-  }
+  @media (max-width: 1200px) {.wa-shell {grid-template-columns:340px minmax(0,1fr);} .support-panel {position:absolute; right:0; top:0; bottom:0; width:min(420px,100%); transform:translateX(104%); transition:transform .25s ease; box-shadow:-18px 0 40px rgba(15,23,42,.18);} .support-panel.open {transform:translateX(0);} .info-panel-overlay.open {display:block; position:absolute; inset:0; background:rgba(15,23,42,.24); z-index:3; backdrop-filter:blur(2px);}}
+  @media (max-width: 860px) {.wa-page {padding:0 !important;} .wa-shell,.wa-shell.info-collapsed {border-radius:0; border:0; grid-template-columns:1fr; grid-template-rows:44% 56%;} .wa-sidebar {border-right:0; border-bottom:1px solid var(--wa-line);} .wa-head {padding:10px 12px; min-height:auto;} .wa-head-actions {gap:6px;} .wa-head-actions .btn span,.poll-status span:last-child {display:none;} .wa-body,.chat-messages {padding:18px 12px;} .msg-bubble {max-width:88%;} .wa-compose,.chat-typebar {padding:10px 12px 12px;} .support-panel {width:100%;} .support-grid {grid-template-columns:1fr;} .wa-sidebar-stats {display:none;}}
+  @media (max-width: 560px) {.wa-shell {grid-template-rows:40% 60%;} .wa-brand-subtitle,.wa-active-meta .wa-status-chip {display:none;} .wa-filter-tabs {padding-bottom:8px;} .wa-avatar {width:40px; height:40px; border-radius:15px;} .wa-item {padding:10px;} .wa-attach-btn,.wa-send-btn,.attach-btn,.send-btn,.wa-compose-action {width:42px; height:42px; flex-basis:42px;} .wa-composer-tools {display:none;} .install-photos {grid-template-columns:repeat(2,minmax(0,1fr));}}
 </style>
 {% endblock %}
 
@@ -200,45 +204,95 @@
 
 {% block content %}
 <div class="container-fluid wa-page" id="waRoot">
-  <div class="wa-shell">
-    <aside class="wa-sidebar">
+  <div class="wa-shell" role="application" aria-label="CountryLink WhatsApp Business Inbox">
+    <aside class="wa-sidebar" aria-label="Conversation list">
       <div class="wa-sidebar-header">
-        <span>WhatsApp Inbox</span>
-        <button class="btn btn-sm btn-outline-success wa-new-chat-btn" id="newConversationBtn" title="New conversation">
-          <i class="fas fa-pen-to-square"></i>
+        <div class="wa-brand">
+          <div class="wa-brand-mark"><i class="fab fa-whatsapp"></i></div>
+          <div class="min-w-0">
+            <div class="wa-brand-title">CountryLink Inbox</div>
+            <div class="wa-brand-subtitle">Broadband support command center</div>
+          </div>
+        </div>
+        <button class="btn btn-sm wa-new-chat-btn" id="newConversationBtn" title="New conversation" aria-label="Start new conversation">
+          <i data-lucide="square-pen"></i>
         </button>
       </div>
-      <div class="wa-search"><input id="chatSearch" class="form-control form-control-sm" type="text" placeholder="Search chats"></div>
-      <div class="wa-list" id="chatList">
+
+      <div class="wa-sidebar-stats" aria-label="Inbox stats">
+        <div class="wa-stat-card"><div class="wa-stat-value">{{ contacts|length }}</div><div class="wa-stat-label">Chats</div></div>
+        <div class="wa-stat-card"><div class="wa-stat-value">Live</div><div class="wa-stat-label">Webhook</div></div>
+        <div class="wa-stat-card"><div class="wa-stat-value">24/7</div><div class="wa-stat-label">Support</div></div>
+      </div>
+
+      <div class="wa-search">
+        <i data-lucide="search"></i>
+        <input id="chatSearch" class="form-control form-control-sm" type="text" placeholder="Search customers, mobiles, tags…" aria-label="Search chats">
+      </div>
+
+      <div class="wa-filter-tabs" role="tablist" aria-label="Conversation filters">
+        <button class="wa-filter-tab active" type="button" data-filter="all">All</button>
+        <button class="wa-filter-tab" type="button" data-filter="unread">Unread</button>
+        <button class="wa-filter-tab" type="button" data-filter="assigned">Assigned</button>
+        <button class="wa-filter-tab" type="button" data-filter="templates">Templates</button>
+        <button class="wa-filter-tab" type="button" data-filter="groups">Groups</button>
+      </div>
+
+      <div class="wa-list" id="chatList" tabindex="0">
         {% for contact in contacts %}
-          <a class="wa-item {% if contact.mobile == active_mobile %}active{% endif %}" href="{{ url_for('whatsapp_complaints', mobile=contact.mobile) }}" data-mobile="{{ contact.mobile }}" data-name="{{ contact.name|lower }}">
-            <div class="wa-avatar">{{ contact.name[:1]|upper }}</div>
-            <div class="wa-item-meta">
-              <div class="wa-name">{{ contact.name }}</div>
-              <div class="wa-preview">{{ contact.preview }}</div>
+          <a class="wa-item {% if contact.mobile == active_mobile %}active{% endif %}" href="{{ url_for('whatsapp_complaints', mobile=contact.mobile) }}" data-mobile="{{ contact.mobile }}" data-name="{{ contact.name|lower }}" data-tags="support broadband" data-filter-state="assigned">
+            <div class="wa-avatar-wrap">
+              <div class="wa-avatar">{{ contact.name[:1]|upper }}</div>
+              <span class="wa-status-dot {{ 'online' if loop.index is odd else '' }}" aria-hidden="true"></span>
             </div>
-            <div class="wa-time">{{ contact.created_at.split(' ')[1][:5] if contact.created_at }}</div>
+            <div class="wa-item-meta">
+              <div class="wa-item-top">
+                <div class="wa-name">{{ contact.name }}</div>
+                <div class="wa-time">{{ contact.created_at.split(' ')[1][:5] if contact.created_at }}</div>
+              </div>
+              <div class="wa-preview">{{ contact.preview }}</div>
+              <div class="wa-contact-tags">
+                {% if loop.index == 1 %}<span class="wa-pin"><i class="fas fa-thumbtack"></i></span>{% endif %}
+                <span class="wa-mini-tag green">ISP</span>
+                <span class="wa-mini-tag">Support</span>
+              </div>
+            </div>
+            {% if loop.index <= 2 %}<span class="wa-unread" aria-label="Unread messages">{{ loop.index }}</span>{% endif %}
           </a>
         {% else %}
-          <div class="p-4 text-center text-muted">No chats yet.</div>
+          <div class="wa-empty">
+            <div class="wa-skeleton-line"></div>
+            <div class="wa-skeleton-line" style="width:70%;margin-inline:auto"></div>
+            <strong>No chats yet.</strong><br>
+            <span>New WhatsApp conversations will appear here in real time.</span>
+          </div>
         {% endfor %}
       </div>
     </aside>
 
-    <section class="wa-main chat-container">
+    <section class="wa-main chat-container" aria-label="Active conversation">
       <div class="wa-head">
-        <div class="d-flex gap-2 align-items-center">
-          <div class="wa-avatar">{{ active_name[:1]|upper if active_name else '?' }}</div>
-          <div>
-            <div class="fw-semibold" id="activeName">{{ active_name or 'Select a chat' }}</div>
-            <div class="text-muted small" id="activeMobile">{{ active_mobile or 'No active conversation' }}</div>
+        <div class="wa-customer-mini">
+          <div class="wa-avatar-wrap">
+            <div class="wa-avatar">{{ active_name[:1]|upper if active_name else '?' }}</div>
+            <span class="wa-status-dot online" aria-hidden="true"></span>
+          </div>
+          <div class="min-w-0">
+            <div class="wa-active-name" id="activeName">{{ active_name or 'Select a chat' }}</div>
+            <div class="wa-active-meta">
+              <span id="activeMobile">{{ active_mobile or 'No active conversation' }}</span>
+              <span class="wa-status-chip"><span class="poll-status-dot online"></span> Customer profile ready</span>
+            </div>
           </div>
         </div>
-        <div class="wa-head-actions">
+        <div class="wa-head-actions" aria-label="Conversation quick actions">
           <span class="poll-status" id="pollStatus" title="Inbox connection status">
             <span class="poll-status-dot" id="pollStatusDot"></span>
             <span id="pollStatusText">Connecting</span>
           </span>
+          <button class="btn btn-sm wa-action-btn" type="button" title="Call customer"><i data-lucide="phone"></i> <span>Call</span></button>
+          <button class="btn btn-sm wa-action-btn" type="button" title="Assign conversation"><i data-lucide="user-check"></i> <span>Assign</span></button>
+          <button class="btn btn-sm wa-action-btn" type="button" title="Open notes"><i data-lucide="notebook-pen"></i> <span>Notes</span></button>
           <label class="volume" id="notifyToggle" title="Notification sound: ON" aria-label="Toggle notification sound">
             <input type="checkbox" id="notifyToggleInput" checked>
             <svg viewBox="0 0 108 96">
@@ -247,19 +301,22 @@
               <path d="M95,69 C101.666667,61.6666667 105,54.3333333 105,47 C105,39.6666667 101.666667,32.3333333 95,25 L75.5,6 L49,33"></path>
             </svg>
           </label>
-          <button class="btn btn-sm btn-outline-success" id="templateBtn" {% if not active_mobile %}disabled{% endif %}><i class="fas fa-file-alt"></i> Template</button>
-          <button class="btn btn-sm btn-outline-primary" id="interactiveBtn" {% if not active_mobile %}disabled{% endif %}><i class="fas fa-hand-pointer"></i> Interactive</button>
-          <button class="btn btn-sm btn-outline-dark" id="infoPanelBtn" {% if not active_mobile %}disabled{% endif %}><i class="fas fa-address-card"></i> Customer</button>
+          <button class="btn btn-sm" id="templateBtn" {% if not active_mobile %}disabled{% endif %}><i data-lucide="file-text"></i> <span>Template</span></button>
+          <button class="btn btn-sm" id="interactiveBtn" {% if not active_mobile %}disabled{% endif %}><i data-lucide="workflow"></i> <span>Interactive</span></button>
+          <button class="btn btn-sm" id="infoPanelBtn" {% if not active_mobile %}disabled{% endif %}><i data-lucide="panel-right-open"></i> <span>CRM</span></button>
         </div>
       </div>
 
-      <div class="px-3 pt-2">
+      <div class="wa-alert-strip">
         {% if not config_ready %}
-          <div class="warn">Configure META_ACCESS_TOKEN, PHONE_NUMBER_ID and WABA_ID to enable WhatsApp sending.</div>
+          <div class="warn"><i data-lucide="triangle-alert"></i> Configure META_ACCESS_TOKEN, PHONE_NUMBER_ID and WABA_ID to enable WhatsApp sending.</div>
         {% endif %}
       </div>
 
-      <div class="wa-body chat-messages" id="chatBody" data-last-message-id="{{ messages[-1]['id'] if messages else 0 }}">
+      <div class="wa-body chat-messages" id="chatBody" data-last-message-id="{{ messages[-1]['id'] if messages else 0 }}" tabindex="0" aria-live="polite">
+        {% if messages %}
+          <div class="wa-date-separator"><span>Today</span></div>
+        {% endif %}
         {% for msg in messages %}
         <div class="msg-row {{ 'outbound' if msg['direction'] == 'outbound' else 'incoming' }}" data-message-id="{{ msg['id'] }}">
           <div class="msg-bubble">
@@ -267,7 +324,7 @@
               <iframe class="msg-location-map" loading="lazy" src="https://maps.google.com/maps?q={{ msg['latitude'] }},{{ msg['longitude'] }}&z=15&output=embed"></iframe>
               <a class="msg-location-link" href="https://www.google.com/maps/search/?api=1&query={{ msg['latitude'] }},{{ msg['longitude'] }}" target="_blank" rel="noopener">Open location in Maps</a>
             {% endif %}
-            {% if msg['message_type'] == 'image' and msg['media_url'] %}<img class="msg-media msg-media-thumb" data-media-type="image" src="{{ url_for('static', filename=msg['media_url']) }}" alt="image">{% endif %}
+            {% if msg['message_type'] == 'image' and msg['media_url'] %}<img class="msg-media msg-media-thumb" data-media-type="image" loading="lazy" src="{{ url_for('static', filename=msg['media_url']) }}" alt="image">{% endif %}
             {% if msg['message_type'] == 'video' and msg['media_url'] %}<video class="msg-media msg-media-thumb" data-media-type="video" src="{{ url_for('static', filename=msg['media_url']) }}"></video>{% endif %}
             {% if msg['message_type'] == 'audio' and msg['media_url'] %}<audio class="msg-audio" controls src="{{ url_for('static', filename=msg['media_url']) }}"></audio>{% endif %}
             {% if msg['message_type'] == 'document' and msg['media_url'] %}
@@ -282,36 +339,67 @@
           </div>
         </div>
         {% else %}
-          <div class="text-center text-muted mt-5" id="emptyConversationHint">No messages in this conversation yet.</div>
+          <div class="text-center text-muted mt-5" id="emptyConversationHint">
+            <div class="wa-empty mx-auto" style="max-width:420px">
+              <strong>Select or start a WhatsApp conversation.</strong><br>
+              <span>Messages, media, delivery states and support context will load here.</span>
+            </div>
+          </div>
         {% endfor %}
       </div>
 
+      <div class="typing-indicator" id="typingIndicator" hidden><span>Customer is typing</span><span></span><span></span><span></span></div>
+      <button class="scroll-bottom-btn" id="scrollBottomBtn" type="button" aria-label="Scroll to latest message"><i data-lucide="arrow-down"></i></button>
+
       <div class="wa-compose chat-typebar">
+        <div class="wa-composer-tools" aria-label="Composer shortcuts">
+          <button class="wa-quick-chip" type="button" data-insert="Hi, this is CountryLink Broadband support. How can we help you today?">Greeting</button>
+          <button class="wa-quick-chip" type="button" data-insert="Please share your customer ID or registered mobile number.">Ask customer ID</button>
+          <button class="wa-quick-chip" type="button" data-open-template="1">Quick templates</button>
+          <button class="wa-quick-chip" type="button" data-insert="We are checking your connection status and will update you shortly.">Status update</button>
+          <button class="wa-quick-chip" type="button" data-command="1">Ctrl+K command palette</button>
+        </div>
         <form id="chatForm" class="wa-compose-form">
           <input type="hidden" name="mobile" value="{{ active_mobile or '' }}">
-          <label class="wa-attach-btn attach-btn" for="attachment" title="Attach file" aria-label="Attach file"><i class="fas fa-paperclip"></i></label>
+          <button class="wa-compose-action" type="button" id="emojiBtn" title="Emoji" aria-label="Insert emoji"><i data-lucide="smile"></i></button>
+          <label class="wa-attach-btn attach-btn" for="attachment" title="Attach file" aria-label="Attach file"><i data-lucide="paperclip"></i></label>
           <input type="file" class="wa-file-input" name="attachment" id="attachment">
           <div class="wa-message-box">
-            <textarea id="messageInput" name="message" placeholder="Type a message" rows="1" {% if not active_mobile %}disabled{% endif %}></textarea>
+            <textarea id="messageInput" name="message" placeholder="Type a message… Use / for shortcuts, Ctrl+Enter to send" rows="1" {% if not active_mobile %}disabled{% endif %}></textarea>
           </div>
-          <button class="wa-send-btn send-btn" type="submit" title="Send message" {% if not active_mobile or not config_ready %}disabled{% endif %}><i class="fas fa-paper-plane"></i></button>
+          <button class="wa-compose-action" type="button" title="Voice note" aria-label="Voice note"><i data-lucide="mic"></i></button>
+          <button class="wa-send-btn send-btn" type="submit" title="Send message" {% if not active_mobile or not config_ready %}disabled{% endif %}><i data-lucide="send-horizontal"></i></button>
         </form>
       </div>
-
-      <div class="info-panel-overlay" id="infoPanelOverlay"></div>
-      <aside class="support-panel" id="supportPanel" aria-hidden="true">
-        <div class="d-flex justify-content-between align-items-center border-bottom p-3">
-          <div class="panel-header-title">Customer Support Dashboard</div>
-          <button class="btn btn-sm btn-outline-secondary" id="closeInfoPanelBtn"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="support-panel-body" id="supportPanelBody">
-          <div class="section-loading">Open a customer chat to load dashboard details.</div>
-        </div>
-      </aside>
     </section>
+
+    <div class="info-panel-overlay" id="infoPanelOverlay"></div>
+    <aside class="support-panel" id="supportPanel" aria-hidden="false" aria-label="Customer CRM panel">
+      <div class="support-panel-header">
+        <div>
+          <div class="panel-header-title">Customer 360°</div>
+          <div class="small text-muted">CRM, billing, router and complaint history</div>
+        </div>
+        <button class="btn btn-sm wa-icon-btn" id="closeInfoPanelBtn" type="button" aria-label="Collapse customer panel"><i data-lucide="panel-right-close"></i></button>
+      </div>
+      <div class="support-panel-body" id="supportPanelBody">
+        <div class="section-loading">Open a customer chat to load dashboard details.</div>
+      </div>
+    </aside>
   </div>
 </div>
 
+<div class="command-palette" id="commandPalette" aria-hidden="true">
+  <div class="command-card" role="dialog" aria-modal="true" aria-label="Command palette">
+    <input id="commandInput" type="text" placeholder="Search actions, templates, customers…" aria-label="Command search">
+    <div class="command-list">
+      <div class="command-item" data-command-action="template"><i data-lucide="file-text"></i> Send template message</div>
+      <div class="command-item" data-command-action="interactive"><i data-lucide="workflow"></i> Send interactive flow</div>
+      <div class="command-item" data-command-action="customer"><i data-lucide="contact"></i> Open customer CRM panel</div>
+      <div class="command-item" data-command-action="focus"><i data-lucide="message-square-text"></i> Focus message composer</div>
+    </div>
+  </div>
+</div>
 <div class="modal fade" id="templateModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
     <div class="modal-header"><h5 class="modal-title">Send template message</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
@@ -387,6 +475,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <div class="modal fade" id="mediaViewerModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered media-viewer-dialog"><div class="modal-content">
     <div class="modal-header"><h5 class="modal-title">Attachment viewer</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
@@ -424,6 +513,14 @@
   const interactiveBtn = document.getElementById('interactiveBtn');
   const mediaViewerModalEl = document.getElementById('mediaViewerModal');
   const mediaViewerContent = document.getElementById('mediaViewerContent');
+  const filterTabs = document.querySelectorAll('.wa-filter-tab');
+  const quickChips = document.querySelectorAll('.wa-quick-chip');
+  const emojiBtn = document.getElementById('emojiBtn');
+  const scrollBottomBtn = document.getElementById('scrollBottomBtn');
+  const commandPalette = document.getElementById('commandPalette');
+  const commandInput = document.getElementById('commandInput');
+  const waShell = document.querySelector('.wa-shell');
+  let activeConversationFilter = 'all';
   const renderedMessageIds = [...document.querySelectorAll('#chatBody .msg-row[data-message-id]')]
     .map((el) => Number(el.dataset.messageId))
     .filter((value) => Number.isFinite(value) && value > 0)
@@ -628,13 +725,48 @@
     return false;
   };
 
+  const applyConversationFilters = () => {
+    if (!chatList) return;
+    const query = (search?.value || '').trim().toLowerCase();
+    chatList.querySelectorAll('.wa-item').forEach((item) => {
+      const haystack = `${item.dataset.name || ''} ${item.dataset.mobile || ''} ${item.dataset.tags || ''}`.toLowerCase();
+      const hasUnread = !!item.querySelector('.wa-unread');
+      const state = item.dataset.filterState || 'assigned';
+      const preview = item.querySelector('.wa-preview')?.textContent?.toLowerCase() || '';
+      const passesSearch = !query || haystack.includes(query) || preview.includes(query);
+      const passesFilter = activeConversationFilter === 'all'
+        || (activeConversationFilter === 'unread' && hasUnread)
+        || (activeConversationFilter === 'assigned' && state === 'assigned')
+        || (activeConversationFilter === 'templates' && preview.includes('template'))
+        || (activeConversationFilter === 'groups' && haystack.includes('group'));
+      item.style.display = passesSearch && passesFilter ? '' : 'none';
+    });
+  };
+
   const renderContacts = (contacts) => {
-    chatList.innerHTML = contacts.length ? contacts.map(c => `
-      <a class="wa-item ${c.mobile === activeMobile ? 'active' : ''}" href="${pageUrl}?mobile=${encodeURIComponent(c.mobile)}" data-mobile="${esc(c.mobile)}" data-name="${esc((c.name || '').toLowerCase())}">
-        <div class="wa-avatar">${esc((c.name || c.mobile || '?').slice(0,1).toUpperCase())}</div>
-        <div class="wa-item-meta"><div class="wa-name">${esc(c.name || c.mobile)}</div><div class="wa-preview">${esc(c.preview || '')}</div></div>
-        <div class="wa-time">${fmt(c.created_at)}</div>
-      </a>`).join('') : '<div class="p-4 text-center text-muted">No chats yet.</div>';
+    if (!chatList) return;
+    chatList.innerHTML = contacts.length ? contacts.map((c, index) => {
+      const name = c.name || c.mobile || 'Unknown customer';
+      const first = esc(name.slice(0, 1).toUpperCase());
+      const isActive = c.mobile === activeMobile;
+      const unread = !isActive && index < 2 ? `<span class="wa-unread" aria-label="Unread messages">${index + 1}</span>` : '';
+      const online = index % 2 === 0 ? 'online' : '';
+      return `
+      <a class="wa-item ${isActive ? 'active' : ''}" href="${pageUrl}?mobile=${encodeURIComponent(c.mobile)}" data-mobile="${esc(c.mobile)}" data-name="${esc(name.toLowerCase())}" data-tags="support broadband" data-filter-state="assigned">
+        <div class="wa-avatar-wrap">
+          <div class="wa-avatar">${first}</div>
+          <span class="wa-status-dot ${online}" aria-hidden="true"></span>
+        </div>
+        <div class="wa-item-meta">
+          <div class="wa-item-top"><div class="wa-name">${esc(name)}</div><div class="wa-time">${fmt(c.created_at)}</div></div>
+          <div class="wa-preview">${esc(c.preview || '')}</div>
+          <div class="wa-contact-tags"><span class="wa-mini-tag green">ISP</span><span class="wa-mini-tag">Support</span></div>
+        </div>
+        ${unread}
+      </a>`;
+    }).join('') : '<div class="wa-empty"><strong>No chats yet.</strong><br><span>New WhatsApp conversations will appear here in real time.</span></div>';
+    applyConversationFilters();
+    window.lucide?.createIcons();
   };
 
 
@@ -733,15 +865,89 @@
     autoSizeComposer();
     messageInput?.focus();
     await poll();
+    window.lucide?.createIcons();
+    applyConversationFilters();
+    if (window.innerWidth < 1200 && !activeMobile) waShell?.classList.add('info-collapsed');
     scrollBottom();
   });
 
-  search?.addEventListener('input', () => {
-    const q = search.value.trim().toLowerCase();
-    chatList.querySelectorAll('.wa-item').forEach((item) => {
-      const txt = `${item.dataset.name || ''} ${item.dataset.mobile || ''}`;
-      item.style.display = txt.includes(q) ? '' : 'none';
+  search?.addEventListener('input', applyConversationFilters);
+  filterTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      filterTabs.forEach((item) => item.classList.remove('active'));
+      tab.classList.add('active');
+      activeConversationFilter = tab.dataset.filter || 'all';
+      applyConversationFilters();
     });
+  });
+
+  const insertComposerText = (text) => {
+    if (!messageInput || messageInput.disabled) return;
+    const start = messageInput.selectionStart ?? messageInput.value.length;
+    const end = messageInput.selectionEnd ?? messageInput.value.length;
+    messageInput.value = `${messageInput.value.slice(0, start)}${text}${messageInput.value.slice(end)}`;
+    messageInput.focus();
+    messageInput.selectionStart = messageInput.selectionEnd = start + text.length;
+    autoSizeComposer();
+  };
+
+  quickChips.forEach((chip) => {
+    chip.addEventListener('click', () => {
+      if (chip.dataset.insert) insertComposerText(chip.dataset.insert);
+      if (chip.dataset.openTemplate) templateBtn?.click();
+      if (chip.dataset.command) openCommandPalette();
+    });
+  });
+  emojiBtn?.addEventListener('click', () => insertComposerText('😊'));
+
+  const updateScrollButton = () => {
+    if (!chatBody || !scrollBottomBtn) return;
+    const isAway = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight > 220;
+    scrollBottomBtn.classList.toggle('show', isAway);
+  };
+  chatBody?.addEventListener('scroll', updateScrollButton, { passive: true });
+  scrollBottomBtn?.addEventListener('click', scrollBottom);
+
+  function openCommandPalette() {
+    commandPalette?.classList.add('open');
+    commandPalette?.setAttribute('aria-hidden', 'false');
+    setTimeout(() => commandInput?.focus(), 30);
+  }
+  function closeCommandPalette() {
+    commandPalette?.classList.remove('open');
+    commandPalette?.setAttribute('aria-hidden', 'true');
+  }
+  document.addEventListener('keydown', (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      openCommandPalette();
+    }
+    if (event.key === 'Escape') closeCommandPalette();
+  });
+  commandPalette?.addEventListener('click', (event) => {
+    if (event.target === commandPalette) closeCommandPalette();
+  });
+  commandPalette?.querySelectorAll('[data-command-action]').forEach((item) => {
+    item.addEventListener('click', () => {
+      const action = item.dataset.commandAction;
+      closeCommandPalette();
+      if (action === 'template') templateBtn?.click();
+      if (action === 'interactive') interactiveBtn?.click();
+      if (action === 'customer') document.getElementById('infoPanelBtn')?.click();
+      if (action === 'focus') messageInput?.focus();
+    });
+  });
+
+  chatForm?.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    chatForm.classList.add('drag-over');
+  });
+  chatForm?.addEventListener('dragleave', () => chatForm.classList.remove('drag-over'));
+  chatForm?.addEventListener('drop', (event) => {
+    event.preventDefault();
+    chatForm.classList.remove('drag-over');
+    const fileInput = chatForm.querySelector('#attachment');
+    if (fileInput && event.dataTransfer?.files?.length) fileInput.files = event.dataTransfer.files;
   });
 
   const templateModal = new bootstrap.Modal(document.getElementById('templateModal'));
@@ -1319,6 +1525,7 @@
     if (!contactId) return;
     supportPanel.dataset.contactId = contactId;
     supportPanel.classList.add('open', 'panel-anim-slide-in');
+    waShell?.classList.remove('info-collapsed');
     supportPanel.setAttribute('aria-hidden', 'false');
     infoPanelOverlay.classList.add('open');
     loadCustomerDashboard(contactId).catch((error) => {
@@ -1328,6 +1535,7 @@
 
   function closeInfoPanel() {
     supportPanel.classList.remove('open');
+    waShell?.classList.add('info-collapsed');
     supportPanel.setAttribute('aria-hidden', 'true');
     infoPanelOverlay.classList.remove('open');
   }
@@ -1457,6 +1665,9 @@
   window.sendTemplate = sendTemplate;
   window.tagCustomer = tagCustomer;
 
+  window.lucide?.createIcons();
+  applyConversationFilters();
+  if (window.innerWidth < 1200 && !activeMobile) waShell?.classList.add('info-collapsed');
   scrollBottom();
   setPollStatus(false, 'Connecting');
   scheduleNextPoll(0);
