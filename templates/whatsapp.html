@@ -1,2510 +1,2375 @@
 {% extends 'layout.html' %}
-{% block title %}WhatsApp Inbox - CountryLink{% endblock %}
+{% block title %}WhatsApp Inbox{% endblock %}
 {% block extra_head %}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
-
-  * {
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  :root {
-    --primary: #25d366;
-    --primary-dark: #128c7e;
-    --primary-light: #dcfce7;
-    --secondary: #0f766e;
-    --accent: #06b6d4;
-    --bg-primary: #ffffff;
-    --bg-secondary: #f5f5f5;
-    --bg-tertiary: #efefef;
-    --text-primary: #000000;
-    --text-secondary: #65676b;
-    --text-muted: #8a8d91;
-    --border-color: #e5e5ea;
-    --success: #25d366;
-    --warning: #ffa500;
-    --error: #e74c3c;
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.12);
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 16px;
-    --radius-xl: 24px;
-  }
-
-  html, body {
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    overflow: hidden;
-  }
-
-  main.container.mx-auto.p-4 {
-    max-width: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    height: calc(100vh - 60px);
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* Main Layout Container */
-  .whatsapp-container {
-    display: flex;
-    height: 100%;
-    width: 100%;
-    background: var(--bg-primary);
-    gap: 0;
-    overflow: hidden;
-  }
-
-  /* Sidebar */
-  .wa-sidebar {
-    width: 380px;
-    flex-shrink: 0;
-    background: var(--bg-primary);
-    border-right: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
-  }
-
-  /* Sidebar Header */
-  .wa-sidebar-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .wa-header-title {
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .wa-header-title i {
-    color: var(--primary);
-    font-size: 1.4rem;
-  }
-
-  .wa-header-actions {
-    display: flex;
-    gap: 8px;
-  }
-
-  .wa-icon-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border-color);
-    background: var(--bg-secondary);
-    color: var(--text-secondary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    font-size: 1rem;
-  }
-
-  .wa-icon-btn:hover {
-    background: var(--primary);
-    color: white;
-    border-color: var(--primary);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-  }
-
-  /* Search Bar */
-  .wa-search-container {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border-color);
-  }
-
-  .wa-search {
-    position: relative;
-  }
-
-  .wa-search input {
-    width: 100%;
-    padding: 10px 14px 10px 40px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    font-size: 0.9rem;
-    transition: all 0.2s ease;
-    background: var(--bg-secondary);
-  }
-
-  .wa-search input:focus {
-    outline: none;
-    border-color: var(--primary);
-    background: white;
-    box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.1);
-  }
-
-  .wa-search i {
-    position: absolute;
-    left: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-muted);
-    font-size: 0.9rem;
-  }
-
-  /* Filter Tabs */
-  .wa-filter-tabs {
-    display: flex;
-    gap: 8px;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border-color);
-    overflow-x: auto;
-    scroll-behavior: smooth;
-    scrollbar-width: thin;
-  }
-
-  .wa-filter-tabs::-webkit-scrollbar {
-    height: 4px;
-  }
-
-  .wa-filter-tabs::-webkit-scrollbar-thumb {
-    background: var(--text-muted);
-    border-radius: 4px;
-  }
-
-  .wa-filter-tab {
-    padding: 6px 14px;
-    border: 1px solid var(--border-color);
-    border-radius: 999px;
-    background: white;
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-    font-weight: 600;
-    white-space: nowrap;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .wa-filter-tab:hover {
-    border-color: var(--primary);
-    color: var(--primary);
-  }
-
-  .wa-filter-tab.active {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: white;
-    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.2);
-  }
-
-  /* Chat List */
-  .wa-list {
-    flex: 1;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    padding: 0;
-  }
-
-  .wa-list::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .wa-list::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .wa-list::-webkit-scrollbar-thumb {
-    background: #ccc;
-    border-radius: 3px;
-  }
-
-  .wa-list::-webkit-scrollbar-thumb:hover {
-    background: #999;
-  }
-
-  .wa-item {
-    padding: 12px 16px;
-    border: none;
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    text-decoration: none;
-    color: inherit;
-    background: white;
-    position: relative;
-  }
-
-  .wa-item:hover {
-    background: #f9f9f9;
-  }
-
-  .wa-item.active {
-    background: var(--primary-light);
-    border-left: 4px solid var(--primary);
-  }
-
-  .wa-avatar {
-    width: 48px;
-    height: 48px;
-    border-radius: var(--radius-lg);
-    background: linear-gradient(135deg, var(--primary), var(--secondary));
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 700;
-    font-size: 1.2rem;
-    flex-shrink: 0;
-    position: relative;
-  }
-
-  .wa-avatar.status-dot::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    right: -2px;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--success);
-    border: 3px solid white;
-  }
-
-  .wa-item-content {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-
-  .wa-item-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 4px;
-  }
-
-  .wa-item-name {
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: var(--text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .wa-item-time {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    flex-shrink: 0;
-  }
-
-  .wa-item-preview {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .wa-item-badges {
-    display: flex;
-    gap: 4px;
-    margin-top: 4px;
-    flex-wrap: wrap;
-  }
-
-  .wa-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    background: var(--primary-light);
-    color: var(--secondary);
-  }
-
-  .wa-badge.green {
-    background: #dcfce7;
-    color: #166534;
-  }
-
-  .wa-unread {
-    background: var(--primary);
-    color: white;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
-    font-weight: 700;
-    flex-shrink: 0;
-  }
-
-  .wa-empty {
-    padding: 40px 20px;
-    text-align: center;
-    color: var(--text-muted);
-  }
-
-  /* Main Content Area */
-  .wa-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background: var(--bg-secondary);
-    min-width: 0;
-  }
-
-  /* Chat Header */
-  .wa-chat-header {
-    background: white;
-    border-bottom: 1px solid var(--border-color);
-    padding: 16px 24px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: var(--shadow-sm);
-  }
-
-  .wa-chat-header-left {
-    display: flex;
-    gap: 14px;
-    align-items: center;
-  }
-
-  .wa-chat-info h3 {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .wa-chat-info p {
-    margin: 4px 0 0;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-  }
-
-  .wa-header-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.8rem;
-    color: var(--success);
-    font-weight: 600;
-  }
-
-  .wa-header-status::before {
-    content: '';
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--success);
-  }
-
-  .wa-header-actions {
-    display: flex;
-    gap: 10px;
-  }
-
-  .wa-header-btn {
-    padding: 8px 14px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    background: white;
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .wa-header-btn:hover {
-    background: var(--bg-secondary);
-    border-color: var(--primary);
-    color: var(--primary);
-  }
-
-  .wa-header-btn.primary {
-    background: var(--primary);
-    border-color: var(--primary);
-    color: white;
-  }
-
-  .wa-header-btn.primary:hover {
-    background: var(--primary-dark);
-    border-color: var(--primary-dark);
-  }
-
-  /* Empty State */
-  .wa-empty-state {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 40px 20px;
-    text-align: center;
-  }
-
-  .wa-empty-state-icon {
-    font-size: 4rem;
-    color: var(--text-muted);
-    margin-bottom: 16px;
-    opacity: 0.5;
-  }
-
-  .wa-empty-state h3 {
-    margin: 0 0 12px;
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .wa-empty-state p {
-    margin: 0;
-    color: var(--text-muted);
-    font-size: 0.95rem;
-    max-width: 400px;
-  }
-
-  /* Chat Messages Area */
-  .wa-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .wa-messages::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .wa-messages::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .wa-messages::-webkit-scrollbar-thumb {
-    background: #ccc;
-    border-radius: 3px;
-  }
-
-  .wa-message {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 8px;
-    animation: slideIn 0.3s ease;
-  }
-
-  @keyframes slideIn {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .wa-message.outgoing {
-    justify-content: flex-end;
-  }
-
-  .wa-message-bubble {
-    max-width: 60%;
-    padding: 10px 14px;
-    border-radius: var(--radius-lg);
-    word-wrap: break-word;
-    word-break: break-word;
-    font-size: 0.95rem;
-    line-height: 1.4;
-  }
-
-  .wa-message.incoming .wa-message-bubble {
-    background: white;
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
-    box-shadow: var(--shadow-sm);
-  }
-
-  .wa-message.outgoing .wa-message-bubble {
-    background: var(--primary);
-    color: white;
-    border-radius: 12px 12px 4px 12px;
-  }
-
-  .wa-message-time {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    padding-top: 4px;
-  }
-
-  .wa-message.outgoing .wa-message-time {
-    text-align: right;
-  }
-
-  /* Input Area */
-  .wa-input-area {
-    background: white;
-    border-top: 1px solid var(--border-color);
-    padding: 16px 24px;
-    display: flex;
-    gap: 12px;
-    align-items: flex-end;
-  }
-
-  .wa-input-container {
-    flex: 1;
-    display: flex;
-    gap: 10px;
-    align-items: flex-end;
-  }
-
-  .wa-input-actions {
-    display: flex;
-    gap: 8px;
-  }
-
-  .wa-action-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border-color);
-    background: var(--bg-secondary);
-    color: var(--text-secondary);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    font-size: 1rem;
-  }
-
-  .wa-action-btn:hover {
-    background: white;
-    border-color: var(--primary);
-    color: var(--primary);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-  }
-
-  .wa-input {
-    flex: 1;
-    padding: 10px 14px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    font-size: 0.95rem;
-    font-family: inherit;
-    resize: none;
-    max-height: 100px;
-    transition: all 0.2s ease;
-  }
-
-  .wa-input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.1);
-  }
-
-  .wa-send-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-md);
-    border: none;
-    background: var(--primary);
-    color: white;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-    transition: all 0.2s ease;
-  }
-
-  .wa-send-btn:hover:not(:disabled) {
-    background: var(--primary-dark);
-    transform: scale(1.05) translateY(-2px);
-    box-shadow: 0 6px 16px rgba(37, 211, 102, 0.3);
-  }
-
-  .wa-send-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  /* Quick Replies */
-  .wa-quick-replies {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    padding: 0 0 12px 0;
-    margin-bottom: 12px;
-  }
-
-  .wa-quick-reply {
-    padding: 6px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: 20px;
-    background: white;
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    white-space: nowrap;
-  }
-
-  .wa-quick-reply:hover {
-    background: var(--primary-light);
-    border-color: var(--primary);
-    color: var(--secondary);
-  }
-
-  /* Responsive Design */
-  @media (max-width: 1200px) {
-    .wa-sidebar {
-      width: 320px;
-    }
-
-    .wa-message-bubble {
-      max-width: 70%;
-    }
-  }
-
-  @media (max-width: 768px) {
-    .whatsapp-container {
-      flex-direction: column;
-    }
-
-    .wa-sidebar {
-      width: 100%;
-      height: 40%;
-      border-right: none;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    .wa-main {
-      height: 60%;
-    }
-
-    .wa-message-bubble {
-      max-width: 85%;
-    }
-
-    .wa-header-actions {
-      gap: 5px;
-    }
-
-    .wa-header-btn {
-      padding: 6px 10px;
-      font-size: 0.75rem;
-    }
-
-    .wa-header-btn span {
-      display: none;
-    }
-  }
-
-  @media (max-width: 480px) {
-    .wa-sidebar {
-      height: 35%;
-    }
-
-    .wa-main {
-      height: 65%;
-    }
-
-    .wa-chat-header {
-      padding: 12px 16px;
-    }
-
-    .wa-input-area {
-      padding: 12px 16px;
-    }
-
-    .wa-messages {
-      padding: 12px 16px;
-    }
-  }
+/* ── Reset & Base ───────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: 'DM Sans', sans-serif;
+  background: #f0f2f5;
+  overflow: hidden;
+}
+
+/* Hide the outer layout nav for this page */
+.floating-nav, .topnav, .tabs, nav.navbar { display: none !important; }
+
+/* ── CSS Variables ──────────────────────────────────────── */
+:root {
+  --green:       #25d366;
+  --green-dk:    #128c7e;
+  --green-lt:    #e8fdf0;
+  --blue:        #1a73e8;
+  --red:         #e53935;
+  --amber:       #f59e0b;
+  --surface:     #ffffff;
+  --surface-2:   #f8fafc;
+  --surface-3:   #f0f2f5;
+  --border:      #e8eaed;
+  --border-dk:   #d4d7dc;
+  --text-1:      #111827;
+  --text-2:      #4b5563;
+  --text-3:      #9ca3af;
+  --text-inv:    #ffffff;
+  --radius-sm:   6px;
+  --radius:      10px;
+  --radius-lg:   16px;
+  --radius-xl:   24px;
+  --shadow-sm:   0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow:      0 4px 12px rgba(0,0,0,.08);
+  --shadow-lg:   0 12px 32px rgba(0,0,0,.12);
+  --transition:  all .18s cubic-bezier(.4,0,.2,1);
+}
+
+/* ── Shell ──────────────────────────────────────────────── */
+.wa-shell {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+/* ── Icon Rail (far left) ───────────────────────────────── */
+.wa-rail {
+  width: 60px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0;
+  gap: 4px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.rail-logo {
+  width: 36px;
+  height: 36px;
+  background: var(--green);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 18px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.rail-group {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px;
+}
+
+.rail-sep {
+  width: 28px;
+  height: 1px;
+  background: var(--border);
+  margin: 8px 0;
+}
+
+.rail-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius);
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 17px;
+  transition: var(--transition);
+  position: relative;
+  text-decoration: none;
+}
+
+.rail-btn:hover {
+  background: var(--surface-3);
+  color: var(--text-1);
+}
+
+.rail-btn.active {
+  background: var(--green-lt);
+  color: var(--green-dk);
+}
+
+.rail-btn .rail-tooltip {
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--text-1);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 5px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s;
+  z-index: 999;
+}
+
+.rail-btn:hover .rail-tooltip { opacity: 1; }
+
+.rail-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.rail-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* ── Sidebar (conversation list) ────────────────────────── */
+.wa-sidebar {
+  width: 310px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Sidebar Header */
+.sb-header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sb-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.sb-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -.3px;
+}
+
+.sb-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.sb-icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 15px;
+  transition: var(--transition);
+}
+
+.sb-icon-btn:hover { background: var(--surface-3); color: var(--text-1); }
+
+/* Search */
+.sb-search {
+  position: relative;
+}
+
+.sb-search input {
+  width: 100%;
+  padding: 8px 12px 8px 34px;
+  background: var(--surface-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  font-size: 13.5px;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text-1);
+  transition: var(--transition);
+  outline: none;
+}
+
+.sb-search input:focus {
+  border-color: var(--green);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(37,211,102,.12);
+}
+
+.sb-search input::placeholder { color: var(--text-3); }
+
+.sb-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-3);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+/* Filter Bar */
+.sb-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.sb-filter-bar::-webkit-scrollbar { display: none; }
+
+.sb-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+  font-family: 'DM Sans', sans-serif;
+}
+
+.sb-filter-chip:hover { border-color: var(--green); color: var(--green-dk); }
+
+.sb-filter-chip.active {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+.sb-filter-chip i { font-size: 11px; }
+
+.sb-filter-plus {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 500;
+  border: 1px dashed var(--border-dk);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+  font-family: 'DM Sans', sans-serif;
+}
+
+.sb-filter-plus:hover { border-color: var(--green); color: var(--green-dk); }
+
+/* Conversation List */
+.conv-list {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.conv-list::-webkit-scrollbar { width: 4px; }
+.conv-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* Conversation Item */
+.conv-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 1px solid var(--border);
+  transition: background .12s;
+  position: relative;
+}
+
+.conv-item:hover { background: var(--surface-2); }
+
+.conv-item.active {
+  background: var(--green-lt);
+}
+
+.conv-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--green);
+  border-radius: 0 2px 2px 0;
+}
+
+/* Avatar */
+.conv-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #25d366, #128c7e);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.conv-avatar.alt-1 { background: linear-gradient(135deg, #667eea, #764ba2); }
+.conv-avatar.alt-2 { background: linear-gradient(135deg, #f093fb, #f5576c); }
+.conv-avatar.alt-3 { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+.conv-avatar.alt-4 { background: linear-gradient(135deg, #f6d365, #fda085); }
+.conv-avatar.alt-5 { background: linear-gradient(135deg, #a18cd1, #fbc2eb); }
+
+.conv-online-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--green);
+  border: 2px solid #fff;
+}
+
+/* Item Meta */
+.conv-meta { flex: 1; min-width: 0; }
+
+.conv-row1 {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.conv-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.conv-time {
+  font-size: 11px;
+  color: var(--text-3);
+  flex-shrink: 0;
+  font-family: 'DM Mono', monospace;
+}
+
+.conv-preview {
+  font-size: 12.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.conv-tags {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.conv-tag {
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: #f0f2f5;
+  color: var(--text-2);
+}
+
+.conv-tag.green { background: var(--green-lt); color: var(--green-dk); }
+
+.conv-unread {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--green);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Empty */
+.conv-empty {
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--text-3);
+}
+
+.conv-empty i { font-size: 36px; margin-bottom: 12px; display: block; }
+.conv-empty h4 { font-size: 14px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
+.conv-empty p { font-size: 13px; line-height: 1.5; }
+
+/* ── Main Chat Area ──────────────────────────────────────── */
+.wa-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-3);
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ── Chat Header ─────────────────────────────────────────── */
+.chat-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  min-height: 64px;
+}
+
+.chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.chat-header-info h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin: 0 0 2px;
+  line-height: 1.2;
+}
+
+.chat-header-info p {
+  font-size: 12px;
+  color: var(--text-3);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.online-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--green-dk);
+}
+
+.online-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  display: inline-block;
+}
+
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hdr-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: 'DM Sans', sans-serif;
+  white-space: nowrap;
+}
+
+.hdr-btn:hover { border-color: var(--green); color: var(--green-dk); background: var(--green-lt); }
+.hdr-btn.primary { background: var(--green); border-color: var(--green); color: #fff; }
+.hdr-btn.primary:hover { background: var(--green-dk); border-color: var(--green-dk); }
+.hdr-btn i { font-size: 13px; }
+
+.poll-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.poll-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--amber);
+  transition: background .3s;
+}
+
+.poll-dot.live { background: var(--green); animation: livePulse 2s infinite; }
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .4; }
+}
+
+/* ── Messages Area ───────────────────────────────────────── */
+.chat-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23e8eaed' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+.chat-body::-webkit-scrollbar { width: 5px; }
+.chat-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
+
+/* Date divider */
+.date-sep {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.date-sep::before, .date-sep::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.date-sep span {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  padding: 3px 12px;
+  background: rgba(255,255,255,.7);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+/* Message Rows */
+.msg-row {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 2px;
+  animation: msgIn .2s ease;
+}
+
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.msg-row.outbound { align-items: flex-end; }
+.msg-row.incoming { align-items: flex-start; }
+
+.msg-bubble {
+  max-width: 62%;
+  padding: 9px 14px 6px;
+  border-radius: 14px;
+  position: relative;
+  word-break: break-word;
+  line-height: 1.45;
+}
+
+.incoming .msg-bubble {
+  background: var(--surface);
+  color: var(--text-1);
+  border-bottom-left-radius: 4px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+}
+
+.outbound .msg-bubble {
+  background: var(--green);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 2px 8px rgba(37,211,102,.2);
+}
+
+.msg-text {
+  font-size: 13.5px;
+  margin: 0 0 4px;
+  white-space: pre-wrap;
+}
+
+.msg-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.msg-time {
+  font-size: 10.5px;
+  font-family: 'DM Mono', monospace;
+  opacity: .65;
+}
+
+.msg-status-icon { font-size: 11px; opacity: .7; }
+.msg-status-icon.read { color: #53bdeb; opacity: 1; }
+
+.msg-sender-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--green-dk);
+  margin-bottom: 3px;
+  padding: 0 2px;
+}
+
+/* Media messages */
+.msg-media {
+  max-width: 100%;
+  max-height: 260px;
+  border-radius: 10px;
+  object-fit: cover;
+  display: block;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+
+.msg-audio {
+  width: 220px;
+  height: 36px;
+  margin-bottom: 6px;
+  accent-color: var(--green);
+}
+
+.msg-doc-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,.15);
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  border: 1px solid rgba(255,255,255,.25);
+  transition: var(--transition);
+}
+
+.incoming .msg-doc-link {
+  background: var(--surface-3);
+  border-color: var(--border);
+  color: var(--text-1);
+}
+
+.msg-doc-link:hover { opacity: .85; }
+.msg-doc-link i { font-size: 20px; }
+
+/* Error / status chips */
+.msg-error-chip {
+  font-size: 11px;
+  color: var(--red);
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  padding: 2px 8px;
+  margin-top: 4px;
+}
+
+.msg-status-chip {
+  font-size: 10.5px;
+  font-family: 'DM Mono', monospace;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(0,0,0,.05);
+  color: var(--text-3);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+/* Location embed */
+.msg-location-wrap { margin-bottom: 6px; }
+.msg-location-frame {
+  width: 100%;
+  height: 160px;
+  border-radius: 10px;
+  border: none;
+  display: block;
+}
+
+.msg-location-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--blue);
+  margin-top: 6px;
+  text-decoration: none;
+}
+
+/* Empty chat state */
+.chat-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--text-3);
+  padding: 40px;
+  text-align: center;
+}
+
+.chat-empty-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  color: var(--green);
+  box-shadow: var(--shadow);
+}
+
+.chat-empty h3 { font-size: 17px; font-weight: 700; color: var(--text-2); margin: 0; }
+.chat-empty p { font-size: 13.5px; color: var(--text-3); max-width: 300px; line-height: 1.6; margin: 0; }
+
+/* Scroll-to-bottom button */
+.scroll-btn {
+  position: absolute;
+  bottom: 90px;
+  right: 28px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  color: var(--text-2);
+  font-size: 15px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+  z-index: 10;
+}
+
+.scroll-btn.show { display: flex; }
+.scroll-btn:hover { background: var(--green); color: #fff; border-color: var(--green); }
+
+/* ── Compose Bar ─────────────────────────────────────────── */
+.chat-compose {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 0 16px 12px;
+  flex-shrink: 0;
+}
+
+/* Quick chips */
+.compose-chips {
+  display: flex;
+  gap: 6px;
+  padding: 10px 0 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.compose-chips::-webkit-scrollbar { display: none; }
+
+.compose-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+  font-family: 'DM Sans', sans-serif;
+}
+
+.compose-chip:hover { border-color: var(--green); color: var(--green-dk); background: var(--green-lt); }
+
+/* Input row */
+.compose-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.compose-action {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+
+.compose-action:hover { border-color: var(--green); color: var(--green-dk); background: var(--green-lt); }
+.compose-action.attach-label { cursor: pointer; }
+
+input[type="file"]#attachment { display: none; }
+
+.compose-box {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 10px 14px;
+  transition: var(--transition);
+}
+
+.compose-box:focus-within {
+  border-color: var(--green);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(37,211,102,.1);
+}
+
+.compose-box textarea {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13.5px;
+  color: var(--text-1);
+  resize: none;
+  max-height: 110px;
+  line-height: 1.5;
+  display: block;
+}
+
+.compose-box textarea::placeholder { color: var(--text-3); }
+
+.compose-send {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--green);
+  color: #fff;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition);
+  flex-shrink: 0;
+  box-shadow: 0 3px 10px rgba(37,211,102,.35);
+}
+
+.compose-send:hover:not(:disabled) {
+  background: var(--green-dk);
+  transform: scale(1.08);
+  box-shadow: 0 5px 16px rgba(37,211,102,.45);
+}
+
+.compose-send:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+
+/* Attachment preview */
+.attach-preview {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--green-lt);
+  border-radius: var(--radius);
+  border: 1px solid rgba(37,211,102,.2);
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  color: var(--green-dk);
+}
+
+.attach-preview.show { display: flex; }
+.attach-preview .attach-name { flex: 1; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.attach-preview .attach-remove { cursor: pointer; color: var(--red); font-size: 14px; }
+
+/* ── Alert strip ─────────────────────────────────────────── */
+.alert-strip {
+  background: #fffbeb;
+  border-bottom: 1px solid #fde68a;
+  padding: 8px 20px;
+  font-size: 12.5px;
+  color: #92400e;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Typing Indicator ────────────────────────────────────── */
+.typing-indicator {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  background: var(--surface);
+  border-radius: 14px;
+  width: fit-content;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.typing-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-3);
+  animation: typingBounce 1.4s infinite;
+}
+
+.typing-dot:nth-child(2) { animation-delay: .2s; }
+.typing-dot:nth-child(3) { animation-delay: .4s; }
+
+@keyframes typingBounce {
+  0%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-5px); }
+}
+
+/* ── Template & Interactive Modals ──────────────────────── */
+.modal-content {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-header {
+  border-bottom: 1px solid var(--border);
+  padding: 16px 20px;
+}
+
+.modal-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.modal-body { padding: 20px; }
+.modal-footer { border-top: 1px solid var(--border); padding: 14px 20px; }
+
+.form-label { font-size: 12.5px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
+.form-control, .form-select {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13.5px;
+  border-color: var(--border);
+  border-radius: var(--radius);
+  color: var(--text-1);
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(37,211,102,.12);
+}
+
+.btn-success { background: var(--green); border-color: var(--green); font-family: 'DM Sans', sans-serif; }
+.btn-success:hover { background: var(--green-dk); border-color: var(--green-dk); }
+.btn-close:focus { box-shadow: none; }
+
+/* Nav pills for interactive modal */
+.nav-pills .nav-link {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  border-radius: var(--radius);
+  padding: 7px 14px;
+}
+
+.nav-pills .nav-link.active {
+  background: var(--green);
+  color: #fff;
+}
+
+/* Interactive pane */
+.interactive-pane { padding-top: 12px; }
+
+.btn-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+/* ── Media Viewer ────────────────────────────────────────── */
+.media-viewer-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  min-height: 200px;
+}
+
+.media-viewer-img {
+  max-width: 100%;
+  max-height: 70vh;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+.media-viewer-video {
+  max-width: 100%;
+  max-height: 70vh;
+  border-radius: 8px;
+}
+
+/* ── Command Palette ─────────────────────────────────────── */
+.cmd-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 1050;
+  display: none;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 15vh;
+  backdrop-filter: blur(4px);
+}
+
+.cmd-overlay.open { display: flex; }
+
+.cmd-card {
+  width: 520px;
+  max-width: 92vw;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.cmd-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.cmd-search i { color: var(--text-3); font-size: 15px; }
+
+.cmd-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  color: var(--text-1);
+  background: transparent;
+}
+
+.cmd-list { padding: 8px; }
+
+.cmd-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--text-1);
+  transition: background .12s;
+}
+
+.cmd-item:hover { background: var(--surface-3); }
+.cmd-item i { width: 18px; color: var(--text-3); font-size: 14px; }
+
+.cmd-footer {
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--text-3);
+  display: flex;
+  gap: 12px;
+}
+
+.cmd-kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+kbd {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  font-family: 'DM Mono', monospace;
+  font-size: 10.5px;
+  color: var(--text-2);
+}
+
+/* ── Notification toggle ─────────────────────────────────── */
+.notif-toggle {
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--border);
+  position: relative;
+  cursor: pointer;
+  border: none;
+  transition: background .2s;
+}
+
+.notif-toggle.on { background: var(--green); }
+.notif-toggle::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  top: 3px;
+  left: 3px;
+  transition: transform .2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+
+.notif-toggle.on::after { transform: translateX(16px); }
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .wa-sidebar { width: 280px; }
+  .hdr-btn span { display: none; }
+  .hdr-btn { padding: 7px; }
+}
+
+@media (max-width: 680px) {
+  .wa-rail { display: none; }
+  .wa-sidebar { width: 100%; position: absolute; z-index: 20; height: 100%; transform: translateX(-100%); transition: transform .25s; }
+  .wa-sidebar.mob-open { transform: translateX(0); }
+  .msg-bubble { max-width: 80%; }
+}
+
+/* ── Utility ─────────────────────────────────────────────── */
+.hidden { display: none !important; }
+.relative { position: relative; }
 </style>
 {% endblock %}
 
-{% block tabs %}
-  <div class="tab"><a href="{{ url_for('dashboard') }}"><i class="fas fa-gauge"></i> Dashboard</a></div>
-  <div class="tab"><a href="{{ url_for('complaints_page') }}"><i class="fas fa-code-branch"></i> Complaints</a></div>
-  <div class="tab"><a href="{{ url_for('new_connections') }}"><i class="fas fa-user-plus"></i> New Connections</a></div>
-  <div class="tab"><a href="{{ url_for('stock') }}"><i class="fas fa-boxes"></i> Stock</a></div>
-  <div class="tab"><a href="{{ url_for('hr_dashboard') }}"><i class="fas fa-users"></i> Human Resource</a></div>
-  <div class="tab active"><a href="{{ url_for('whatsapp_complaints') }}"><i class="fab fa-whatsapp"></i> WhatsApp Inbox</a></div>
-{% endblock %}
+{% block tabs %}{% endblock %}
 
 {% block content %}
-<main class="container-fluid mx-auto p-4">
-  <div class="whatsapp-container">
-    <!-- Sidebar -->
-    <aside class="wa-sidebar">
-      <div class="wa-sidebar-header">
-        <h3 class="wa-header-title">
-          <i class="fab fa-whatsapp"></i> Inbox
-        </h3>
-        <div class="wa-header-actions">
-          <button class="wa-icon-btn" id="newChatBtn" title="New conversation">
-            <i class="fas fa-plus"></i>
+<!-- ── APP SHELL ──────────────────────────────────────────── -->
+<div class="wa-shell">
+
+  <!-- ── ICON RAIL ─────────────────────────────────────── -->
+  <nav class="wa-rail" aria-label="Main navigation">
+    <div class="rail-logo"><i class="fab fa-whatsapp"></i></div>
+
+    <div class="rail-group">
+      <a href="{{ url_for('dashboard') }}" class="rail-btn" title="">
+        <i class="fas fa-gauge-high"></i>
+        <span class="rail-tooltip">Dashboard</span>
+      </a>
+      <a href="{{ url_for('whatsapp_complaints') }}" class="rail-btn active" title="">
+        <i class="fas fa-inbox"></i>
+        <span class="rail-tooltip">Inbox</span>
+      </a>
+      <a href="{{ url_for('complaints_page') }}" class="rail-btn" title="">
+        <i class="fas fa-ticket"></i>
+        <span class="rail-tooltip">Complaints</span>
+      </a>
+      <a href="{{ url_for('new_connections') }}" class="rail-btn" title="">
+        <i class="fas fa-user-plus"></i>
+        <span class="rail-tooltip">New Connections</span>
+      </a>
+    </div>
+
+    <div class="rail-sep"></div>
+
+    <div class="rail-group">
+      <a href="{{ url_for('stock') }}" class="rail-btn" title="">
+        <i class="fas fa-boxes-stacked"></i>
+        <span class="rail-tooltip">Stock</span>
+      </a>
+      <a href="{{ url_for('hr_dashboard') }}" class="rail-btn" title="">
+        <i class="fas fa-users"></i>
+        <span class="rail-tooltip">HR</span>
+      </a>
+      <a href="{{ url_for('invoices_page') }}" class="rail-btn" title="">
+        <i class="fas fa-file-invoice"></i>
+        <span class="rail-tooltip">Invoices</span>
+      </a>
+    </div>
+
+    <div class="rail-bottom">
+      <button class="rail-btn" id="notifBtn" title="Toggle sounds">
+        <i class="fas fa-bell" id="notifIcon"></i>
+        <span class="rail-tooltip">Sound notifications</span>
+      </button>
+      <div class="rail-avatar" title="Account">C</div>
+    </div>
+  </nav>
+
+  <!-- ── SIDEBAR ───────────────────────────────────────── -->
+  <aside class="wa-sidebar" id="waSidebar">
+    <!-- Header -->
+    <div class="sb-header">
+      <div class="sb-header-row">
+        <span class="sb-title">Inbox</span>
+        <div class="sb-actions">
+          <button class="sb-icon-btn" id="notifBellBtn" title="Notifications">
+            <i class="fas fa-bell"></i>
           </button>
-          <button class="wa-icon-btn" id="settingsBtn" title="Settings">
-            <i class="fas fa-cog"></i>
+          <button class="sb-icon-btn" id="newChatBtn" title="New conversation">
+            <i class="fas fa-pen-to-square"></i>
           </button>
         </div>
       </div>
-
-      <div class="wa-search-container">
-        <div class="wa-search">
-          <i class="fas fa-search"></i>
-          <input type="text" id="searchInput" placeholder="Search conversations..." class="form-control form-control-sm">
-        </div>
+      <!-- Search -->
+      <div class="sb-search">
+        <i class="fas fa-magnifying-glass sb-search-icon"></i>
+        <input type="text" id="searchInput" placeholder="Search phone numbers…" autocomplete="off">
       </div>
+    </div>
 
-      <div class="wa-filter-tabs">
-        <button class="wa-filter-tab active" data-filter="all">All</button>
-        <button class="wa-filter-tab" data-filter="unread">Unread</button>
-        <button class="wa-filter-tab" data-filter="assigned">Assigned</button>
-        <button class="wa-filter-tab" data-filter="important">Important</button>
-      </div>
+    <!-- Filter bar -->
+    <div class="sb-filter-bar">
+      <button class="sb-filter-chip active" data-filter="all">Active <i class="fas fa-chevron-down"></i></button>
+      <button class="sb-filter-chip" data-filter="unread">Unread</button>
+      <button class="sb-filter-chip" data-filter="assigned">Assigned</button>
+      <button class="sb-filter-chip" data-filter="templates">Templates</button>
+      <button class="sb-filter-plus" id="addFilterBtn"><i class="fas fa-plus"></i> Filter</button>
+    </div>
 
-      <div class="wa-list" id="conversationList">
-        {% for contact in contacts %}
-          <a class="wa-item {% if contact.mobile == active_mobile %}active{% endif %}" 
-             href="{{ url_for('whatsapp_complaints', mobile=contact.mobile) }}"
-             data-mobile="{{ contact.mobile }}">
-            <div class="wa-avatar {% if loop.index is odd %}status-dot{% endif %}">
-              {{ contact.name[:1]|upper }}
-            </div>
-            <div class="wa-item-content">
-              <div class="wa-item-header">
-                <div class="wa-item-name">{{ contact.name }}</div>
-                <div class="wa-item-time">{{ contact.created_at.split(' ')[1][:5] if contact.created_at else 'Now' }}</div>
-              </div>
-              <div class="wa-item-preview">{{ contact.preview or 'No messages yet' }}</div>
-              <div class="wa-item-badges">
-                <span class="wa-badge green">ISP</span>
-                {% if loop.index <= 2 %}
-                  <span class="wa-unread" style="width:auto; padding: 2px 6px; font-size: 0.65rem;">{{ loop.index }}</span>
+    <!-- Conversation list -->
+    <div class="conv-list" id="convList">
+      {% set avatar_classes = ['', 'alt-1', 'alt-2', 'alt-3', 'alt-4', 'alt-5'] %}
+      {% for contact in contacts %}
+        <a class="conv-item {% if contact.mobile == active_mobile %}active{% endif %}"
+           href="{{ url_for('whatsapp_complaints', mobile=contact.mobile) }}"
+           data-mobile="{{ contact.mobile }}"
+           data-name="{{ (contact.name or '')|lower }}">
+          <div class="conv-avatar {{ avatar_classes[loop.index0 % 6] }} {% if loop.index0 % 3 == 0 %}{% endif %}">
+            {{ (contact.name or '?')[:1]|upper }}
+            {% if loop.index0 % 4 == 0 %}<span class="conv-online-dot"></span>{% endif %}
+          </div>
+          <div class="conv-meta">
+            <div class="conv-row1">
+              <div class="conv-name">{{ contact.name or contact.mobile }}</div>
+              <div class="conv-time">
+                {% if contact.created_at %}
+                  {{ contact.created_at.split(' ')[1][:5] if ' ' in contact.created_at else contact.created_at[:5] }}
                 {% endif %}
               </div>
             </div>
-          </a>
-        {% else %}
-          <div class="wa-empty">
-            <p><i class="fas fa-inbox" style="font-size: 2rem; display: block; margin-bottom: 12px; opacity: 0.4;"></i></p>
-            <strong>No conversations yet</strong>
-            <p style="font-size: 0.85rem; margin-top: 8px;">Your WhatsApp messages will appear here</p>
-          </div>
-        {% endfor %}
-      </div>
-    </aside>
-
-    <!-- Main Chat Area -->
-    <section class="wa-main">
-      {% if active_mobile %}
-        <!-- Chat Header -->
-        <div class="wa-chat-header">
-          <div class="wa-chat-header-left">
-            <div class="wa-avatar" style="width: 48px; height: 48px;">
-              {{ active_name[:1]|upper if active_name else '?' }}
-            </div>
-            <div class="wa-chat-info">
-              <h3>{{ active_name or 'Unknown Contact' }}</h3>
-              <p>
-                <span class="wa-header-status">Online</span>
-                <span style="color: #8a8d91;"> • {{ active_mobile }}</span>
-              </p>
+            <div class="conv-preview">{{ contact.preview or 'No messages yet' }}</div>
+            <div class="conv-tags">
+              <span class="conv-tag green">Active</span>
+              <span class="conv-tag">Countrylink</span>
             </div>
           </div>
-          <div class="wa-header-actions">
-            <button class="wa-header-btn" title="Call">
-              <i class="fas fa-phone"></i>
-              <span>Call</span>
-            </button>
-            <button class="wa-header-btn" title="Assign">
-              <i class="fas fa-user-check"></i>
-              <span>Assign</span>
-            </button>
-            <button class="wa-header-btn" title="Template">
-              <i class="fas fa-file-alt"></i>
-              <span>Template</span>
-            </button>
-            <button class="wa-header-btn" title="Info">
-              <i class="fas fa-info-circle"></i>
-            </button>
-          </div>
-        </div>
-
-        <!-- Messages Area -->
-        <div class="wa-messages" id="messagesArea">
-          {% if messages %}
-            {% for msg in messages %}
-              <div class="wa-message {% if msg['direction'] == 'outbound' %}outgoing{% else %}incoming{% endif %}">
-                <div class="wa-message-bubble">
-                  {% if msg['message_type'] == 'image' and msg['media_url'] %}
-                    <img src="{{ url_for('static', filename=msg['media_url']) }}" alt="image" style="max-width: 100%; border-radius: 12px; margin-bottom: 8px;">
-                  {% elif msg['message_type'] == 'video' and msg['media_url'] %}
-                    <video style="max-width: 100%; border-radius: 12px; margin-bottom: 8px;" controls>
-                      <source src="{{ url_for('static', filename=msg['media_url']) }}">
-                    </video>
-                  {% elif msg['message_type'] == 'audio' and msg['media_url'] %}
-                    <audio style="width: 100%; margin-bottom: 8px;" controls>
-                      <source src="{{ url_for('static', filename=msg['media_url']) }}">
-                    </audio>
-                  {% elif msg['message_type'] == 'document' and msg['media_url'] %}
-                    <a href="{{ url_for('static', filename=msg['media_url']) }}" target="_blank" class="wa-header-btn" style="display: inline-flex;">
-                      <i class="fas fa-file"></i> {{ msg['file_name'] or 'Document' }}
-                    </a>
-                  {% endif %}
-                  <p style="margin: 0;">{{ msg['text'] or (msg['message_type']|title + ' message') }}</p>
-                </div>
-                <div class="wa-message-time">{{ msg['created_at'].split(' ')[1][:5] if msg['created_at'] else '' }}</div>
-              </div>
-            {% endfor %}
-          {% else %}
-            <div class="wa-empty-state">
-              <div class="wa-empty-state-icon">
-                <i class="fas fa-comment-dots"></i>
-              </div>
-              <h3>No messages yet</h3>
-              <p>Start a conversation by typing your message below</p>
-            </div>
+          {% if loop.index0 < 2 %}
+            <span class="conv-unread">{{ loop.index0 + 1 }}</span>
           {% endif %}
-        </div>
-
-        <!-- Quick Replies -->
-        <div class="wa-input-area">
-          <div class="wa-quick-replies">
-            <button class="wa-quick-reply" data-text="Hi, this is CountryLink support. How can we help?">Greeting</button>
-            <button class="wa-quick-reply" data-text="Please share your customer ID">Ask ID</button>
-            <button class="wa-quick-reply" data-text="We'll get back to you shortly">Status Update</button>
-            <button class="wa-quick-reply" data-text="Thank you for contacting us">Thank You</button>
-          </div>
-        </div>
-
-        <!-- Message Input -->
-        <div class="wa-input-area">
-          <div class="wa-input-container">
-            <div class="wa-input-actions">
-              <button class="wa-action-btn" title="Emoji" id="emojiBtn">
-                <i class="fas fa-smile"></i>
-              </button>
-              <button class="wa-action-btn" title="Attach" id="attachBtn">
-                <i class="fas fa-paperclip"></i>
-              </button>
-              <input type="file" id="fileInput" style="display: none;">
-            </div>
-            <textarea class="wa-input" id="messageInput" placeholder="Type your message..." rows="1"></textarea>
-            <button class="wa-send-btn" id="sendBtn" title="Send">
-              <i class="fas fa-paper-plane"></i>
-            </button>
-          </div>
-        </div>
+        </a>
       {% else %}
-        <!-- Empty State -->
-        <div class="wa-empty-state">
-          <div class="wa-empty-state-icon">
-            <i class="fab fa-whatsapp"></i>
-          </div>
-          <h3>Welcome to WhatsApp Inbox</h3>
-          <p>Select a conversation from the left sidebar to start messaging</p>
+        <div class="conv-empty">
+          <i class="fab fa-whatsapp"></i>
+          <h4>No conversations yet</h4>
+          <p>New WhatsApp messages will appear here in real time</p>
         </div>
-      {% endif %}
-    </section>
-  </div>
-</main>
+      {% endfor %}
+    </div>
+  </aside>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-  // Enhanced WhatsApp Inbox Functionality
-  document.addEventListener('DOMContentLoaded', function() {
-    const messageInput = document.getElementById('messageInput');
-    const sendBtn = document.getElementById('sendBtn');
-    const messagesArea = document.getElementById('messagesArea');
-    const attachBtn = document.getElementById('attachBtn');
-    const fileInput = document.getElementById('fileInput');
-    const searchInput = document.getElementById('searchInput');
-    const filterTabs = document.querySelectorAll('.wa-filter-tab');
-    const quickReplies = document.querySelectorAll('.wa-quick-reply');
+  <!-- ── MAIN CHAT ──────────────────────────────────────── -->
+  <main class="wa-main relative" id="waMain">
 
-    // Auto-resize textarea
-    if (messageInput) {
-      messageInput.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = Math.min(this.scrollHeight, 100) + 'px';
-      });
-
-      // Send on Enter (Ctrl+Enter for new line)
-      messageInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
-          e.preventDefault();
-          sendMessage();
-        }
-      });
-    }
-
-    // Send Button Click
-    if (sendBtn) {
-      sendBtn.addEventListener('click', sendMessage);
-    }
-
-    function sendMessage() {
-      const message = messageInput?.value.trim();
-      if (message) {
-        // Add message to UI
-        const msgDiv = document.createElement('div');
-        msgDiv.className = 'wa-message outgoing';
-        msgDiv.innerHTML = `
-          <div class="wa-message-bubble">${message}</div>
-          <div class="wa-message-time">Now</div>
-        `;
-        if (messagesArea) {
-          messagesArea.appendChild(msgDiv);
-          messagesArea.scrollTop = messagesArea.scrollHeight;
-        }
-        messageInput.value = '';
-        messageInput.style.height = 'auto';
-      }
-    }
-
-    // Attach File
-    if (attachBtn) {
-      attachBtn.addEventListener('click', () => fileInput?.click());
-    }
-
-    // Quick Replies
-    quickReplies.forEach(btn => {
-      btn.addEventListener('click', function() {
-        if (messageInput) {
-          messageInput.value = this.dataset.text;
-          messageInput.focus();
-        }
-      });
-    });
-
-    // Search Conversations
-    if (searchInput) {
-      searchInput.addEventListener('input', function(e) {
-        const query = e.target.value.toLowerCase();
-        document.querySelectorAll('.wa-item').forEach(item => {
-          const name = item.querySelector('.wa-item-name')?.textContent.toLowerCase() || '';
-          const preview = item.querySelector('.wa-item-preview')?.textContent.toLowerCase() || '';
-          item.style.display = (name.includes(query) || preview.includes(query)) ? '' : 'none';
-        });
-      });
-    }
-
-    // Filter Tabs
-    filterTabs.forEach(tab => {
-      tab.addEventListener('click', function() {
-        filterTabs.forEach(t => t.classList.remove('active'));
-        this.classList.add('active');
-        // Filter logic can be implemented here
-      });
-    });
-
-    // Scroll messages to bottom
-    if (messagesArea) {
-      setTimeout(() => {
-        messagesArea.scrollTop = messagesArea.scrollHeight;
-      }, 100);
-    }
-  });
-</script>
-{% endblock %}
-        <div class="wa-brand">
-          <div class="wa-brand-mark"><i class="fab fa-whatsapp"></i></div>
-          <div class="min-w-0">
-            <div class="wa-brand-title">CountryLink Inbox</div>
-            <div class="wa-brand-subtitle">Broadband support command center</div>
-          </div>
+    {% if active_mobile %}
+    <!-- Chat Header -->
+    <header class="chat-header">
+      <div class="chat-header-left">
+        <div class="conv-avatar {% if loop is defined %}{{ avatar_classes[0] }}{% endif %}" style="width:44px;height:44px;border-radius:12px;font-size:16px;">
+          {{ (active_name or '?')[:1]|upper }}
         </div>
-        <button class="btn btn-sm wa-new-chat-btn" id="newConversationBtn" title="New conversation" aria-label="Start new conversation">
-          <i data-lucide="square-pen"></i>
+        <div class="chat-header-info">
+          <h3>{{ active_name or 'Unknown Contact' }}</h3>
+          <p>
+            <span class="online-pill">Online</span>
+            <span>•</span>
+            <span style="font-family:'DM Mono',monospace;">{{ active_mobile }}</span>
+          </p>
+        </div>
+      </div>
+      <div class="chat-header-actions">
+        <span class="poll-badge" id="pollBadge">
+          <span class="poll-dot" id="pollDot"></span>
+          <span id="pollText">Connecting</span>
+        </span>
+        <button class="hdr-btn" title="Call"><i class="fas fa-phone"></i> <span>Call</span></button>
+        <button class="hdr-btn" title="Assign"><i class="fas fa-user-check"></i> <span>Assign</span></button>
+        <button class="hdr-btn" id="templateBtn" title="Send Template">
+          <i class="fas fa-file-lines"></i> <span>Template</span>
+        </button>
+        <button class="hdr-btn" id="interactiveBtn" title="Interactive">
+          <i class="fas fa-sitemap"></i> <span>Interactive</span>
+        </button>
+        <button class="hdr-btn" onclick="openCommandPalette()" title="Commands (Ctrl+K)">
+          <i class="fas fa-terminal"></i>
         </button>
       </div>
+    </header>
 
-      <div class="wa-sidebar-stats" aria-label="Inbox stats">
-        <div class="wa-stat-card"><div class="wa-stat-value">{{ contacts|length }}</div><div class="wa-stat-label">Chats</div></div>
-        <div class="wa-stat-card"><div class="wa-stat-value">Live</div><div class="wa-stat-label">Webhook</div></div>
-        <div class="wa-stat-card"><div class="wa-stat-value">24/7</div><div class="wa-stat-label">Support</div></div>
-      </div>
+    {% if not config_ready %}
+    <div class="alert-strip">
+      <i class="fas fa-triangle-exclamation"></i>
+      Configure <strong>META_ACCESS_TOKEN</strong>, <strong>PHONE_NUMBER_ID</strong> and <strong>WABA_ID</strong> to enable message sending.
+    </div>
+    {% endif %}
 
-      <div class="wa-search">
-        <i data-lucide="search"></i>
-        <input id="chatSearch" class="form-control form-control-sm" type="text" placeholder="Search customers, mobiles, tags…" aria-label="Search chats">
-      </div>
+    <!-- Messages -->
+    <div class="chat-body" id="chatBody"
+         data-last-message-id="{{ messages[-1]['id'] if messages else 0 }}">
 
-      <div class="wa-filter-tabs" role="tablist" aria-label="Conversation filters">
-        <button class="wa-filter-tab active" type="button" data-filter="all">All</button>
-        <button class="wa-filter-tab" type="button" data-filter="unread">Unread</button>
-        <button class="wa-filter-tab" type="button" data-filter="assigned">Assigned</button>
-        <button class="wa-filter-tab" type="button" data-filter="templates">Templates</button>
-        <button class="wa-filter-tab" type="button" data-filter="groups">Groups</button>
-      </div>
+      {% if messages %}
+        <div class="date-sep"><span>Today</span></div>
+      {% endif %}
 
-      <div class="wa-list" id="chatList" tabindex="0">
-        {% for contact in contacts %}
-          <a class="wa-item {% if contact.mobile == active_mobile %}active{% endif %}" href="{{ url_for('whatsapp_complaints', mobile=contact.mobile) }}" data-mobile="{{ contact.mobile }}" data-name="{{ contact.name|lower }}" data-tags="support broadband" data-filter-state="assigned">
-            <div class="wa-avatar-wrap">
-              <div class="wa-avatar">{{ contact.name[:1]|upper }}</div>
-              <span class="wa-status-dot {{ 'online' if loop.index is odd else '' }}" aria-hidden="true"></span>
+      {% for msg in messages %}
+      <div class="msg-row {{ 'outbound' if msg['direction'] == 'outbound' else 'incoming' }}"
+           data-message-id="{{ msg['id'] }}">
+
+        {% if msg['direction'] == 'inbound' %}
+          <div class="msg-sender-name">{{ msg['name'] or active_name or 'Customer' }}</div>
+        {% endif %}
+
+        <div class="msg-bubble">
+          {# Location #}
+          {% if msg['message_type'] == 'location' and msg['latitude'] is not none and msg['longitude'] is not none %}
+            <div class="msg-location-wrap">
+              <iframe class="msg-location-frame"
+                      src="https://maps.google.com/maps?q={{ msg['latitude'] }},{{ msg['longitude'] }}&z=15&output=embed"
+                      loading="lazy"></iframe>
+              <a class="msg-location-link"
+                 href="https://www.google.com/maps/search/?api=1&query={{ msg['latitude'] }},{{ msg['longitude'] }}"
+                 target="_blank" rel="noopener">
+                <i class="fas fa-map-pin"></i> Open in Google Maps
+              </a>
             </div>
-            <div class="wa-item-meta">
-              <div class="wa-item-top">
-                <div class="wa-name">{{ contact.name }}</div>
-                <div class="wa-time">{{ contact.created_at.split(' ')[1][:5] if contact.created_at }}</div>
-              </div>
-              <div class="wa-preview">{{ contact.preview }}</div>
-              <div class="wa-contact-tags">
-                {% if loop.index == 1 %}<span class="wa-pin"><i class="fas fa-thumbtack"></i></span>{% endif %}
-                <span class="wa-mini-tag green">ISP</span>
-                <span class="wa-mini-tag">Support</span>
-              </div>
-            </div>
-            {% if loop.index <= 2 %}<span class="wa-unread" aria-label="Unread messages">{{ loop.index }}</span>{% endif %}
-          </a>
-        {% else %}
-          <div class="wa-empty">
-            <div class="wa-skeleton-line"></div>
-            <div class="wa-skeleton-line" style="width:70%;margin-inline:auto"></div>
-            <strong>No chats yet.</strong><br>
-            <span>New WhatsApp conversations will appear here in real time.</span>
-          </div>
-        {% endfor %}
-      </div>
-    </aside>
+          {% endif %}
 
-    <section class="wa-main chat-container" aria-label="Active conversation">
-      <div class="wa-head">
-        <div class="wa-customer-mini">
-          <div class="wa-avatar-wrap">
-            <div class="wa-avatar">{{ active_name[:1]|upper if active_name else '?' }}</div>
-            <span class="wa-status-dot online" aria-hidden="true"></span>
-          </div>
-          <div class="min-w-0">
-            <div class="wa-active-name" id="activeName">{{ active_name or 'Select a chat' }}</div>
-            <div class="wa-active-meta">
-              <span id="activeMobile">{{ active_mobile or 'No active conversation' }}</span>
-              <span class="wa-status-chip"><span class="poll-status-dot online"></span> Customer profile ready</span>
-            </div>
+          {# Media #}
+          {% if msg['message_type'] == 'image' and msg['media_url'] %}
+            <img class="msg-media" data-type="image"
+                 src="{{ url_for('static', filename=msg['media_url']) }}"
+                 alt="Image" loading="lazy">
+          {% elif msg['message_type'] == 'video' and msg['media_url'] %}
+            <video class="msg-media" data-type="video"
+                   src="{{ url_for('static', filename=msg['media_url']) }}"
+                   controls preload="none"></video>
+          {% elif msg['message_type'] == 'audio' and msg['media_url'] %}
+            <audio class="msg-audio" controls
+                   src="{{ url_for('static', filename=msg['media_url']) }}" preload="none"></audio>
+          {% elif msg['media_url'] %}
+            <a class="msg-doc-link"
+               href="{{ url_for('static', filename=msg['media_url']) }}"
+               target="_blank" rel="noopener">
+              <i class="fas fa-file"></i>
+              {{ msg['file_name'] or 'Attachment' }}
+            </a>
+          {% endif %}
+
+          {# Text #}
+          <p class="msg-text">{{ msg['text'] or ('📋 Template message' if msg['message_type'] == 'template' else '🔘 Interactive message') }}</p>
+
+          {# Error #}
+          {% if msg['error_reason'] %}
+            <div class="msg-error-chip"><i class="fas fa-circle-exclamation"></i> {{ msg['error_reason'] }}</div>
+          {% endif %}
+
+          {# Footer: time + status #}
+          <div class="msg-footer">
+            {% if msg['delivery_status'] %}
+              <span class="msg-status-chip">{{ msg['delivery_status'] }}</span>
+            {% endif %}
+            <span class="msg-time">
+              {% if msg['created_at'] and ' ' in msg['created_at'] %}
+                {{ msg['created_at'].split(' ')[1][:5] }}
+              {% endif %}
+            </span>
+            {% if msg['direction'] == 'outbound' %}
+              {% if msg['delivery_status'] == 'read' %}
+                <i class="fas fa-check-double msg-status-icon read"></i>
+              {% elif msg['delivery_status'] in ['delivered', 'sent', 'accepted'] %}
+                <i class="fas fa-check-double msg-status-icon"></i>
+              {% else %}
+                <i class="fas fa-check msg-status-icon"></i>
+              {% endif %}
+            {% endif %}
           </div>
         </div>
-        <div class="wa-head-actions" aria-label="Conversation quick actions">
-          <span class="poll-status" id="pollStatus" title="Inbox connection status">
-            <span class="poll-status-dot" id="pollStatusDot"></span>
-            <span id="pollStatusText">Connecting</span>
-          </span>
-          <button class="btn btn-sm wa-action-btn" type="button" title="Call customer"><i data-lucide="phone"></i> <span>Call</span></button>
-          <button class="btn btn-sm wa-action-btn" type="button" title="Assign conversation"><i data-lucide="user-check"></i> <span>Assign</span></button>
-          <button class="btn btn-sm wa-action-btn" type="button" title="Open notes"><i data-lucide="notebook-pen"></i> <span>Notes</span></button>
-          <label class="volume" id="notifyToggle" title="Notification sound: ON" aria-label="Toggle notification sound">
-            <input type="checkbox" id="notifyToggleInput" checked>
-            <svg viewBox="0 0 108 96">
-              <path d="M7,28 L35,28 L35,28 L59,8 L59,88 L35,68 L7,68 C4.790861,68 3,66.209139 3,64 L3,32 C3,29.790861 4.790861,28 7,28 Z"></path>
-              <path d="M79,62 C83,57.3333333 85,52.6666667 85,48 C85,43.3333333 83,38.6666667 79,34 L49,3"></path>
-              <path d="M95,69 C101.666667,61.6666667 105,54.3333333 105,47 C105,39.6666667 101.666667,32.3333333 95,25 L75.5,6 L49,33"></path>
-            </svg>
+      </div>
+      {% else %}
+        <div class="chat-empty" id="chatEmptyHint">
+          <div class="chat-empty-icon"><i class="fab fa-whatsapp"></i></div>
+          <h3>No messages yet</h3>
+          <p>Start the conversation by sending a message or template below</p>
+        </div>
+      {% endfor %}
+
+      <div class="typing-indicator" id="typingIndicator">
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+      </div>
+    </div>
+
+    <!-- Scroll to bottom -->
+    <button class="scroll-btn" id="scrollBtn"><i class="fas fa-chevron-down"></i></button>
+
+    <!-- Compose -->
+    <div class="chat-compose">
+      <div class="compose-chips">
+        <button class="compose-chip" data-insert="Hi! This is CountryLink Broadband support. How can we help you today? 😊">👋 Greeting</button>
+        <button class="compose-chip" data-insert="Please share your customer ID or registered mobile number.">🔍 Ask Customer ID</button>
+        <button class="compose-chip" data-insert="We're checking your connection status and will update you shortly.">📡 Status Update</button>
+        <button class="compose-chip" data-insert="Thank you for contacting CountryLink Broadband. Have a great day!">✅ Thank You</button>
+        <button class="compose-chip" id="cmdChip"><i class="fas fa-terminal" style="font-size:11px;"></i> Commands</button>
+      </div>
+
+      <div class="attach-preview" id="attachPreview">
+        <i class="fas fa-paperclip"></i>
+        <span class="attach-name" id="attachName">file.jpg</span>
+        <i class="fas fa-xmark attach-remove" id="attachRemove"></i>
+      </div>
+
+      <form id="chatForm">
+        <input type="hidden" name="mobile" value="{{ active_mobile or '' }}">
+        <div class="compose-row">
+          <button type="button" class="compose-action" id="emojiBtn" title="Emoji">
+            <i class="fas fa-face-smile"></i>
+          </button>
+          <label class="compose-action attach-label" for="attachment" title="Attach file">
+            <i class="fas fa-paperclip"></i>
           </label>
-          <button class="btn btn-sm" id="templateBtn" {% if not active_mobile %}disabled{% endif %}><i data-lucide="file-text"></i> <span>Template</span></button>
-          <button class="btn btn-sm" id="interactiveBtn" {% if not active_mobile %}disabled{% endif %}><i data-lucide="workflow"></i> <span>Interactive</span></button>
-          <button class="btn btn-sm" id="infoPanelBtn" {% if not active_mobile %}disabled{% endif %}><i data-lucide="panel-right-open"></i> <span>CRM</span></button>
-        </div>
-      </div>
+          <input type="file" name="attachment" id="attachment">
 
-      <div class="wa-alert-strip">
-        {% if not config_ready %}
-          <div class="warn"><i data-lucide="triangle-alert"></i> Configure META_ACCESS_TOKEN, PHONE_NUMBER_ID and WABA_ID to enable WhatsApp sending.</div>
-        {% endif %}
-      </div>
-
-      <div class="wa-body chat-messages" id="chatBody" data-last-message-id="{{ messages[-1]['id'] if messages else 0 }}" tabindex="0" aria-live="polite">
-        {% if messages %}
-          <div class="wa-date-separator"><span>Today</span></div>
-        {% endif %}
-        {% for msg in messages %}
-        <div class="msg-row {{ 'outbound' if msg['direction'] == 'outbound' else 'incoming' }}" data-message-id="{{ msg['id'] }}">
-          <div class="msg-bubble">
-            {% if msg['message_type'] == 'location' and msg['latitude'] is not none and msg['longitude'] is not none %}
-              <iframe class="msg-location-map" loading="lazy" src="https://maps.google.com/maps?q={{ msg['latitude'] }},{{ msg['longitude'] }}&z=15&output=embed"></iframe>
-              <a class="msg-location-link" href="https://www.google.com/maps/search/?api=1&query={{ msg['latitude'] }},{{ msg['longitude'] }}" target="_blank" rel="noopener">Open location in Maps</a>
-            {% endif %}
-            {% if msg['message_type'] == 'image' and msg['media_url'] %}<img class="msg-media msg-media-thumb" data-media-type="image" loading="lazy" src="{{ url_for('static', filename=msg['media_url']) }}" alt="image">{% endif %}
-            {% if msg['message_type'] == 'video' and msg['media_url'] %}<video class="msg-media msg-media-thumb" data-media-type="video" src="{{ url_for('static', filename=msg['media_url']) }}"></video>{% endif %}
-            {% if msg['message_type'] == 'audio' and msg['media_url'] %}<audio class="msg-audio" controls src="{{ url_for('static', filename=msg['media_url']) }}"></audio>{% endif %}
-            {% if msg['message_type'] == 'document' and msg['media_url'] %}
-              <a class="btn btn-sm btn-light" href="{{ url_for('static', filename=msg['media_url']) }}" target="_blank"><i class="fas fa-file"></i> {{ msg['file_name'] or 'Document' }}</a>
-            {% elif msg['media_url'] %}
-              <a class="btn btn-sm btn-light" href="{{ url_for('static', filename=msg['media_url']) }}" target="_blank"><i class="fas fa-paperclip"></i> Open attachment</a>
-            {% endif %}
-            <p class="msg-text">{{ msg['text'] or ('Template message' if msg['message_type'] == 'template' else 'Interactive message') }}</p>
-            {% if msg['error_reason'] %}<div class="msg-error" data-role="msg-error">{{ msg['error_reason'] }}</div>{% endif %}
-            {% if msg['delivery_status'] %}<div class="msg-status {{ 'failed' if msg['delivery_status'] == 'failed' else '' }}" data-role="msg-status">{{ msg['delivery_status']|upper }}</div>{% endif %}
-            <div class="msg-time">{{ msg['created_at'].split(' ')[1][:5] if msg['created_at'] else '' }}</div>
+          <div class="compose-box">
+            <textarea id="msgInput" name="message"
+                      placeholder="Type a message… (Enter to send, Shift+Enter for new line)"
+                      rows="1"
+                      {% if not active_mobile %}disabled{% endif %}></textarea>
           </div>
-        </div>
-        {% else %}
-          <div class="text-center text-muted mt-5" id="emptyConversationHint">
-            <div class="wa-empty mx-auto" style="max-width:420px">
-              <strong>Select or start a WhatsApp conversation.</strong><br>
-              <span>Messages, media, delivery states and support context will load here.</span>
-            </div>
-          </div>
-        {% endfor %}
-      </div>
 
-      <div class="typing-indicator" id="typingIndicator" hidden><span>Customer is typing</span><span></span><span></span><span></span></div>
-      <button class="scroll-bottom-btn" id="scrollBottomBtn" type="button" aria-label="Scroll to latest message"><i data-lucide="arrow-down"></i></button>
-
-      <div class="wa-compose chat-typebar">
-        <div class="wa-composer-tools" aria-label="Composer shortcuts">
-          <button class="wa-quick-chip" type="button" data-insert="Hi, this is CountryLink Broadband support. How can we help you today?">Greeting</button>
-          <button class="wa-quick-chip" type="button" data-insert="Please share your customer ID or registered mobile number.">Ask customer ID</button>
-          <button class="wa-quick-chip" type="button" data-open-template="1">Quick templates</button>
-          <button class="wa-quick-chip" type="button" data-insert="We are checking your connection status and will update you shortly.">Status update</button>
-          <button class="wa-quick-chip" type="button" data-command="1">Ctrl+K command palette</button>
+          <button type="submit" class="compose-send" id="sendBtn"
+                  {% if not active_mobile or not config_ready %}disabled{% endif %}>
+            <i class="fas fa-paper-plane"></i>
+          </button>
         </div>
-        <form id="chatForm" class="wa-compose-form">
-          <input type="hidden" name="mobile" value="{{ active_mobile or '' }}">
-          <button class="wa-compose-action" type="button" id="emojiBtn" title="Emoji" aria-label="Insert emoji"><i data-lucide="smile"></i></button>
-          <label class="wa-attach-btn attach-btn" for="attachment" title="Attach file" aria-label="Attach file"><i data-lucide="paperclip"></i></label>
-          <input type="file" class="wa-file-input" name="attachment" id="attachment">
-          <div class="wa-message-box">
-            <textarea id="messageInput" name="message" placeholder="Type a message… Use / for shortcuts, Ctrl+Enter to send" rows="1" {% if not active_mobile %}disabled{% endif %}></textarea>
-          </div>
-          <button class="wa-compose-action" type="button" title="Voice note" aria-label="Voice note"><i data-lucide="mic"></i></button>
-          <button class="wa-send-btn send-btn" type="submit" title="Send message" {% if not active_mobile or not config_ready %}disabled{% endif %}><i data-lucide="send-horizontal"></i></button>
-        </form>
-      </div>
-    </section>
+      </form>
+    </div>
 
-    <div class="info-panel-overlay" id="infoPanelOverlay"></div>
-    <aside class="support-panel" id="supportPanel" aria-hidden="false" aria-label="Customer CRM panel">
-      <div class="support-panel-header">
-        <div>
-          <div class="panel-header-title">Customer 360°</div>
-          <div class="small text-muted">CRM, billing, router and complaint history</div>
-        </div>
-        <button class="btn btn-sm wa-icon-btn" id="closeInfoPanelBtn" type="button" aria-label="Collapse customer panel"><i data-lucide="panel-right-close"></i></button>
-      </div>
-      <div class="support-panel-body" id="supportPanelBody">
-        <div class="section-loading">Open a customer chat to load dashboard details.</div>
-      </div>
-    </aside>
+    {% else %}
+    <!-- No active chat -->
+    <div class="chat-empty" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+      <div class="chat-empty-icon"><i class="fab fa-whatsapp"></i></div>
+      <h3>Welcome to WhatsApp Inbox</h3>
+      <p>Select a conversation from the sidebar to view messages and start responding</p>
+    </div>
+    {% endif %}
+
+  </main>
+</div>
+
+<!-- ── COMMAND PALETTE ────────────────────────────────────── -->
+<div class="cmd-overlay" id="cmdOverlay">
+  <div class="cmd-card">
+    <div class="cmd-search">
+      <i class="fas fa-magnifying-glass"></i>
+      <input type="text" id="cmdInput" placeholder="Search actions, templates, customers…">
+    </div>
+    <div class="cmd-list">
+      <div class="cmd-item" data-cmd="template"><i class="fas fa-file-lines"></i> Send template message</div>
+      <div class="cmd-item" data-cmd="interactive"><i class="fas fa-sitemap"></i> Send interactive message</div>
+      <div class="cmd-item" data-cmd="focus"><i class="fas fa-keyboard"></i> Focus message composer</div>
+      <div class="cmd-item" data-cmd="dashboard"><i class="fas fa-gauge-high"></i> Go to Dashboard</div>
+      <div class="cmd-item" data-cmd="complaints"><i class="fas fa-ticket"></i> Go to Complaints</div>
+    </div>
+    <div class="cmd-footer">
+      <span class="cmd-kbd"><kbd>Esc</kbd> Close</span>
+      <span class="cmd-kbd"><kbd>↵</kbd> Select</span>
+      <span class="cmd-kbd"><kbd>↑↓</kbd> Navigate</span>
+    </div>
   </div>
 </div>
 
-<div class="command-palette" id="commandPalette" aria-hidden="true">
-  <div class="command-card" role="dialog" aria-modal="true" aria-label="Command palette">
-    <input id="commandInput" type="text" placeholder="Search actions, templates, customers…" aria-label="Command search">
-    <div class="command-list">
-      <div class="command-item" data-command-action="template"><i data-lucide="file-text"></i> Send template message</div>
-      <div class="command-item" data-command-action="interactive"><i data-lucide="workflow"></i> Send interactive flow</div>
-      <div class="command-item" data-command-action="customer"><i data-lucide="contact"></i> Open customer CRM panel</div>
-      <div class="command-item" data-command-action="focus"><i data-lucide="message-square-text"></i> Focus message composer</div>
+<!-- ── TEMPLATE MODAL ─────────────────────────────────────── -->
+<div class="modal fade" id="templateModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-file-lines" style="color:var(--green);margin-right:8px;"></i>Send Template Message</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Template</label>
+          <select id="templateSelect" class="form-select"></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Language Code</label>
+          <input id="templateLang" class="form-control" value="en_US">
+        </div>
+        <div id="templateParamsWrap" class="row g-2"></div>
+        <div class="mt-2" style="font-size:12px;color:var(--text-3);">
+          Body placeholders like <code>&#123;&#123;1&#125;&#125;</code> will be shown as input fields above.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-success" id="sendTemplateBtn">
+          <i class="fas fa-paper-plane"></i> Send Template
+        </button>
+      </div>
     </div>
   </div>
 </div>
-<div class="modal fade" id="templateModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
-    <div class="modal-header"><h5 class="modal-title">Send template message</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body">
-      <div class="mb-3"><label class="form-label">Template</label><select id="templateSelect" class="form-select"></select></div>
-      <div class="mb-3"><label class="form-label">Language</label><input id="templateLanguage" class="form-control" value="en_US"></div>
-      <div id="templateParams" class="row g-2"></div>
-      <div class="small text-muted mt-2">Supports body placeholders like <code>{% raw %}{{1}}{% endraw %}</code>, <code>{% raw %}{{2}}{% endraw %}</code> and named placeholders from template components.</div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success" id="sendTemplateConfirm">Send template</button></div>
-  </div></div>
-</div>
 
-<div class="modal fade" id="newConversationModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg"><div class="modal-content">
-    <div class="modal-header"><h5 class="modal-title">New conversation</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body">
-      <div class="small text-muted mb-3">Start a conversation by sending a WhatsApp template message.</div>
-      <div class="mb-3"><label class="form-label">Recipient phone number</label><input id="newConvMobile" class="form-control" placeholder="+1234567890"></div>
-      <div class="mb-3"><label class="form-label">Template</label><select id="newConvTemplateSelect" class="form-select"></select></div>
-      <div class="mb-3"><label class="form-label">Language</label><input id="newConvTemplateLanguage" class="form-control" value="en_US"></div>
-      <div id="newConvTemplateParams" class="row g-2"></div>
-    </div>
-    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success" id="startConversationConfirm"><i class="fas fa-paper-plane"></i> Start conversation</button></div>
-  </div></div>
-</div>
-
-<div class="modal fade" id="interactiveModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg"><div class="modal-content">
-    <div class="modal-header"><h5 class="modal-title">Send interactive message</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body">
-      <ul class="nav nav-pills nav-fill mb-3" id="interactiveTypeTabs">
-        <li class="nav-item"><button class="nav-link active" type="button" data-type="button">Buttons</button></li>
-        <li class="nav-item"><button class="nav-link" type="button" data-type="list">List</button></li>
-        <li class="nav-item"><button class="nav-link" type="button" data-type="cta_url">CTA URL</button></li>
-        <li class="nav-item"><button class="nav-link" type="button" data-type="flow">Flow</button></li>
-      </ul>
-      <div class="mb-2"><label class="form-label">Header (optional)</label><input id="interactiveHeader" class="form-control" maxlength="60"></div>
-      <div class="mb-2"><label class="form-label">Body</label><textarea id="interactiveBody" class="form-control" rows="3" maxlength="1024"></textarea></div>
-      <div class="mb-2"><label class="form-label">Footer (optional)</label><input id="interactiveFooter" class="form-control" maxlength="60"></div>
-
-      <div id="interactiveButtonsPane" class="interactive-pane">
-        <div id="interactiveButtons"></div>
-        <button class="btn btn-sm btn-outline-secondary mt-2" id="addBtnRow" type="button">+ Add button</button>
-        <div class="small text-muted mt-2">1-3 buttons, each title max 20 chars.</div>
+<!-- ── NEW CONVERSATION MODAL ─────────────────────────────── -->
+<div class="modal fade" id="newConvModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-plus" style="color:var(--green);margin-right:8px;"></i>New Conversation</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-
-      <div id="interactiveListPane" class="interactive-pane d-none">
-        <div class="mb-2"><label class="form-label">List button text</label><input id="listButtonText" class="form-control" maxlength="20" placeholder="View options"></div>
-        <div id="listSectionsWrap"></div>
-        <button class="btn btn-sm btn-outline-secondary mt-2" id="addSectionBtn" type="button">+ Add section</button>
-        <div class="small text-muted mt-2">Max 10 rows across all sections.</div>
-      </div>
-
-      <div id="interactiveCtaPane" class="interactive-pane d-none">
-        <div class="mb-2"><label class="form-label">Button text</label><input id="ctaButtonText" class="form-control" maxlength="20" placeholder="Visit website"></div>
-        <div class="mb-2"><label class="form-label">Button URL</label><input id="ctaButtonUrl" class="form-control" placeholder="https://example.com"></div>
-      </div>
-
-      <div id="interactiveFlowPane" class="interactive-pane d-none">
-        <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
-          <label class="form-label mb-0">Flow</label>
-          <button class="btn btn-sm btn-outline-secondary" id="syncFlowsBtn" type="button">Sync flows</button>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Recipient Phone</label>
+          <input id="newConvPhone" class="form-control" placeholder="+91XXXXXXXXXX">
         </div>
-        <div class="mb-2"><select id="flowSelect" class="form-select"><option value="">Select flow</option></select></div>
-        <div class="small text-muted mb-2">If needed, you can still enter Flow ID manually.</div>
-        <div class="mb-2"><label class="form-label">Flow ID</label><input id="flowId" class="form-control" placeholder="Enter flow id"></div>
-        <div class="mb-2"><label class="form-label">Button text</label><input id="flowButtonText" class="form-control" maxlength="20" value="Open"></div>
+        <div class="mb-3">
+          <label class="form-label">Template</label>
+          <select id="newConvTemplate" class="form-select"></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Language Code</label>
+          <input id="newConvLang" class="form-control" value="en_US">
+        </div>
+        <div id="newConvParamsWrap" class="row g-2"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-success" id="startConvBtn">
+          <i class="fas fa-paper-plane"></i> Start Conversation
+        </button>
       </div>
     </div>
-    <div class="modal-footer"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" id="sendInteractiveConfirm">Send interactive</button></div>
-  </div></div>
+  </div>
+</div>
+
+<!-- ── INTERACTIVE MODAL ──────────────────────────────────── -->
+<div class="modal fade" id="interactiveModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-sitemap" style="color:var(--green);margin-right:8px;"></i>Interactive Message</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <ul class="nav nav-pills nav-fill mb-3" id="iTypeTabs">
+          <li class="nav-item"><button class="nav-link active" type="button" data-type="button">Buttons</button></li>
+          <li class="nav-item"><button class="nav-link" type="button" data-type="list">List</button></li>
+          <li class="nav-item"><button class="nav-link" type="button" data-type="cta_url">CTA URL</button></li>
+          <li class="nav-item"><button class="nav-link" type="button" data-type="flow">Flow</button></li>
+        </ul>
+        <div class="mb-2"><label class="form-label">Header (optional)</label><input id="iHeader" class="form-control" maxlength="60"></div>
+        <div class="mb-2"><label class="form-label">Body <span style="color:var(--red)">*</span></label><textarea id="iBody" class="form-control" rows="3" maxlength="1024"></textarea></div>
+        <div class="mb-2"><label class="form-label">Footer (optional)</label><input id="iFooter" class="form-control" maxlength="60"></div>
+
+        <!-- Button pane -->
+        <div id="paneButton" class="interactive-pane">
+          <div id="btnRows"></div>
+          <button class="btn btn-sm btn-outline-secondary mt-1" id="addBtnRow" type="button"><i class="fas fa-plus"></i> Add button</button>
+          <div style="font-size:11.5px;color:var(--text-3);margin-top:6px;">1–3 buttons, max 20 chars each.</div>
+        </div>
+
+        <!-- List pane -->
+        <div id="paneList" class="interactive-pane d-none">
+          <div class="mb-2"><label class="form-label">List button text</label><input id="listBtnText" class="form-control" maxlength="20" placeholder="View options"></div>
+          <div id="listSections"></div>
+          <button class="btn btn-sm btn-outline-secondary mt-1" id="addSection" type="button"><i class="fas fa-plus"></i> Add section</button>
+        </div>
+
+        <!-- CTA URL pane -->
+        <div id="paneCta" class="interactive-pane d-none">
+          <div class="mb-2"><label class="form-label">Button text</label><input id="ctaText" class="form-control" maxlength="20" placeholder="Visit website"></div>
+          <div class="mb-2"><label class="form-label">URL</label><input id="ctaUrl" class="form-control" placeholder="https://"></div>
+        </div>
+
+        <!-- Flow pane -->
+        <div id="paneFlow" class="interactive-pane d-none">
+          <div class="mb-2 d-flex justify-content-between align-items-end gap-2">
+            <div style="flex:1"><label class="form-label">Flow</label><select id="flowSelect" class="form-select"><option value="">Select flow</option></select></div>
+            <button class="btn btn-sm btn-outline-secondary mb-0" id="syncFlowsBtn" type="button">Sync flows</button>
+          </div>
+          <div class="mb-2"><label class="form-label">Flow ID (manual)</label><input id="flowId" class="form-control"></div>
+          <div class="mb-2"><label class="form-label">Button text</label><input id="flowBtnText" class="form-control" maxlength="20" value="Open"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-success" id="sendInteractiveBtn"><i class="fas fa-paper-plane"></i> Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MEDIA VIEWER ───────────────────────────────────────── -->
+<div class="modal fade" id="mediaModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content" style="background:#111;border:none;">
+      <div class="modal-header" style="border-bottom:1px solid #333;background:#111;">
+        <h5 class="modal-title" style="color:#fff;font-size:14px;">Attachment</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="media-viewer-body" id="mediaViewerContent"></div>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-<div class="modal fade" id="mediaViewerModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered media-viewer-dialog"><div class="modal-content">
-    <div class="modal-header"><h5 class="modal-title">Attachment viewer</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body media-viewer-body" id="mediaViewerContent"></div>
-  </div></div>
-</div>
-
 <script>
 (() => {
-  const activeMobile = '{{ active_mobile or "" }}';
-  const apiUrl = '{{ url_for("whatsapp_messages_api") }}';
-  const pageUrl = '{{ url_for("whatsapp_complaints") }}';
-  const sendUrl = '{{ url_for("send_whatsapp") }}';
-  const templateListUrl = '{{ url_for("whatsapp_templates_api") }}';
-  const sendTemplateUrl = '{{ url_for("send_whatsapp_template_api") }}';
-  const sendInteractiveUrl = '{{ url_for("send_whatsapp_interactive_api") }}';
-  const flowsUrl = '{{ url_for("whatsapp_flows_api") }}';
-  const syncFlowsUrl = '{{ url_for("sync_whatsapp_flows_api") }}';
-  const staticBase = '{{ url_for("static", filename="") }}';
+'use strict';
 
-  const chatBody = document.getElementById('chatBody');
-  const chatList = document.getElementById('chatList');
-  const chatForm = document.getElementById('chatForm');
-  const messageInput = document.getElementById('messageInput');
-  const emptyConversationHint = document.getElementById('emptyConversationHint');
-  const search = document.getElementById('chatSearch');
-  const activeNameEl = document.getElementById('activeName');
-  const activeMobileEl = document.getElementById('activeMobile');
-  const notifyToggle = document.getElementById('notifyToggle');
-  const notifyToggleInput = document.getElementById('notifyToggleInput');
-  const pollStatusDot = document.getElementById('pollStatusDot');
-  const pollStatusText = document.getElementById('pollStatusText');
-  const newConversationBtn = document.getElementById('newConversationBtn');
-  const templateBtn = document.getElementById('templateBtn');
-  const interactiveBtn = document.getElementById('interactiveBtn');
-  const mediaViewerModalEl = document.getElementById('mediaViewerModal');
-  const mediaViewerContent = document.getElementById('mediaViewerContent');
-  const filterTabs = document.querySelectorAll('.wa-filter-tab');
-  const quickChips = document.querySelectorAll('.wa-quick-chip');
-  const emojiBtn = document.getElementById('emojiBtn');
-  const scrollBottomBtn = document.getElementById('scrollBottomBtn');
-  const commandPalette = document.getElementById('commandPalette');
-  const commandInput = document.getElementById('commandInput');
-  const waShell = document.querySelector('.wa-shell');
-  let activeConversationFilter = 'all';
-  const renderedMessageIds = [...document.querySelectorAll('#chatBody .msg-row[data-message-id]')]
-    .map((el) => Number(el.dataset.messageId))
-    .filter((value) => Number.isFinite(value) && value > 0)
-    .sort((a, b) => a - b);
-  // Initialize cursors from DOM-rendered rows (single source of truth), not from
-  // data attributes that can become stale after template changes.
-  let lastMessageId = renderedMessageIds.length ? renderedMessageIds[renderedMessageIds.length - 1] : 0;
-  let lastInboxMessageId = lastMessageId;
-  let templates = [];
-  const notificationStorageKey = 'wa_sound_notifications_enabled';
-  const initialPref = localStorage.getItem(notificationStorageKey);
-  let notificationsEnabled = initialPref === null ? true : initialPref === '1';
-  const knownMessageIds = new Set(
-    [...document.querySelectorAll('#chatBody .msg-row[data-message-id]')]
-      .map((el) => String(el.dataset.messageId || ''))
-      .filter(Boolean)
-  );
-  knownMessageIds.forEach((id) => {
-    const asNumber = Number(id);
-    if (!Number.isNaN(asNumber)) {
-      lastMessageId = Math.max(lastMessageId, asNumber);
-      lastInboxMessageId = Math.max(lastInboxMessageId, asNumber);
-    }
-  });
-  const notifiedInboxIds = new Set(knownMessageIds);
-  let pollFailureCount = 0;
-  let pollTimer = null;
-  const pollBaseDelayMs = 5000;
-  const pollMaxDelayMs = 30000;
-  let hasUserInteracted = false;
-  const notificationSound = new Audio();
-  notificationSound.preload = 'none';
+/* ── Config ──────────────────────────────────────────────── */
+const ACTIVE_MOBILE   = '{{ active_mobile or "" }}';
+const API_URL         = '{{ url_for("whatsapp_messages_api") }}';
+const PAGE_URL        = '{{ url_for("whatsapp_complaints") }}';
+const SEND_URL        = '{{ url_for("send_whatsapp") }}';
+const TEMPLATE_URL    = '{{ url_for("whatsapp_templates_api") }}';
+const SEND_TPL_URL    = '{{ url_for("send_whatsapp_template_api") }}';
+const SEND_INT_URL    = '{{ url_for("send_whatsapp_interactive_api") }}';
+const FLOWS_URL       = '{{ url_for("whatsapp_flows_api") }}';
+const SYNC_FLOWS_URL  = '{{ url_for("sync_whatsapp_flows_api") }}';
+const STATIC_BASE     = '{{ url_for("static", filename="") }}';
+const POLL_BASE       = 5000;
+const POLL_MAX        = 30000;
 
-  const markUserInteraction = () => {
-    hasUserInteracted = true;
-  };
-  window.addEventListener('pointerdown', markUserInteraction, { once: true });
-  window.addEventListener('keydown', markUserInteraction, { once: true });
+/* ── DOM ─────────────────────────────────────────────────── */
+const $  = (id) => document.getElementById(id);
+const $q = (sel, ctx = document) => ctx.querySelector(sel);
+const $all = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 
-  const fallbackBeep = () => {
-    if (!hasUserInteracted) return;
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
+const chatBody       = $('chatBody');
+const convList       = $('convList');
+const chatForm       = $('chatForm');
+const msgInput       = $('msgInput');
+const searchInput    = $('searchInput');
+const scrollBtn      = $('scrollBtn');
+const pollDot        = $('pollDot');
+const pollText       = $('pollText');
+const attachFile     = $('attachment');
+const attachPreview  = $('attachPreview');
+const attachName     = $('attachName');
+const attachRemove   = $('attachRemove');
+const cmdOverlay     = $('cmdOverlay');
+const cmdInput       = $('cmdInput');
+const emojiBtn       = $('emojiBtn');
+const notifBtn       = $('notifBtn');
+const notifIcon      = $('notifIcon');
+const newChatBtn     = $('newChatBtn');
+const templateBtn    = $('templateBtn');
+const interactiveBtn = $('interactiveBtn');
+const cmdChip        = $('cmdChip');
+
+/* ── State ───────────────────────────────────────────────── */
+let templates = [];
+let flows = [];
+let iType = 'button';
+let pollTimer = null;
+let pollFails = 0;
+let hasInteracted = false;
+let soundEnabled = localStorage.getItem('wa_sound') !== '0';
+let knownIds = new Set(
+  $all('#chatBody .msg-row[data-message-id]').map(el => el.dataset.messageId)
+);
+let lastMsgId = Math.max(0, ...[...$all('#chatBody .msg-row[data-message-id]')].map(el => +el.dataset.messageId));
+let lastInboxId = lastMsgId;
+
+const templateModal    = new bootstrap.Modal($('templateModal'));
+const newConvModal     = new bootstrap.Modal($('newConvModal'));
+const interactiveModal = new bootstrap.Modal($('interactiveModal'));
+const mediaModal       = new bootstrap.Modal($('mediaModal'));
+
+/* ── Interaction unlock ──────────────────────────────────── */
+['pointerdown','keydown'].forEach(ev =>
+  window.addEventListener(ev, () => hasInteracted = true, { once: true })
+);
+
+/* ── Sound ───────────────────────────────────────────────── */
+const beep = () => {
+  if (!soundEnabled || !hasInteracted) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.value = 880;
+    osc.type = 'sine'; osc.frequency.value = 880;
     gain.gain.value = 0.001;
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+    osc.connect(gain); gain.connect(ctx.destination);
     osc.start();
-    gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
-    osc.stop(ctx.currentTime + 0.24);
-  };
+    gain.gain.exponentialRampToValueAtTime(0.07, ctx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.2);
+    osc.stop(ctx.currentTime + 0.22);
+  } catch(e) {}
+};
 
-  const playNotificationSound = () => {
-    if (!notificationsEnabled || !hasUserInteracted) return;
-    if (!notificationSound.src) {
-      notificationSound.src = `${staticBase}audio/whatsapp_notification.wav`;
-    }
-    notificationSound.currentTime = 0;
-    notificationSound.play().catch(() => {
-      fallbackBeep();
-    });
-  };
+const updateSoundUi = () => {
+  if (!notifIcon) return;
+  notifIcon.className = soundEnabled ? 'fas fa-bell' : 'fas fa-bell-slash';
+};
+updateSoundUi();
 
-  const setPollStatus = (isOnline, detailText = '') => {
-    if (!pollStatusDot || !pollStatusText) return;
-    pollStatusDot.classList.toggle('online', !!isOnline);
-    pollStatusText.textContent = detailText || (isOnline ? 'Live' : 'Reconnecting');
-  };
+notifBtn?.addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  localStorage.setItem('wa_sound', soundEnabled ? '1' : '0');
+  updateSoundUi();
+});
 
-  const isInboundMessage = (message) => {
-    if (typeof message?.from_me === 'boolean') {
-      return !message.from_me;
-    }
-    return message?.direction !== 'outbound';
-  };
+/* ── Helpers ─────────────────────────────────────────────── */
+const esc = v => String(v||'').replace(/[&<>'"]/g,
+  m => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));
+const fmtTime = ts => (ts && ts.includes(' ')) ? ts.split(' ')[1].slice(0,5) : (ts||'').slice(0,5);
+const nearBottom = () => chatBody && (chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight < 160);
+const scrollBottom = () => chatBody && requestAnimationFrame(() => { chatBody.scrollTop = chatBody.scrollHeight; });
+const setPoll = (live, label) => {
+  pollDot && (pollDot.classList.toggle('live', !!live));
+  pollText && (pollText.textContent = label || (live ? 'Live' : 'Reconnecting'));
+};
 
-  const setNotifyUi = () => {
-    if (!notifyToggle || !notifyToggleInput) return;
-    // For this SVG animation, checked state visually represents muted.
-    notifyToggleInput.checked = !notificationsEnabled;
-    notifyToggle.title = notificationsEnabled ? 'Notification sound: ON' : 'Notification sound: OFF';
-  };
-  setNotifyUi();
-  notifyToggleInput?.addEventListener('change', () => {
-    notificationsEnabled = !notifyToggleInput.checked;
-    localStorage.setItem(notificationStorageKey, notificationsEnabled ? '1' : '0');
-    setNotifyUi();
+/* ── Auto-resize textarea ────────────────────────────────── */
+const resizeInput = () => {
+  if (!msgInput) return;
+  msgInput.style.height = '22px';
+  msgInput.style.height = Math.min(msgInput.scrollHeight, 100) + 'px';
+};
+msgInput?.addEventListener('input', resizeInput);
+msgInput?.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatForm?.requestSubmit(); }
+});
+
+/* ── Attachment handling ─────────────────────────────────── */
+attachFile?.addEventListener('change', () => {
+  const file = attachFile.files[0];
+  if (file) {
+    attachName.textContent = file.name;
+    attachPreview.classList.add('show');
+  }
+});
+attachRemove?.addEventListener('click', () => {
+  attachFile.value = '';
+  attachPreview.classList.remove('show');
+});
+
+/* ── Quick chips ─────────────────────────────────────────── */
+$all('.compose-chip[data-insert]').forEach(chip => {
+  chip.addEventListener('click', () => {
+    if (!msgInput || msgInput.disabled) return;
+    const pos = msgInput.selectionStart ?? msgInput.value.length;
+    const end = msgInput.selectionEnd ?? msgInput.value.length;
+    msgInput.value = msgInput.value.slice(0, pos) + chip.dataset.insert + msgInput.value.slice(end);
+    msgInput.focus();
+    resizeInput();
   });
+});
+cmdChip?.addEventListener('click', openCommandPalette);
+emojiBtn?.addEventListener('click', () => {
+  if (!msgInput || msgInput.disabled) return;
+  msgInput.value += '😊';
+  msgInput.focus();
+  resizeInput();
+});
 
-  const esc = (v) => String(v || '').replace(/[&<>'"]/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));
-  const fmt = (ts) => (ts && ts.includes(' ')) ? ts.split(' ')[1].slice(0,5) : '';
-  const autoscroll = () => chatBody && (chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight < 120);
-  const scrollBottom = () => {
-    if (!chatBody) return;
-    requestAnimationFrame(() => {
-      chatBody.scrollTop = chatBody.scrollHeight;
-    });
-  };
+/* ── Search ──────────────────────────────────────────────── */
+searchInput?.addEventListener('input', () => {
+  const q = searchInput.value.toLowerCase();
+  $all('.conv-item', convList).forEach(item => {
+    const hay = (item.dataset.name || '') + ' ' + (item.dataset.mobile || '');
+    item.style.display = hay.includes(q) ? '' : 'none';
+  });
+});
 
+/* ── Filter chips ────────────────────────────────────────── */
+$all('.sb-filter-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    $all('.sb-filter-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+  });
+});
 
-  const getMapEmbedUrl = (lat, lng) => `https://maps.google.com/maps?q=${encodeURIComponent(`${lat},${lng}`)}&z=15&output=embed`;
-  const getMapExternalUrl = (lat, lng) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
+/* ── Scroll button ───────────────────────────────────────── */
+chatBody?.addEventListener('scroll', () => {
+  if (!scrollBtn) return;
+  scrollBtn.classList.toggle('show', !nearBottom());
+}, { passive: true });
+scrollBtn?.addEventListener('click', scrollBottom);
 
-  const openMediaViewer = (type, src) => {
-    if (!mediaViewerModal || !mediaViewerContent || !src) return;
-    if (type === 'image') {
-      mediaViewerContent.innerHTML = `<img class="media-viewer-image" src="${esc(src)}" alt="image">`;
-    } else if (type === 'video') {
-      mediaViewerContent.innerHTML = `<video class="media-viewer-video" controls autoplay src="${esc(src)}"></video>`;
+/* ── Media viewer ────────────────────────────────────────── */
+chatBody?.addEventListener('click', e => {
+  const media = e.target.closest('.msg-media[data-type]');
+  if (!media) return;
+  const type = media.dataset.type;
+  const src  = media.getAttribute('src');
+  const content = $('mediaViewerContent');
+  if (!content || !src) return;
+  content.innerHTML = type === 'image'
+    ? `<img class="media-viewer-img" src="${esc(src)}" alt="Image">`
+    : `<video class="media-viewer-video" controls autoplay src="${esc(src)}"></video>`;
+  mediaModal.show();
+});
+
+/* ── Render message ──────────────────────────────────────── */
+const renderMsg = m => {
+  const row = document.createElement('div');
+  row.className = `msg-row ${m.direction === 'outbound' ? 'outbound' : 'incoming'}`;
+  row.dataset.messageId = m.id;
+
+  const status = (m.delivery_status||'').toLowerCase();
+  const statusIcon = m.direction === 'outbound'
+    ? (status === 'read'
+      ? '<i class="fas fa-check-double msg-status-icon read"></i>'
+      : ['delivered','sent','accepted'].includes(status)
+        ? '<i class="fas fa-check-double msg-status-icon"></i>'
+        : '<i class="fas fa-check msg-status-icon"></i>')
+    : '';
+
+  let mediaHtml = '';
+  if (m.media_url) {
+    const src = `${STATIC_BASE}${m.media_url}`;
+    if (m.message_type === 'image') {
+      mediaHtml = `<img class="msg-media" data-type="image" src="${esc(src)}" alt="Image" loading="lazy">`;
+    } else if (m.message_type === 'video') {
+      mediaHtml = `<video class="msg-media" data-type="video" src="${esc(src)}" controls preload="none"></video>`;
+    } else if (m.message_type === 'audio') {
+      mediaHtml = `<audio class="msg-audio" controls src="${esc(src)}" preload="none"></audio>`;
     } else {
-      mediaViewerContent.innerHTML = `<a class="btn btn-primary" target="_blank" href="${esc(src)}">Open attachment</a>`;
+      mediaHtml = `<a class="msg-doc-link" href="${esc(src)}" target="_blank" rel="noopener"><i class="fas fa-file"></i>${esc(m.file_name||'Attachment')}</a>`;
     }
-    mediaViewerModal.show();
+  }
+
+  const locHtml = (m.message_type === 'location' && m.latitude != null && m.longitude != null)
+    ? `<div class="msg-location-wrap">
+         <iframe class="msg-location-frame" src="https://maps.google.com/maps?q=${m.latitude},${m.longitude}&z=15&output=embed" loading="lazy"></iframe>
+         <a class="msg-location-link" href="https://www.google.com/maps/search/?api=1&query=${m.latitude},${m.longitude}" target="_blank" rel="noopener">
+           <i class="fas fa-map-pin"></i> Open in Google Maps
+         </a>
+       </div>`
+    : '';
+
+  const textContent = esc(m.text || (m.message_type === 'template' ? '📋 Template message' : m.message_type === 'interactive' ? '🔘 Interactive message' : ''));
+  const errorHtml = m.error_reason ? `<div class="msg-error-chip"><i class="fas fa-circle-exclamation"></i> ${esc(m.error_reason)}</div>` : '';
+  const statusChip = m.delivery_status ? `<span class="msg-status-chip">${esc(m.delivery_status)}</span>` : '';
+  const senderName = m.direction === 'inbound'
+    ? `<div class="msg-sender-name">${esc(m.name || 'Customer')}</div>` : '';
+
+  row.innerHTML = `
+    ${senderName}
+    <div class="msg-bubble">
+      ${locHtml}${mediaHtml}
+      <p class="msg-text">${textContent}</p>
+      ${errorHtml}
+      <div class="msg-footer">${statusChip}<span class="msg-time">${fmtTime(m.created_at)}</span>${statusIcon}</div>
+    </div>`;
+  return row;
+};
+
+/* ── Upsert message ──────────────────────────────────────── */
+const upsertMsg = m => {
+  const existing = chatBody?.querySelector(`[data-message-id="${m.id}"]`);
+  if (!existing) {
+    const emptyHint = $('chatEmptyHint');
+    emptyHint?.remove();
+    chatBody.appendChild(renderMsg(m));
+    const idStr = String(m.id);
+    const isNew = !knownIds.has(idStr);
+    knownIds.add(idStr);
+    if (isNew) {
+      lastMsgId = Math.max(lastMsgId, +m.id || 0);
+      lastInboxId = Math.max(lastInboxId, +m.id || 0);
+    }
+    return true;
+  }
+
+  // Patch status only
+  const patchStatus = (selector, html) => {
+    let el = existing.querySelector(selector);
+    if (html && !el) {
+      el = document.createElement('div');
+      const timeEl = existing.querySelector('.msg-time');
+      timeEl ? timeEl.before(el) : existing.querySelector('.msg-bubble')?.appendChild(el);
+    }
+    if (el) el.outerHTML = html || '';
   };
 
-  const renderMessage = (m) => {
-    const row = document.createElement('div');
-    row.className = `msg-row ${m.direction === 'outbound' ? 'outbound' : 'incoming'}`;
-    row.dataset.messageId = m.id;
-    const media = m.media_url ? `${staticBase}${m.media_url}` : '';
-    let html = '';
-    if (m.message_type === 'location' && m.latitude != null && m.longitude != null) {
-      html += `<iframe class="msg-location-map" loading="lazy" src="${getMapEmbedUrl(m.latitude, m.longitude)}"></iframe>`;
-      html += `<a class="msg-location-link" target="_blank" href="${getMapExternalUrl(m.latitude, m.longitude)}">Open location in Maps</a>`;
-    }
-    if (m.message_type === 'image') html += media ? `<img class="msg-media msg-media-thumb" data-media-type="image" src="${media}" alt="image">` : '';
-    if (m.message_type === 'video') html += media ? `<video class="msg-media msg-media-thumb" data-media-type="video" src="${media}"></video>` : '';
-    if (m.message_type === 'audio') html += media ? `<audio class="msg-audio" controls src="${media}"></audio>` : '';
-    if (m.message_type === 'document') html += media ? `<a target="_blank" class="btn btn-sm btn-light" href="${media}"><i class="fas fa-file"></i> ${esc(m.file_name || 'Document')}</a>` : '';
-    if (!['image','video','audio','document','location','text','template','interactive'].includes(m.message_type) && media) html += `<a target="_blank" class="btn btn-sm btn-light" href="${media}"><i class="fas fa-paperclip"></i> Open attachment</a>`;
-    const text = esc(m.text || (m.message_type === 'template' ? 'Template message' : m.message_type === 'interactive' ? 'Interactive message' : ''));
-    const status = esc((m.delivery_status || '').toUpperCase());
-    const statusClass = (m.delivery_status || '').toLowerCase() === 'failed' ? 'failed' : '';
-    const errorText = m.error_reason ? `<div class="msg-error" data-role="msg-error">${esc(m.error_reason)}</div>` : '';
-    const statusHtml = status ? `<div class="msg-status ${statusClass}" data-role="msg-status">${status}</div>` : '';
-    html += `<p class="msg-text">${text}</p>${errorText}${statusHtml}<div class="msg-time">${fmt(m.created_at)}</div>`;
-    row.innerHTML = `<div class="msg-bubble">${html}</div>`;
-    return row;
-  };
+  const status = (m.delivery_status||'').toLowerCase();
+  const statusChip = m.delivery_status ? `<span class="msg-status-chip">${esc(m.delivery_status)}</span>` : '';
+  patchStatus('.msg-status-chip', statusChip);
 
-  const upsertMessage = (m) => {
-    const existing = chatBody?.querySelector(`[data-message-id="${m.id}"]`);
-    if (!existing) {
-      const freshRow = renderMessage(m);
-      emptyConversationHint?.remove();
-      chatBody.appendChild(freshRow);
-      const msgId = String(m.id || '');
-      // Track as known only after we have inserted the row successfully.
-      const isNew = !!msgId && !knownMessageIds.has(msgId);
-      if (msgId) knownMessageIds.add(msgId);
-      if (isNew) {
-        lastMessageId = Math.max(lastMessageId, Number(m.id) || 0);
-        lastInboxMessageId = Math.max(lastInboxMessageId, Number(m.id) || 0);
-      }
-      return true;
-    }
+  const errorChip = m.error_reason ? `<div class="msg-error-chip"><i class="fas fa-circle-exclamation"></i> ${esc(m.error_reason)}</div>` : '';
+  patchStatus('.msg-error-chip', errorChip);
 
-    // For existing rows, patch only delivery/error status fragments so we avoid
-    // expensive full bubble re-renders (media iframe/audio/video remain untouched).
-    const statusText = esc((m.delivery_status || '').toUpperCase());
-    const statusClass = (m.delivery_status || '').toLowerCase() === 'failed' ? 'failed' : '';
-    let statusEl = existing.querySelector('[data-role="msg-status"]');
-    if (statusText) {
-      if (!statusEl) {
-        statusEl = document.createElement('div');
-        statusEl.dataset.role = 'msg-status';
-        const timeEl = existing.querySelector('.msg-time');
-        if (timeEl) {
-          timeEl.before(statusEl);
-        } else {
-          existing.querySelector('.msg-bubble')?.appendChild(statusEl);
-        }
-      }
-      statusEl.className = `msg-status ${statusClass}`.trim();
-      statusEl.textContent = statusText;
-    } else if (statusEl) {
-      statusEl.remove();
-    }
+  return false;
+};
 
-    let errorEl = existing.querySelector('[data-role="msg-error"]');
-    if (m.error_reason) {
-      if (!errorEl) {
-        errorEl = document.createElement('div');
-        errorEl.className = 'msg-error';
-        errorEl.dataset.role = 'msg-error';
-        const statusOrTime = existing.querySelector('[data-role="msg-status"]') || existing.querySelector('.msg-time');
-        if (statusOrTime) {
-          statusOrTime.before(errorEl);
-        } else {
-          existing.querySelector('.msg-bubble')?.appendChild(errorEl);
-        }
-      }
-      errorEl.textContent = m.error_reason;
-    } else if (errorEl) {
-      errorEl.remove();
-    }
-    return false;
-  };
+/* ── Render contacts ─────────────────────────────────────── */
+const avatarClasses = ['', 'alt-1', 'alt-2', 'alt-3', 'alt-4', 'alt-5'];
+const renderContacts = contacts => {
+  if (!convList) return;
+  if (!contacts.length) {
+    convList.innerHTML = `<div class="conv-empty"><i class="fab fa-whatsapp"></i><h4>No conversations yet</h4><p>New WhatsApp messages will appear here in real time</p></div>`;
+    return;
+  }
+  const currentFilter = $q('.sb-filter-chip.active')?.dataset.filter || 'all';
+  const query = (searchInput?.value || '').toLowerCase();
 
-  const applyConversationFilters = () => {
-    if (!chatList) return;
-    const query = (search?.value || '').trim().toLowerCase();
-    chatList.querySelectorAll('.wa-item').forEach((item) => {
-      const haystack = `${item.dataset.name || ''} ${item.dataset.mobile || ''} ${item.dataset.tags || ''}`.toLowerCase();
-      const hasUnread = !!item.querySelector('.wa-unread');
-      const state = item.dataset.filterState || 'assigned';
-      const preview = item.querySelector('.wa-preview')?.textContent?.toLowerCase() || '';
-      const passesSearch = !query || haystack.includes(query) || preview.includes(query);
-      const passesFilter = activeConversationFilter === 'all'
-        || (activeConversationFilter === 'unread' && hasUnread)
-        || (activeConversationFilter === 'assigned' && state === 'assigned')
-        || (activeConversationFilter === 'templates' && preview.includes('template'))
-        || (activeConversationFilter === 'groups' && haystack.includes('group'));
-      item.style.display = passesSearch && passesFilter ? '' : 'none';
-    });
-  };
-
-  const renderContacts = (contacts) => {
-    if (!chatList) return;
-    chatList.innerHTML = contacts.length ? contacts.map((c, index) => {
-      const name = c.name || c.mobile || 'Unknown customer';
-      const first = esc(name.slice(0, 1).toUpperCase());
-      const isActive = c.mobile === activeMobile;
-      const unread = !isActive && index < 2 ? `<span class="wa-unread" aria-label="Unread messages">${index + 1}</span>` : '';
-      const online = index % 2 === 0 ? 'online' : '';
-      return `
-      <a class="wa-item ${isActive ? 'active' : ''}" href="${pageUrl}?mobile=${encodeURIComponent(c.mobile)}" data-mobile="${esc(c.mobile)}" data-name="${esc(name.toLowerCase())}" data-tags="support broadband" data-filter-state="assigned">
-        <div class="wa-avatar-wrap">
-          <div class="wa-avatar">${first}</div>
-          <span class="wa-status-dot ${online}" aria-hidden="true"></span>
-        </div>
-        <div class="wa-item-meta">
-          <div class="wa-item-top"><div class="wa-name">${esc(name)}</div><div class="wa-time">${fmt(c.created_at)}</div></div>
-          <div class="wa-preview">${esc(c.preview || '')}</div>
-          <div class="wa-contact-tags"><span class="wa-mini-tag green">ISP</span><span class="wa-mini-tag">Support</span></div>
+  convList.innerHTML = contacts.map((c, i) => {
+    const name = c.name || c.mobile || 'Unknown';
+    const initial = (name[0]||'?').toUpperCase();
+    const isActive = c.mobile === ACTIVE_MOBILE;
+    const cls = avatarClasses[i % 6];
+    const onlineDot = i % 4 === 0 ? '<span class="conv-online-dot"></span>' : '';
+    const unread = !isActive && i < 2 ? `<span class="conv-unread">${i+1}</span>` : '';
+    const time = fmtTime(c.created_at);
+    return `
+      <a class="conv-item ${isActive ? 'active' : ''}"
+         href="${PAGE_URL}?mobile=${encodeURIComponent(c.mobile)}"
+         data-mobile="${esc(c.mobile)}"
+         data-name="${esc(name.toLowerCase())}">
+        <div class="conv-avatar ${cls}">${initial}${onlineDot}</div>
+        <div class="conv-meta">
+          <div class="conv-row1">
+            <div class="conv-name">${esc(name)}</div>
+            <div class="conv-time">${esc(time)}</div>
+          </div>
+          <div class="conv-preview">${esc(c.preview || 'No messages yet')}</div>
+          <div class="conv-tags">
+            <span class="conv-tag green">Active</span>
+            <span class="conv-tag">Countrylink</span>
+          </div>
         </div>
         ${unread}
       </a>`;
-    }).join('') : '<div class="wa-empty"><strong>No chats yet.</strong><br><span>New WhatsApp conversations will appear here in real time.</span></div>';
-    applyConversationFilters();
-    window.lucide?.createIcons();
-  };
+  }).join('');
+};
 
+/* ── Poll ────────────────────────────────────────────────── */
+const poll = async () => {
+  const params = new URLSearchParams({ include_contacts: '1', since_inbox_id: String(lastInboxId) });
+  if (ACTIVE_MOBILE) { params.set('mobile', ACTIVE_MOBILE); params.set('since_id', String(lastMsgId)); }
+  const res = await fetch(`${API_URL}?${params}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
 
-  chatBody?.addEventListener('click', (event) => {
-    const mediaEl = event.target.closest('.msg-media-thumb');
-    if (!mediaEl) return;
-    const mediaType = mediaEl.dataset.mediaType || 'image';
-    const mediaSrc = mediaEl.getAttribute('src');
-    openMediaViewer(mediaType, mediaSrc);
-  });
+  if (data.contacts?.length) renderContacts(data.contacts);
 
-  async function poll() {
-    const q = new URLSearchParams({include_contacts: '1'});
-    q.set('since_inbox_id', String(lastInboxMessageId || 0));
-    if (activeMobile) {
-      q.set('mobile', activeMobile);
-      q.set('since_id', String(lastMessageId || 0));
-    }
-    const res = await fetch(`${apiUrl}?${q.toString()}`, {headers: {'X-Requested-With':'XMLHttpRequest'}});
-    if (!res.ok) {
-      throw new Error(`Polling failed (${res.status})`);
-    }
-    const data = await res.json();
-    if (data.contacts) renderContacts(data.contacts);
-    if (data.inbox_messages?.length) {
-      data.inbox_messages.forEach((m) => {
-        const msgId = String(m.id || '');
-        if (!msgId || notifiedInboxIds.has(msgId)) return;
-        notifiedInboxIds.add(msgId);
-        lastInboxMessageId = Math.max(lastInboxMessageId, Number(m.id) || 0);
-        if (isInboundMessage(m)) {
-          playNotificationSound();
-        }
-      });
-    }
-    if (data.last_inbox_message_id) {
-      lastInboxMessageId = Math.max(lastInboxMessageId, Number(data.last_inbox_message_id) || 0);
-    }
-    if (data.active_name) activeNameEl.textContent = data.active_name;
-    if (data.active_mobile) activeMobileEl.textContent = data.active_mobile;
-    if (data.messages?.length) {
-      const shouldAutoScroll = autoscroll();
-      let hasNewMessage = false;
-      data.messages.forEach((m) => {
-        hasNewMessage = upsertMessage(m) || hasNewMessage;
-      });
-      lastMessageId = Math.max(lastMessageId, Number(data.last_message_id) || 0);
-      if (hasNewMessage || shouldAutoScroll) scrollBottom();
-    }
+  if (data.inbox_messages?.length) {
+    data.inbox_messages.forEach(m => {
+      const idStr = String(m.id);
+      if (knownIds.has(idStr)) return;
+      knownIds.add(idStr);
+      lastInboxId = Math.max(lastInboxId, +m.id||0);
+      if (m.direction !== 'outbound') beep();
+    });
+  }
+  if (data.last_inbox_message_id) lastInboxId = Math.max(lastInboxId, +data.last_inbox_message_id||0);
 
-    pollFailureCount = 0;
-    setPollStatus(true, 'Live');
+  if (data.messages?.length) {
+    const wasNearBottom = nearBottom();
+    let hasNew = false;
+    data.messages.forEach(m => { hasNew = upsertMsg(m) || hasNew; });
+    if (data.last_message_id) lastMsgId = Math.max(lastMsgId, +data.last_message_id||0);
+    if (hasNew || wasNearBottom) scrollBottom();
   }
 
-  function scheduleNextPoll(delayMs = pollBaseDelayMs) {
-    if (pollTimer) window.clearTimeout(pollTimer);
-    pollTimer = window.setTimeout(async () => {
-      try {
-        await poll();
-        scheduleNextPoll(pollBaseDelayMs);
-      } catch (error) {
-        pollFailureCount += 1;
-        const backoffDelay = Math.min(pollBaseDelayMs * (2 ** pollFailureCount), pollMaxDelayMs);
-        setPollStatus(false, `Retrying (${Math.round(backoffDelay / 1000)}s)`);
-        scheduleNextPoll(backoffDelay);
-      }
-    }, delayMs);
-  }
+  pollFails = 0;
+  setPoll(true, 'Live');
+};
 
-  const autoSizeComposer = () => {
-    if (!messageInput) return;
-    messageInput.style.height = '40px';
-    messageInput.style.height = `${Math.min(messageInput.scrollHeight, 120)}px`;
-  };
+const schedulePoll = (delay = POLL_BASE) => {
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(async () => {
+    try { await poll(); schedulePoll(POLL_BASE); }
+    catch(e) {
+      pollFails++;
+      const backoff = Math.min(POLL_BASE * (2 ** pollFails), POLL_MAX);
+      setPoll(false, `Retry in ${Math.round(backoff/1000)}s`);
+      schedulePoll(backoff);
+    }
+  }, delay);
+};
 
-  messageInput?.addEventListener('input', autoSizeComposer);
-  messageInput?.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
-    if (e.shiftKey) return;
-    e.preventDefault();
-    chatForm?.requestSubmit();
-  });
-  autoSizeComposer();
-  if (messageInput && !messageInput.disabled) messageInput.focus();
+/* ── Send message ────────────────────────────────────────── */
+chatForm?.addEventListener('submit', async e => {
+  e.preventDefault();
+  const text = msgInput?.value.trim();
+  const file = attachFile?.files[0];
+  if (!text && !file) return;
 
-  chatForm?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const textValue = messageInput?.value || '';
-    const attachmentValue = chatForm?.querySelector('#attachment')?.files?.length || 0;
-    if (!textValue.trim() && !attachmentValue) return;
-    const fd = new FormData(chatForm);
-    fd.set('message', textValue.trim());
-    const r = await fetch(sendUrl, {method:'POST', body:fd});
-    if (!r.ok) { const p = await r.json(); alert(p.error || 'Failed to send message'); return; }
+  const fd = new FormData(chatForm);
+  fd.set('message', text || '');
+
+  try {
+    const r = await fetch(SEND_URL, { method: 'POST', body: fd });
+    if (!r.ok) { const p = await r.json(); alert(p.error || 'Failed to send'); return; }
     chatForm.reset();
-    autoSizeComposer();
-    messageInput?.focus();
+    attachPreview.classList.remove('show');
+    resizeInput();
+    msgInput?.focus();
     await poll();
-    window.lucide?.createIcons();
-    applyConversationFilters();
-    if (window.innerWidth < 1200 && !activeMobile) waShell?.classList.add('info-collapsed');
     scrollBottom();
+  } catch(e) { alert('Network error: ' + e.message); }
+});
+
+/* ── Template helpers ────────────────────────────────────── */
+const extractVars = text => {
+  if (!text) return [];
+  const seen = new Set();
+  return [...String(text).matchAll(/\{\{\s*([^}]+?)\s*\}\}/g)]
+    .map(m => m[1].trim()).filter(v => !seen.has(v) && seen.add(v));
+};
+
+const getBodyText = t => {
+  const body = (t?.components||[]).find(c => String(c?.type||'').toUpperCase() === 'BODY');
+  return body?.text || body?.body_text || '';
+};
+
+const buildParamFields = (vars, wrapId) => {
+  const wrap = $(wrapId);
+  if (!wrap) return;
+  wrap.innerHTML = vars.length
+    ? vars.map((v, i) => `<div class="col-md-6"><label class="form-label">Param ${i+1} (${esc(v)})</label><input class="form-control tpl-param" data-var="${esc(v)}"></div>`).join('')
+    : '<div class="text-muted small">No body parameters required.</div>';
+};
+
+const onTemplateChange = (selectId, langId, wrapId) => {
+  const sel = $(selectId);
+  const t = templates.find(x => x.name === sel?.value);
+  const vars = extractVars(getBodyText(t));
+  buildParamFields(vars, wrapId);
+  if ($(langId)) $(langId).value = t?.language || 'en_US';
+};
+
+const loadTemplates = async () => {
+  if (templates.length) return;
+  const r = await fetch(TEMPLATE_URL);
+  if (!r.ok) return;
+  const data = await r.json();
+  templates = (data.data||[]).filter(t => (t.status||'').toUpperCase() === 'APPROVED');
+  const opts = templates.map(t => `<option value="${esc(t.name)}">${esc(t.name)} (${esc(t.language||'en')})</option>`).join('');
+  if ($('templateSelect'))    { $('templateSelect').innerHTML    = opts || '<option value="">No templates</option>'; }
+  if ($('newConvTemplate'))   { $('newConvTemplate').innerHTML   = opts || '<option value="">No templates</option>'; }
+  onTemplateChange('templateSelect', 'templateLang', 'templateParamsWrap');
+  onTemplateChange('newConvTemplate', 'newConvLang', 'newConvParamsWrap');
+};
+
+$('templateSelect')?.addEventListener('change', () => onTemplateChange('templateSelect', 'templateLang', 'templateParamsWrap'));
+$('newConvTemplate')?.addEventListener('change', () => onTemplateChange('newConvTemplate', 'newConvLang', 'newConvParamsWrap'));
+
+templateBtn?.addEventListener('click', async () => { await loadTemplates(); templateModal.show(); });
+newChatBtn?.addEventListener('click', async () => { await loadTemplates(); newConvModal.show(); });
+
+/* ── Send template ───────────────────────────────────────── */
+$('sendTemplateBtn')?.addEventListener('click', async () => {
+  const tName = $('templateSelect')?.value;
+  if (!tName) { alert('Select a template'); return; }
+  const lang = $('templateLang')?.value || 'en_US';
+  const params = $all('#templateParamsWrap .tpl-param').map(i => i.value.trim());
+  if (params.some(v => !v)) { alert('Fill all parameters'); return; }
+  const t = templates.find(x => x.name === tName);
+  const body = { mobile: ACTIVE_MOBILE, template_name: tName, language_code: lang,
+    template_preview: getBodyText(t) || `Template: ${tName}`,
+    components: params.length ? [{ type:'body', parameters: params.map(text=>({type:'text',text})) }] : [] };
+  const r = await fetch(SEND_TPL_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  const d = await r.json();
+  if (!r.ok) { alert(d.error || 'Failed'); return; }
+  templateModal.hide();
+  await poll();
+});
+
+/* ── Start new conversation ──────────────────────────────── */
+$('startConvBtn')?.addEventListener('click', async () => {
+  const phone = ($('newConvPhone')?.value||'').replace(/\D/g,'');
+  const tName = $('newConvTemplate')?.value;
+  if (!phone) { alert('Enter recipient phone number'); return; }
+  if (!tName) { alert('Select a template'); return; }
+  const lang = $('newConvLang')?.value || 'en_US';
+  const params = $all('#newConvParamsWrap .tpl-param').map(i => i.value.trim());
+  if (params.some(v => !v)) { alert('Fill all parameters'); return; }
+  const t = templates.find(x => x.name === tName);
+  const body = { mobile: phone, template_name: tName, language_code: lang,
+    template_preview: getBodyText(t) || `Template: ${tName}`,
+    components: params.length ? [{ type:'body', parameters: params.map(text=>({type:'text',text})) }] : [] };
+  const r = await fetch(SEND_TPL_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  const d = await r.json();
+  if (!r.ok) { alert(d.error || 'Failed to start conversation'); return; }
+  newConvModal.hide();
+  window.location.href = `${PAGE_URL}?mobile=${encodeURIComponent(phone)}`;
+});
+
+/* ── Interactive message ─────────────────────────────────── */
+const setIType = type => {
+  iType = type;
+  $all('#iTypeTabs .nav-link').forEach(b => b.classList.toggle('active', b.dataset.type === type));
+  ['paneButton','paneList','paneCta','paneFlow'].forEach(id => $(id)?.classList.add('d-none'));
+  const paneMap = { button:'paneButton', list:'paneList', cta_url:'paneCta', flow:'paneFlow' };
+  $(paneMap[type])?.classList.remove('d-none');
+};
+
+$all('#iTypeTabs .nav-link').forEach(b => b.addEventListener('click', () => setIType(b.dataset.type)));
+
+const addBtnRow = (title = '') => {
+  const wrap = $('btnRows');
+  if (!wrap || wrap.querySelectorAll('.btn-row').length >= 3) return;
+  const row = document.createElement('div');
+  row.className = 'btn-row d-flex gap-2 mb-2';
+  row.innerHTML = `<span class="input-group-text" style="font-size:12px;width:28px;padding:4px 8px;">${wrap.querySelectorAll('.btn-row').length+1}</span><input class="form-control btn-title-input" maxlength="20" placeholder="Button title" value="${esc(title)}"><button class="btn btn-sm btn-outline-danger" type="button">×</button>`;
+  row.querySelector('button').addEventListener('click', () => row.remove());
+  wrap.appendChild(row);
+};
+
+$('addBtnRow')?.addEventListener('click', () => addBtnRow());
+
+const addListRow = (wrap, title='', desc='') => {
+  if (document.querySelectorAll('.list-row').length >= 10) return;
+  const row = document.createElement('div');
+  row.className = 'list-row border rounded p-2 mb-2';
+  row.innerHTML = `<input class="form-control form-control-sm mb-1" maxlength="24" placeholder="Row title" value="${esc(title)}"><input class="form-control form-control-sm" maxlength="72" placeholder="Description (optional)" value="${esc(desc)}"><button class="btn btn-sm btn-outline-danger mt-1" type="button">Remove</button>`;
+  row.querySelector('button').addEventListener('click', () => row.remove());
+  wrap.appendChild(row);
+};
+
+const addSection = (sTitle = 'Options') => {
+  const wrap = $('listSections');
+  const card = document.createElement('div');
+  card.className = 'border rounded p-2 mb-2 list-section';
+  card.innerHTML = `<div class="d-flex gap-2 mb-2"><input class="form-control form-control-sm sect-title" maxlength="24" placeholder="Section title" value="${esc(sTitle)}"><button class="btn btn-sm btn-outline-danger" type="button">Remove</button></div><div class="sect-rows"></div><button class="btn btn-sm btn-outline-secondary mt-1" type="button">+ Add row</button>`;
+  card.querySelector('.btn-outline-danger').addEventListener('click', () => card.remove());
+  const rowsWrap = card.querySelector('.sect-rows');
+  card.querySelector('.btn-outline-secondary').addEventListener('click', () => addListRow(rowsWrap));
+  wrap.appendChild(card);
+  addListRow(rowsWrap, 'Option 1');
+};
+
+$('addSection')?.addEventListener('click', () => addSection('Section'));
+
+$('flowSelect')?.addEventListener('change', () => {
+  if ($('flowId')) $('flowId').value = $('flowSelect').value;
+});
+
+const loadFlows = async (forceSync = false) => {
+  const url = forceSync ? `${FLOWS_URL}?sync=1` : FLOWS_URL;
+  const r = await fetch(url);
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || 'Failed');
+  flows = data.data || [];
+  const sel = $('flowSelect');
+  if (sel) sel.innerHTML = '<option value="">Select flow</option>' + flows.map(f =>
+    `<option value="${esc(f.id)}">${esc(f.name||f.id)} (${esc((f.status||'').toUpperCase())})</option>`).join('');
+};
+
+$('syncFlowsBtn')?.addEventListener('click', async function() {
+  this.disabled = true;
+  try { await loadFlows(true); alert(`Synced ${flows.length} flows.`); }
+  catch(e) { alert(e.message); }
+  finally { this.disabled = false; }
+});
+
+const resetInteractive = () => {
+  ['iHeader','iBody','iFooter','listBtnText','ctaText','ctaUrl','flowId'].forEach(id => { if($(id)) $(id).value = ''; });
+  if ($('flowBtnText')) $('flowBtnText').value = 'Open';
+  if ($('btnRows')) $('btnRows').innerHTML = '';
+  addBtnRow('Yes'); addBtnRow('No');
+  if ($('listSections')) $('listSections').innerHTML = '';
+  addSection('Options');
+  setIType('button');
+};
+
+interactiveBtn?.addEventListener('click', async () => {
+  resetInteractive();
+  try { await loadFlows(); } catch(e) {}
+  interactiveModal.show();
+});
+
+$('sendInteractiveBtn')?.addEventListener('click', async () => {
+  const body = $('iBody')?.value.trim();
+  if (!body) { alert('Body text is required'); return; }
+  const header = $('iHeader')?.value.trim();
+  const footer = $('iFooter')?.value.trim();
+  const payload = { mobile: ACTIVE_MOBILE, interactive_type: iType, body, header, footer };
+
+  if (iType === 'button') {
+    const titles = $all('#btnRows .btn-title-input').map(i => i.value.trim()).filter(Boolean);
+    if (!titles.length) { alert('Add at least one button'); return; }
+    payload.buttons = titles.map((title, i) => ({ id:`btn_${i+1}`, title }));
+  } else if (iType === 'list') {
+    const lbt = $('listBtnText')?.value.trim();
+    if (!lbt) { alert('List button text required'); return; }
+    const sections = $all('.list-section').map(s => ({
+      title: s.querySelector('.sect-title')?.value.trim(),
+      rows: $all('.list-row', s).map((r, ri) => ({
+        id: `row_${ri+1}_${Date.now()}`,
+        title: r.querySelectorAll('input')[0]?.value.trim(),
+        description: r.querySelectorAll('input')[1]?.value.trim()
+      })).filter(r => r.title)
+    })).filter(s => s.rows.length);
+    if (!sections.length) { alert('Add at least one row'); return; }
+    payload.list_button_text = lbt;
+    payload.sections = sections;
+  } else if (iType === 'cta_url') {
+    const text = $('ctaText')?.value.trim();
+    const url  = $('ctaUrl')?.value.trim();
+    if (!text || !url) { alert('Button text and URL required'); return; }
+    payload.button_text = text; payload.button_url = url;
+  } else if (iType === 'flow') {
+    const fid = $('flowId')?.value.trim();
+    const fbt = $('flowBtnText')?.value.trim();
+    if (!fid || !fbt) { alert('Flow ID and button text required'); return; }
+    payload.flow_id = fid; payload.button_text = fbt;
+  }
+
+  const r = await fetch(SEND_INT_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+  const d = await r.json();
+  if (!r.ok) { alert(d.error || 'Failed'); return; }
+  interactiveModal.hide();
+  await poll();
+});
+
+/* ── Command palette ─────────────────────────────────────── */
+function openCommandPalette() {
+  cmdOverlay?.classList.add('open');
+  setTimeout(() => cmdInput?.focus(), 40);
+}
+
+function closeCommandPalette() {
+  cmdOverlay?.classList.remove('open');
+}
+
+cmdOverlay?.addEventListener('click', e => { if (e.target === cmdOverlay) closeCommandPalette(); });
+
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openCommandPalette(); }
+  if (e.key === 'Escape') closeCommandPalette();
+});
+
+$all('.cmd-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const cmd = item.dataset.cmd;
+    closeCommandPalette();
+    if (cmd === 'template') templateBtn?.click();
+    else if (cmd === 'interactive') interactiveBtn?.click();
+    else if (cmd === 'focus') { msgInput?.focus(); }
+    else if (cmd === 'dashboard') window.location.href = '{{ url_for("dashboard") }}';
+    else if (cmd === 'complaints') window.location.href = '{{ url_for("complaints_page") }}';
   });
+});
+
+/* ── Init ────────────────────────────────────────────────── */
+setPoll(false, 'Connecting');
+schedulePoll(0);
+resizeInput();
+if (msgInput && !msgInput.disabled) msgInput.focus();
+scrollBottom();
 
-  search?.addEventListener('input', applyConversationFilters);
-  filterTabs.forEach((tab) => {
-    tab.addEventListener('click', () => {
-      filterTabs.forEach((item) => item.classList.remove('active'));
-      tab.classList.add('active');
-      activeConversationFilter = tab.dataset.filter || 'all';
-      applyConversationFilters();
-    });
-  });
-
-  const insertComposerText = (text) => {
-    if (!messageInput || messageInput.disabled) return;
-    const start = messageInput.selectionStart ?? messageInput.value.length;
-    const end = messageInput.selectionEnd ?? messageInput.value.length;
-    messageInput.value = `${messageInput.value.slice(0, start)}${text}${messageInput.value.slice(end)}`;
-    messageInput.focus();
-    messageInput.selectionStart = messageInput.selectionEnd = start + text.length;
-    autoSizeComposer();
-  };
-
-  quickChips.forEach((chip) => {
-    chip.addEventListener('click', () => {
-      if (chip.dataset.insert) insertComposerText(chip.dataset.insert);
-      if (chip.dataset.openTemplate) templateBtn?.click();
-      if (chip.dataset.command) openCommandPalette();
-    });
-  });
-  emojiBtn?.addEventListener('click', () => insertComposerText('😊'));
-
-  const updateScrollButton = () => {
-    if (!chatBody || !scrollBottomBtn) return;
-    const isAway = chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight > 220;
-    scrollBottomBtn.classList.toggle('show', isAway);
-  };
-  chatBody?.addEventListener('scroll', updateScrollButton, { passive: true });
-  scrollBottomBtn?.addEventListener('click', scrollBottom);
-
-  function openCommandPalette() {
-    commandPalette?.classList.add('open');
-    commandPalette?.setAttribute('aria-hidden', 'false');
-    setTimeout(() => commandInput?.focus(), 30);
-  }
-  function closeCommandPalette() {
-    commandPalette?.classList.remove('open');
-    commandPalette?.setAttribute('aria-hidden', 'true');
-  }
-  document.addEventListener('keydown', (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-      event.preventDefault();
-      openCommandPalette();
-    }
-    if (event.key === 'Escape') closeCommandPalette();
-  });
-  commandPalette?.addEventListener('click', (event) => {
-    if (event.target === commandPalette) closeCommandPalette();
-  });
-  commandPalette?.querySelectorAll('[data-command-action]').forEach((item) => {
-    item.addEventListener('click', () => {
-      const action = item.dataset.commandAction;
-      closeCommandPalette();
-      if (action === 'template') templateBtn?.click();
-      if (action === 'interactive') interactiveBtn?.click();
-      if (action === 'customer') document.getElementById('infoPanelBtn')?.click();
-      if (action === 'focus') messageInput?.focus();
-    });
-  });
-
-  chatForm?.addEventListener('dragover', (event) => {
-    event.preventDefault();
-    chatForm.classList.add('drag-over');
-  });
-  chatForm?.addEventListener('dragleave', () => chatForm.classList.remove('drag-over'));
-  chatForm?.addEventListener('drop', (event) => {
-    event.preventDefault();
-    chatForm.classList.remove('drag-over');
-    const fileInput = chatForm.querySelector('#attachment');
-    if (fileInput && event.dataTransfer?.files?.length) fileInput.files = event.dataTransfer.files;
-  });
-
-  const templateModal = new bootstrap.Modal(document.getElementById('templateModal'));
-  const interactiveModal = new bootstrap.Modal(document.getElementById('interactiveModal'));
-  const mediaViewerModal = mediaViewerModalEl ? new bootstrap.Modal(mediaViewerModalEl) : null;
-  const newConversationModal = new bootstrap.Modal(document.getElementById('newConversationModal'));
-
-  function extractPlaceholderVars(text) {
-    if (!text) return [];
-    const seen = new Set();
-    const regex = /\{\{\s*([^}]+?)\s*\}\}/g;
-    return [...String(text).matchAll(regex)]
-      .map((m) => m[1].trim())
-      .filter((v) => (v && !seen.has(v) ? (seen.add(v), true) : false));
-  }
-
-  function getTemplateBodyVars(template) {
-    const components = template?.components || [];
-    const bodyComp = components.find((c) => String(c?.type || '').toUpperCase() === 'BODY');
-    const candidateTexts = [
-      bodyComp?.text,
-      bodyComp?.body_text,
-      ...(Array.isArray(bodyComp?.example?.body_text) ? bodyComp.example.body_text : []),
-      ...(Array.isArray(template?.example?.body_text) ? template.example.body_text : []),
-    ].filter(Boolean);
-    const merged = [];
-    candidateTexts.forEach((txt) => merged.push(...extractPlaceholderVars(txt)));
-    return [...new Set(merged)];
-  }
-
-  function getTemplateBodyText(template) {
-    const components = template?.components || [];
-    const bodyComp = components.find((c) => String(c?.type || '').toUpperCase() === 'BODY');
-    return bodyComp?.text || bodyComp?.body_text || '';
-  }
-
-  function buildTemplatePreview(template, values) {
-    const bodyText = getTemplateBodyText(template);
-    if (!bodyText) return `Template: ${template?.name || ''}`.trim();
-    let rendered = String(bodyText);
-    values.forEach((value, idx) => {
-      const slotIndex = idx + 1;
-      rendered = rendered.replace(new RegExp(`\\\\{\\\\{\\\\s*${slotIndex}\\\\s*\\\\}\\\\}`, 'g'), value);
-    });
-    return rendered;
-  }
-
-  const normalizePhone = (value) => String(value || '').replace(/[^\d]/g, '');
-
-  function renderTemplateOptions(selectId) {
-    const select = document.getElementById(selectId);
-    if (!select) return;
-    select.innerHTML = templates.map((t) => `<option value="${esc(t.name)}">${esc(t.name)} (${esc(t.language || 'en_US')})</option>`).join('') || '<option value="">No approved templates</option>';
-  }
-
-  function fillTemplateParamForm({ templateSelectId, languageInputId, paramsWrapId }) {
-    const templateSelect = document.getElementById(templateSelectId);
-    const t = templates.find((x) => x.name === templateSelect.value);
-    const params = getTemplateBodyVars(t || {});
-    const wrap = document.getElementById(paramsWrapId);
-    wrap.innerHTML = params.length
-      ? params.map((p, i) => `<div class="col-md-6"><label class="form-label">Param ${i+1} (${esc(p)})</label><input class="form-control" data-param="${esc(p)}"></div>`).join('')
-      : '<div class="text-muted small">No body parameters detected.</div>';
-    document.getElementById(languageInputId).value = t?.language || 'en_US';
-  }
-
-  async function loadTemplates() {
-    if (templates.length) return;
-    const res = await fetch(templateListUrl);
-    if (!res.ok) return;
-    const payload = await res.json();
-    templates = (payload.data || []).filter((t) => (t.status || '').toUpperCase() === 'APPROVED');
-    renderTemplateOptions('templateSelect');
-    renderTemplateOptions('newConvTemplateSelect');
-    document.getElementById('templateSelect').dispatchEvent(new Event('change'));
-    document.getElementById('newConvTemplateSelect').dispatchEvent(new Event('change'));
-  }
-
-  document.getElementById('templateSelect').addEventListener('change', (e) => {
-    fillTemplateParamForm({
-      templateSelectId: 'templateSelect',
-      languageInputId: 'templateLanguage',
-      paramsWrapId: 'templateParams',
-    });
-  });
-
-  document.getElementById('newConvTemplateSelect').addEventListener('change', () => {
-    fillTemplateParamForm({
-      templateSelectId: 'newConvTemplateSelect',
-      languageInputId: 'newConvTemplateLanguage',
-      paramsWrapId: 'newConvTemplateParams',
-    });
-  });
-
-  templateBtn?.addEventListener('click', async () => { await loadTemplates(); templateModal.show(); });
-  newConversationBtn?.addEventListener('click', async () => {
-    await loadTemplates();
-    document.getElementById('newConvMobile').value = '';
-    newConversationModal.show();
-  });
-
-  document.getElementById('sendTemplateConfirm').addEventListener('click', async () => {
-    const tName = document.getElementById('templateSelect').value;
-    if (!tName) return;
-    const language = document.getElementById('templateLanguage').value || 'en_US';
-    const inputs = [...document.querySelectorAll('#templateParams [data-param]')];
-    const values = inputs.map((input) => (input.value || '').trim());
-    if (values.some((v) => !v)) {
-      alert('Please fill all required template parameters.');
-      return;
-    }
-    const bodyParams = values.map((value) => ({type:'text', text: value}));
-    const t = templates.find((x) => x.name === tName);
-    const payload = {
-      mobile: activeMobile,
-      template_name: tName,
-      language_code: language,
-      template_preview: buildTemplatePreview(t || {}, values),
-      components: bodyParams.length ? [{type:'body', parameters: bodyParams}] : []
-    };
-    const res = await fetch(sendTemplateUrl, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-    const data = await res.json();
-    if (!res.ok) { alert(data.error || 'Failed to send template'); return; }
-    templateModal.hide();
-    await poll();
-  });
-
-  document.getElementById('startConversationConfirm').addEventListener('click', async () => {
-    const mobile = normalizePhone(document.getElementById('newConvMobile').value);
-    const tName = document.getElementById('newConvTemplateSelect').value;
-    if (!mobile) {
-      alert('Recipient phone number is required.');
-      return;
-    }
-    if (!tName) {
-      alert('Template is required.');
-      return;
-    }
-    const language = document.getElementById('newConvTemplateLanguage').value || 'en_US';
-    const inputs = [...document.querySelectorAll('#newConvTemplateParams [data-param]')];
-    const values = inputs.map((input) => (input.value || '').trim());
-    if (values.some((v) => !v)) {
-      alert('Please fill all required template parameters.');
-      return;
-    }
-    const t = templates.find((x) => x.name === tName);
-    const payload = {
-      mobile,
-      template_name: tName,
-      language_code: language,
-      template_preview: buildTemplatePreview(t || {}, values),
-      components: values.length ? [{type:'body', parameters: values.map((value) => ({type:'text', text: value}))}] : []
-    };
-    const res = await fetch(sendTemplateUrl, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-    const data = await res.json();
-    if (!res.ok) {
-      if (data?.stored) {
-        alert((data.error || 'Template send failed') + '. Opening conversation for status tracking.');
-        newConversationModal.hide();
-        window.location.href = `${pageUrl}?mobile=${encodeURIComponent(data.mobile || mobile)}`;
-        return;
-      }
-      alert(data.error || 'Failed to start conversation');
-      return;
-    }
-    newConversationModal.hide();
-    window.location.href = `${pageUrl}?mobile=${encodeURIComponent(mobile)}`;
-  });
-
-  const buttonsWrap = document.getElementById('interactiveButtons');
-  const listSectionsWrap = document.getElementById('listSectionsWrap');
-  const flowSelect = document.getElementById('flowSelect');
-  const flowIdInput = document.getElementById('flowId');
-  const syncFlowsBtn = document.getElementById('syncFlowsBtn');
-  let interactiveType = 'button';
-  let flows = [];
-
-  const renderFlowOptions = () => {
-    if (!flowSelect) return;
-    const options = flows.map((flow) => {
-      const name = flow.name || flow.id;
-      const status = (flow.status || '').toUpperCase();
-      return `<option value="${esc(flow.id)}">${esc(name)}${status ? ` (${esc(status)})` : ''}</option>`;
-    }).join('');
-    flowSelect.innerHTML = '<option value="">Select flow</option>' + options;
-  };
-
-  async function loadFlows(forceSync = false) {
-    const url = forceSync ? `${flowsUrl}?sync=1` : flowsUrl;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to load flows');
-    flows = data.data || [];
-    renderFlowOptions();
-    return flows;
-  }
-
-  const reindexButtonRows = () => {
-    [...buttonsWrap.querySelectorAll('.btn-row')].forEach((row, idx) => {
-      row.querySelector('.input-group-text').textContent = String(idx + 1);
-    });
-  };
-
-  const addButtonRow = (title = '') => {
-    if (buttonsWrap.querySelectorAll('.btn-row').length >= 3) return;
-    const row = document.createElement('div');
-    row.className = 'input-group mb-2 btn-row';
-    row.innerHTML = `<span class="input-group-text"></span><input class="form-control btn-title" maxlength="20" placeholder="Button title" value="${esc(title)}"><button class="btn btn-outline-danger" type="button">×</button>`;
-    row.querySelector('button').addEventListener('click', () => { row.remove(); reindexButtonRows(); });
-    buttonsWrap.appendChild(row);
-    reindexButtonRows();
-  };
-
-  const getTotalListRows = () => document.querySelectorAll('.list-row').length;
-  const addListRow = (rowsWrap, title = '', description = '') => {
-    if (getTotalListRows() >= 10) return;
-    const row = document.createElement('div');
-    row.className = 'border rounded p-2 mb-2 list-row';
-    row.innerHTML = `
-      <input class="form-control form-control-sm mb-2 list-row-title" maxlength="24" placeholder="Row title" value="${esc(title)}">
-      <input class="form-control form-control-sm list-row-description" maxlength="72" placeholder="Description (optional)" value="${esc(description)}">
-      <button class="btn btn-sm btn-outline-danger mt-2" type="button">Remove row</button>
-    `;
-    row.querySelector('button').addEventListener('click', () => row.remove());
-    rowsWrap.appendChild(row);
-  };
-
-  const addSection = (title = 'Options') => {
-    const card = document.createElement('div');
-    card.className = 'border rounded p-2 mb-2 list-section';
-    card.innerHTML = `
-      <div class="d-flex gap-2 mb-2">
-        <input class="form-control form-control-sm list-section-title" maxlength="24" placeholder="Section title" value="${esc(title)}">
-        <button class="btn btn-sm btn-outline-danger" type="button">Remove section</button>
-      </div>
-      <div class="list-rows-wrap"></div>
-      <button class="btn btn-sm btn-outline-secondary mt-2" type="button">+ Add row</button>
-    `;
-    const removeBtn = card.querySelector('.btn-outline-danger');
-    const addRowBtn = card.querySelector('.btn-outline-secondary');
-    const rowsWrap = card.querySelector('.list-rows-wrap');
-    removeBtn.addEventListener('click', () => card.remove());
-    addRowBtn.addEventListener('click', () => addListRow(rowsWrap));
-    listSectionsWrap.appendChild(card);
-    addListRow(rowsWrap, 'Option 1', '');
-  };
-
-  const setInteractiveType = (type) => {
-    interactiveType = type;
-    document.querySelectorAll('#interactiveTypeTabs .nav-link').forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.type === type);
-    });
-    document.querySelectorAll('.interactive-pane').forEach((pane) => pane.classList.add('d-none'));
-    if (type === 'button') document.getElementById('interactiveButtonsPane').classList.remove('d-none');
-    if (type === 'list') document.getElementById('interactiveListPane').classList.remove('d-none');
-    if (type === 'cta_url') document.getElementById('interactiveCtaPane').classList.remove('d-none');
-    if (type === 'flow') document.getElementById('interactiveFlowPane').classList.remove('d-none');
-  };
-
-  const resetInteractiveForm = () => {
-    document.getElementById('interactiveHeader').value = '';
-    document.getElementById('interactiveBody').value = '';
-    document.getElementById('interactiveFooter').value = '';
-    buttonsWrap.innerHTML = '';
-    addButtonRow('Yes');
-    addButtonRow('No');
-
-    document.getElementById('listButtonText').value = 'View options';
-    listSectionsWrap.innerHTML = '';
-    addSection('Options');
-
-    document.getElementById('ctaButtonText').value = 'Visit website';
-    document.getElementById('ctaButtonUrl').value = '';
-    document.getElementById('flowId').value = '';
-    document.getElementById('flowButtonText').value = 'Open';
-    if (flowSelect) flowSelect.value = '';
-    setInteractiveType('button');
-  };
-
-  document.getElementById('addBtnRow').addEventListener('click', () => addButtonRow());
-  document.getElementById('addSectionBtn').addEventListener('click', () => addSection('Section'));
-  document.querySelectorAll('#interactiveTypeTabs .nav-link').forEach((tabBtn) => {
-    tabBtn.addEventListener('click', () => setInteractiveType(tabBtn.dataset.type));
-  });
-
-  flowSelect?.addEventListener('change', () => {
-    if (flowSelect.value) {
-      flowIdInput.value = flowSelect.value;
-    }
-  });
-
-  syncFlowsBtn?.addEventListener('click', async () => {
-    syncFlowsBtn.disabled = true;
-    try {
-      const res = await fetch(syncFlowsUrl, { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || 'Failed to sync flows');
-        return;
-      }
-      flows = data.data || [];
-      renderFlowOptions();
-      alert(`Synced ${flows.length} flow(s).`);
-    } finally {
-      syncFlowsBtn.disabled = false;
-    }
-  });
-
-  interactiveBtn?.addEventListener('click', async () => {
-    resetInteractiveForm();
-    try {
-      await loadFlows(false);
-    } catch (err) {
-      console.error(err);
-    }
-    interactiveModal.show();
-  });
-
-  document.getElementById('sendInteractiveConfirm').addEventListener('click', async () => {
-    const body = document.getElementById('interactiveBody').value.trim();
-    const header = document.getElementById('interactiveHeader').value.trim();
-    const footer = document.getElementById('interactiveFooter').value.trim();
-    if (!body) { alert('Body is required.'); return; }
-
-    const payload = { mobile: activeMobile, interactive_type: interactiveType, header, body, footer };
-
-    if (interactiveType === 'button') {
-      const titles = [...document.querySelectorAll('.btn-title')].map((el) => el.value.trim()).filter(Boolean).slice(0, 3);
-      if (titles.length < 1) { alert('Add at least one button title.'); return; }
-      payload.buttons = titles.map((title, i) => ({id: `btn_${Date.now()}_${i + 1}`, title}));
-    } else if (interactiveType === 'list') {
-      const listButtonText = document.getElementById('listButtonText').value.trim();
-      const sections = [...document.querySelectorAll('.list-section')].map((section, sectionIdx) => {
-        const rows = [...section.querySelectorAll('.list-row')].map((row, rowIdx) => ({
-          id: `sec_${sectionIdx + 1}_row_${rowIdx + 1}_${Date.now()}`,
-          title: row.querySelector('.list-row-title').value.trim(),
-          description: row.querySelector('.list-row-description').value.trim(),
-        })).filter((row) => row.title);
-        return {
-          title: section.querySelector('.list-section-title').value.trim(),
-          rows,
-        };
-      }).filter((section) => section.rows.length);
-      const totalRows = sections.reduce((sum, section) => sum + section.rows.length, 0);
-      if (!listButtonText || !sections.length || totalRows < 1) { alert('List button text and at least one row are required.'); return; }
-      if (totalRows > 10) { alert('Total list rows cannot exceed 10.'); return; }
-      payload.list_button_text = listButtonText;
-      payload.sections = sections;
-    } else if (interactiveType === 'cta_url') {
-      const buttonText = document.getElementById('ctaButtonText').value.trim();
-      const buttonUrl = document.getElementById('ctaButtonUrl').value.trim();
-      if (!buttonText || !buttonUrl) { alert('Button text and URL are required for CTA URL.'); return; }
-      payload.button_text = buttonText;
-      payload.button_url = buttonUrl;
-    } else if (interactiveType === 'flow') {
-      const flowId = document.getElementById('flowId').value.trim();
-      const buttonText = document.getElementById('flowButtonText').value.trim();
-      if (!flowId || !buttonText) { alert('Flow ID and button text are required for Flow.'); return; }
-      payload.flow_id = flowId;
-      payload.button_text = buttonText;
-    }
-
-    const res = await fetch(sendInteractiveUrl, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
-    const data = await res.json();
-    if (!res.ok) { alert(data.error || 'Failed to send interactive message'); return; }
-    interactiveModal.hide();
-    await poll();
-  });
-
-
-  const infoPanelBtn = document.getElementById('infoPanelBtn');
-  const closeInfoPanelBtn = document.getElementById('closeInfoPanelBtn');
-  const infoPanelOverlay = document.getElementById('infoPanelOverlay');
-  const supportPanel = document.getElementById('supportPanel');
-  const supportPanelBody = document.getElementById('supportPanelBody');
-  const apiForContact = (contactId, resource) => `/api/contact/${encodeURIComponent(contactId)}/${resource}`;
-
-  const quickTemplates = {
-    router_restart: 'router_restart_instructions',
-    troubleshooting: 'troubleshooting_guide',
-    payment_link: 'payment_link'
-  };
-
-  async function fetchJson(url, options = {}) {
-    const response = await fetch(url, options);
-    const contentType = response.headers.get('content-type') || '';
-    const payload = contentType.includes('application/json') ? await response.json() : null;
-    if (!response.ok) {
-      let message = payload?.error || payload?.message || `Request failed (${response.status})`;
-      if (response.status === 403) message = 'Permission denied for this action.';
-      if (response.status === 404) message = 'Requested data is not available for this customer.';
-      const err = new Error(message);
-      err.status = response.status;
-      throw err;
-    }
-    return payload;
-  }
-
-  const sectionShell = (title, id, body = '<div class="section-loading">Loading...</div>') => `
-    <section class="panel-section" data-section="${id}">
-      <header class="panel-section-head" data-collapse-target="${id}">
-        <strong>${title}</strong>
-        <i class="fas fa-chevron-down small text-muted"></i>
-      </header>
-      <div class="panel-section-body" id="${id}">${body}</div>
-    </section>`;
-
-  function renderHeader(data = {}, contactId) {
-    const statusClass = data.connection_status === 'Online' ? 'status-badge-online' : 'status-badge-offline';
-    const lastActive = data.last_active || 'Not available';
-    return sectionShell('Customer Overview', 'sectionHeader', `
-      <div class="d-flex justify-content-between align-items-start mb-2">
-        <div>
-          <div class="fw-bold">${esc(data.name || activeNameEl.textContent || 'Unknown customer')}</div>
-          <div class="small text-muted">${esc(data.phone || contactId || activeMobileEl.textContent)}</div>
-          <div class="small">Customer ID: <span class="text-muted">${esc(data.customer_id || 'N/A')}</span></div>
-        </div>
-        <span class="${statusClass}">${esc(data.connection_status || 'Offline')}</span>
-      </div>
-      <div class="small text-muted mb-2">Last active: ${esc(lastActive)}</div>
-      <div class="d-flex flex-wrap gap-2">
-        <button class="btn btn-sm btn-outline-primary" data-info-action="view-conversations">View Conversations</button>
-        <button class="btn btn-sm btn-outline-success" data-info-action="focus-note">Add Note</button>
-        <button class="btn btn-sm btn-outline-danger" onclick="openComplaintForm('${esc(contactId)}')">Quick Complaint</button>
-      </div>
-    `);
-  }
-
-  function renderQuickActions(contactId) {
-    return sectionShell('Quick Actions', 'sectionQuickActions', `
-      <div class="support-grid">
-        <button class="btn btn-outline-danger btn-sm" onclick="openComplaintForm('${esc(contactId)}')">Raise Complaint</button>
-        <button class="btn btn-outline-secondary btn-sm" onclick="assignTechnician('${esc(contactId)}')">Assign Technician</button>
-        <button class="btn btn-outline-secondary btn-sm" onclick="sendTemplate('${quickTemplates.router_restart}')">Send Router Restart Instructions</button>
-        <button class="btn btn-outline-secondary btn-sm" onclick="sendTemplate('${quickTemplates.troubleshooting}')">Send Troubleshooting Guide</button>
-        <button class="btn btn-outline-success btn-sm" onclick="sendTemplate('${quickTemplates.payment_link}')">Send Payment Link</button>
-        <button class="btn btn-outline-dark btn-sm" onclick="openComplaintForm('${esc(contactId)}', true)">Close Complaint</button>
-        <select class="form-select form-select-sm" id="quickTagSelect">
-          <option value="">Tag Customer</option>
-          <option value="VIP">VIP</option>
-          <option value="Payment Risk">Payment Risk</option>
-          <option value="Frequent Complaint">Frequent Complaint</option>
-        </select>
-      </div>
-      <div class="small text-muted mt-2">Templates map to API-friendly names for sendTemplate(templateName).</div>
-    `);
-  }
-
-  function renderServiceStatus(status = {}) {
-    return sectionShell('Service Status', 'sectionServiceStatus', `
-      <div class="meta-list">
-        <div><span class="meta-label">Service</span><span class="meta-value">${esc(status.service_status || 'Unknown')}</span></div>
-        <div><span class="meta-label">Router last seen</span><span class="meta-value">${esc(status.router_last_seen || 'N/A')}</span></div>
-        <div><span class="meta-label">Signal</span><span class="meta-value">${esc(status.signal_strength || 'N/A')}</span></div>
-        <div><span class="meta-label">IP / Device</span><span class="meta-value">${esc(status.device_status || 'N/A')}</span></div>
-        <div><span class="meta-label">Outage</span><span class="meta-value">${esc(status.outage_indicator || 'No outage')}</span></div>
-      </div>
-    `);
-  }
-
-  function renderComplaintHistory(complaints = []) {
-    const rows = complaints.length ? complaints.slice(0, 3).map((c) => `<li><div class="fw-semibold">${esc(c.title || c.short_title || 'Complaint')}</div><div class="small text-muted">#${esc(c.id || c.complaint_id || 'N/A')} • ${esc(c.status || 'Open')} • ${esc(c.created_at || 'N/A')} • Tech: ${esc(c.technician || c.assigned_technician || 'Unassigned')}</div></li>`).join('') : '<li class="text-muted small">No complaint history found.</li>';
-    return sectionShell('Complaint / Ticket History', 'sectionComplaints', `<ul class="simple-list">${rows}</ul><button class="btn btn-link btn-sm px-0" data-info-action="view-all-complaints">View All Complaints</button>`);
-  }
-
-  function renderBillingSummary(billing = {}) {
-    return sectionShell('Billing Summary', 'sectionBilling', `
-      <div class="meta-list mb-2">
-        <div><span class="meta-label">Outstanding</span><span class="meta-value">${esc(billing.outstanding_amount || '0')}</span></div>
-        <div><span class="meta-label">Last payment</span><span class="meta-value">${esc(billing.last_payment_date || 'N/A')}</span></div>
-        <div><span class="meta-label">Next due</span><span class="meta-value">${esc(billing.next_due_date || 'N/A')}</span></div>
-        <div><span class="meta-label">Plan</span><span class="meta-value">${esc(billing.plan_name || 'N/A')}</span></div>
-      </div>
-      <div class="d-flex gap-2">
-        <button class="btn btn-sm btn-outline-primary" data-info-action="send-invoice">Send invoice</button>
-        <button class="btn btn-sm btn-outline-success" data-info-action="send-payment-link">Send payment link</button>
-      </div>
-    `);
-  }
-
-  function renderNotesSection(notes = []) {
-    const items = notes.length ? notes.map((n) => `<li><div>${esc(n.note || n.text || '')}</div><div class="small text-muted">${esc(n.author || 'Agent')} • ${esc(n.created_at || n.timestamp || '')}</div></li>`).join('') : '<li class="text-muted small">No notes yet.</li>';
-    return sectionShell('Internal Notes', 'sectionNotes', `
-      <ul class="simple-list mb-2">${items}</ul>
-      <form id="noteForm" class="d-grid gap-2">
-        <textarea class="form-control form-control-sm" id="newNoteText" rows="2" placeholder="Add an internal note..."></textarea>
-        <button class="btn btn-sm btn-primary" type="submit">Add note</button>
-      </form>
-    `);
-  }
-
-  function renderTagsSection(tags = []) {
-    const badges = tags.length ? tags.map((t) => `<span class="tag-badge" style="background:${esc(t.color || '#e2e8f0')}">${esc(t.name || t.tag)} <button type="button" data-tag-id="${esc(t.id || t.tag_id || t.name || t.tag)}">×</button></span>`).join('') : '<div class="small text-muted">No tags set.</div>';
-    return sectionShell('Tags & Labels', 'sectionTags', `
-      <div id="tagListWrap">${badges}</div>
-      <form id="tagForm" class="d-flex gap-2 mt-2">
-        <input class="form-control form-control-sm" id="newTagInput" placeholder="Add tag">
-        <button class="btn btn-sm btn-outline-secondary" type="submit">Add</button>
-      </form>
-    `);
-  }
-
-  function renderTimeline(events = []) {
-    const rows = events.length ? events.map((e) => `<li><div class="fw-semibold">${esc(e.event_type || e.type || 'Event')}</div><div class="small text-muted">${esc(e.description || '')}</div><div class="small text-muted">${esc(e.created_at || e.timestamp || '')}</div></li>`).join('') : '<li class="small text-muted">No timeline events found.</li>';
-    return sectionShell('Interaction Timeline', 'sectionTimeline', `<ul class="timeline-list">${rows}</ul>`);
-  }
-
-  function renderTechnicalDetails(technical = {}) {
-    const photos = (technical.installation_photos || technical.photos || []).map((url) => `<img src="${esc(url)}" alt="Installation photo">`).join('') || '<div class="small text-muted">No photos available.</div>';
-    return sectionShell('Technical Details', 'sectionTechnical', `
-      <div class="meta-list mb-2">
-        <div><span class="meta-label">Router model</span><span class="meta-value">${esc(technical.router_model || 'N/A')}</span></div>
-        <div><span class="meta-label">ONU MAC</span><span class="meta-value">${esc(technical.onu_mac || 'N/A')}</span></div>
-        <div><span class="meta-label">Fiber port</span><span class="meta-value">${esc(technical.fiber_port || 'N/A')}</span></div>
-      </div>
-      <div class="install-photos">${photos}</div>
-    `);
-  }
-
-  function wireCollapsibleSections() {
-    supportPanelBody.querySelectorAll('[data-collapse-target]').forEach((head) => {
-      head.addEventListener('click', () => {
-        head.closest('.panel-section').classList.toggle('collapsed');
-      });
-    });
-  }
-
-  async function loadCustomerDashboard(contactId) {
-    supportPanelBody.innerHTML = '<div class="section-loading">Loading customer dashboard...</div>';
-    const endpoints = {
-      header: apiForContact(contactId, 'info'),
-      status: apiForContact(contactId, 'status'),
-      complaints: apiForContact(contactId, 'complaints'),
-      billing: apiForContact(contactId, 'billing'),
-      notes: apiForContact(contactId, 'notes'),
-      tags: apiForContact(contactId, 'tags'),
-      timeline: apiForContact(contactId, 'timeline'),
-      technical: apiForContact(contactId, 'technical')
-    };
-
-    const [header, status, complaints, billing, notes, tags, timeline, technical] = await Promise.allSettled([
-      fetchJson(endpoints.header),
-      fetchJson(endpoints.status),
-      fetchJson(endpoints.complaints),
-      fetchJson(endpoints.billing),
-      fetchJson(endpoints.notes),
-      fetchJson(endpoints.tags),
-      fetchJson(endpoints.timeline),
-      fetchJson(endpoints.technical)
-    ]);
-
-    const valueOf = (result, fallback, sectionName) => {
-      if (result.status === 'fulfilled') return result.value;
-      console.warn(`${sectionName} failed`, result.reason);
-      return fallback;
-    };
-
-    supportPanelBody.innerHTML = [
-      renderHeader(valueOf(header, {}, 'header'), contactId),
-      renderQuickActions(contactId),
-      renderServiceStatus(valueOf(status, {}, 'status')),
-      renderComplaintHistory(valueOf(complaints, [], 'complaints')),
-      renderBillingSummary(valueOf(billing, {}, 'billing')),
-      renderNotesSection(valueOf(notes, [], 'notes')),
-      renderTagsSection(valueOf(tags, [], 'tags')),
-      renderTimeline(valueOf(timeline, [], 'timeline')),
-      renderTechnicalDetails(valueOf(technical, {}, 'technical'))
-    ].join('');
-
-    wireCollapsibleSections();
-    bindDashboardActions(contactId);
-  }
-
-  function openInfoPanel(contactId) {
-    if (!contactId) return;
-    supportPanel.dataset.contactId = contactId;
-    supportPanel.classList.add('open', 'panel-anim-slide-in');
-    waShell?.classList.remove('info-collapsed');
-    supportPanel.setAttribute('aria-hidden', 'false');
-    infoPanelOverlay.classList.add('open');
-    loadCustomerDashboard(contactId).catch((error) => {
-      supportPanelBody.innerHTML = `<div class="section-error">Unable to load dashboard: ${esc(error.message)}</div>`;
-    });
-  }
-
-  function closeInfoPanel() {
-    supportPanel.classList.remove('open');
-    waShell?.classList.add('info-collapsed');
-    supportPanel.setAttribute('aria-hidden', 'true');
-    infoPanelOverlay.classList.remove('open');
-  }
-
-  function openComplaintForm(contactId, closeComplaint = false) {
-    if (closeComplaint) {
-      alert(`Close complaint flow for ${contactId} can be connected to complaint status API.`);
-      return;
-    }
-    window.location.href = '{{ url_for("complaints_page") }}';
-  }
-
-  function assignTechnician(contactId) {
-    alert(`Assign technician flow for ${contactId} can connect to your technician assignment endpoint.`);
-  }
-
-  async function sendTemplate(templateName) {
-    if (!supportPanel.dataset.contactId) return;
-    try {
-      await fetchJson(sendTemplateUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobile: supportPanel.dataset.contactId, template_name: templateName, language_code: 'en_US', components: [] })
-      });
-      alert('Template sent successfully.');
-    } catch (error) {
-      alert(`Template failed: ${error.message}`);
-    }
-  }
-
-  async function tagCustomer(tag) {
-    if (!supportPanel.dataset.contactId || !tag) return;
-    try {
-      await fetchJson(apiForContact(supportPanel.dataset.contactId, 'tags'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tag })
-      });
-      await loadCustomerDashboard(supportPanel.dataset.contactId);
-    } catch (error) {
-      alert(`Tag update failed: ${error.message}`);
-    }
-  }
-
-  function bindDashboardActions(contactId) {
-    document.getElementById('quickTagSelect')?.addEventListener('change', (event) => tagCustomer(event.target.value));
-    document.querySelector('[data-info-action="focus-note"]')?.addEventListener('click', () => document.getElementById('newNoteText')?.focus());
-    document.querySelector('[data-info-action="view-all-complaints"]')?.addEventListener('click', () => {
-      window.location.href = '{{ url_for("complaints_page") }}';
-    });
-
-    document.querySelector('[data-info-action="send-invoice"]')?.addEventListener('click', async () => {
-      try {
-        await fetchJson('/api/billing/send-invoice', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contact_id: contactId }) });
-        alert('Invoice sent.');
-      } catch (error) {
-        alert(`Invoice request failed: ${error.message}`);
-      }
-    });
-
-    document.querySelector('[data-info-action="send-payment-link"]')?.addEventListener('click', async () => {
-      try {
-        await fetchJson('/api/billing/send-payment-link', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ contact_id: contactId }) });
-        alert('Payment link sent.');
-      } catch (error) {
-        alert(`Payment link failed: ${error.message}`);
-      }
-    });
-
-    document.getElementById('noteForm')?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const note = document.getElementById('newNoteText')?.value.trim();
-      if (!note) return;
-      try {
-        await fetchJson(apiForContact(contactId, 'notes'), { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ note }) });
-        await loadCustomerDashboard(contactId);
-      } catch (error) {
-        alert(`Note save failed: ${error.message}`);
-      }
-    });
-
-    document.getElementById('tagForm')?.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const tag = document.getElementById('newTagInput')?.value.trim();
-      if (!tag) return;
-      await tagCustomer(tag);
-    });
-
-    document.querySelectorAll('[data-tag-id]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        try {
-          await fetchJson(`${apiForContact(contactId, 'tags')}/${encodeURIComponent(btn.dataset.tagId)}`, { method: 'DELETE' });
-          await loadCustomerDashboard(contactId);
-        } catch (error) {
-          alert(`Tag removal failed: ${error.message}`);
-        }
-      });
-    });
-  }
-
-  infoPanelBtn?.addEventListener('click', () => openInfoPanel(activeMobile || activeMobileEl.textContent.trim()));
-  closeInfoPanelBtn?.addEventListener('click', closeInfoPanel);
-  infoPanelOverlay?.addEventListener('click', closeInfoPanel);
-  chatList?.addEventListener('click', (event) => {
-    const link = event.target.closest('.wa-item');
-    if (!link) return;
-    const contactId = link.dataset.mobile;
-    if (supportPanel.classList.contains('open')) {
-      openInfoPanel(contactId);
-    }
-  });
-
-  window.openInfoPanel = openInfoPanel;
-  window.closeInfoPanel = closeInfoPanel;
-  window.loadCustomerDashboard = loadCustomerDashboard;
-  window.renderHeader = renderHeader;
-  window.renderQuickActions = renderQuickActions;
-  window.renderServiceStatus = renderServiceStatus;
-  window.renderComplaintHistory = renderComplaintHistory;
-  window.renderBillingSummary = renderBillingSummary;
-  window.renderNotesSection = renderNotesSection;
-  window.renderTagsSection = renderTagsSection;
-  window.renderTimeline = renderTimeline;
-  window.renderTechnicalDetails = renderTechnicalDetails;
-  window.openComplaintForm = openComplaintForm;
-  window.assignTechnician = assignTechnician;
-  window.sendTemplate = sendTemplate;
-  window.tagCustomer = tagCustomer;
-
-  window.lucide?.createIcons();
-  applyConversationFilters();
-  if (window.innerWidth < 1200 && !activeMobile) waShell?.classList.add('info-collapsed');
-  scrollBottom();
-  setPollStatus(false, 'Connecting');
-  scheduleNextPoll(0);
 })();
 </script>
 {% endblock %}
