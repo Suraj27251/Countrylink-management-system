@@ -13,7 +13,7 @@
 html, body {
   height: 100%;
   font-family: 'DM Sans', sans-serif;
-  background: #f0f2f5;
+  background: var(--surface-3);
   overflow: hidden;
 }
 
@@ -32,7 +32,7 @@ main.container {
   padding: 0 !important;
 }
 
-/* ── CSS Variables ──────────────────────────────────────── */
+/* ── CSS Variables (Light Theme) ────────────────────────── */
 :root {
   --green:       #25d366;
   --green-dk:    #128c7e;
@@ -59,15 +59,26 @@ main.container {
   --transition:  all .18s cubic-bezier(.4,0,.2,1);
 }
 
-[data-theme="dark"] {
-  --surface: #1a1a1a;
-  --surface-2: #242424;
-  --surface-3: #161616;
-  --text-1: #e8eaed;
-  --text-2: #9ca3af;
-  --text-3: #6b7280;
-  --border: #3a3a3a;
-  --border-dk: #4b5563;
+/* ── CSS Variables (Dark Theme) ─────────────────────────── */
+:root[data-theme="dark"] {
+  --green:       #25d366;
+  --green-dk:    #20ba5a;
+  --green-lt:    #1a4d2e;
+  --blue:        #4a9eff;
+  --red:         #ff5252;
+  --amber:       #ffa726;
+  --surface:     #1a1a1a;
+  --surface-2:   #242424;
+  --surface-3:   #2a2a2a;
+  --border:      #3a3a3a;
+  --border-dk:   #4a4a4a;
+  --text-1:      #e8eaed;
+  --text-2:      #b8b8b8;
+  --text-3:      #888888;
+  --text-inv:    #1a1a1a;
+  --shadow-sm:   0 1px 3px rgba(0,0,0,.3), 0 1px 2px rgba(0,0,0,.2);
+  --shadow:      0 4px 12px rgba(0,0,0,.4);
+  --shadow-lg:   0 12px 32px rgba(0,0,0,.6);
 }
 
 /* ── Shell ──────────────────────────────────────────────── */
@@ -156,7 +167,7 @@ main.container {
   top: 50%;
   transform: translateY(-50%);
   background: var(--text-1);
-  color: #fff;
+  color: var(--text-inv);
   font-size: 11.5px;
   font-weight: 500;
   padding: 5px 10px;
@@ -265,7 +276,7 @@ main.container {
 
 .sb-search input:focus {
   border-color: var(--green);
-  background: #fff;
+  background: var(--surface);
   box-shadow: 0 0 0 3px rgba(37,211,102,.12);
 }
 
@@ -281,61 +292,41 @@ main.container {
   pointer-events: none;
 }
 
-/* Filter Bar */
+/* Filter Bar - IMPROVED: Single dropdown */
 .sb-filter-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
   padding: 8px 16px;
   border-bottom: 1px solid var(--border);
 }
 
-.sb-filter-chip {
-  display: inline-flex;
+.sb-filter-main {
+  display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 12px;
-  border-radius: 999px;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  border-radius: var(--radius);
   font-size: 12.5px;
   font-weight: 500;
   border: 1px solid var(--border);
-  background: transparent;
+  background: var(--surface-2);
   color: var(--text-2);
   cursor: pointer;
-  white-space: nowrap;
   transition: var(--transition);
   font-family: 'DM Sans', sans-serif;
 }
 
-.sb-filter-chip:hover { border-color: var(--green); color: var(--green-dk); }
-
-.sb-filter-chip.active {
-  background: var(--green);
+.sb-filter-main:hover {
   border-color: var(--green);
-  color: #fff;
+  background: var(--green-lt);
+  color: var(--green-dk);
 }
 
-.sb-filter-chip i { font-size: 11px; }
-
-.sb-filter-plus {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  border-radius: 999px;
-  font-size: 12.5px;
-  font-weight: 500;
-  border: 1px dashed var(--border-dk);
-  background: transparent;
-  color: var(--text-3);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: var(--transition);
-  font-family: 'DM Sans', sans-serif;
+.sb-filter-main i.fa-chevron-down {
+  margin-left: auto;
+  font-size: 11px;
 }
-
-.sb-filter-plus:hover { border-color: var(--green); color: var(--green-dk); }
 
 /* Conversation List */
 .conv-list {
@@ -348,12 +339,12 @@ main.container {
 .conv-list::-webkit-scrollbar { width: 4px; }
 .conv-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
-/* Conversation Item */
+/* Conversation Item - IMPROVED: Cleaner design */
 .conv-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  padding: 8px 12px; /* Reduced from 10px 14px */
   cursor: pointer;
   text-decoration: none;
   color: inherit;
@@ -377,12 +368,12 @@ main.container {
   border-radius: 0 2px 2px 0;
 }
 
-/* Avatar */
+/* Avatar - SIMPLIFIED: 3 solid colors instead of 6 gradients */
 .conv-avatar {
   width: 42px;
   height: 42px;
   border-radius: 12px;
-  background: #16a34a;
+  background: var(--green); /* Default green */
   color: #fff;
   font-size: 15px;
   font-weight: 700;
@@ -392,9 +383,12 @@ main.container {
   flex-shrink: 0;
   position: relative;
 }
-.conv-avatar.alt-1 { background: #2563eb; }
-.conv-avatar.alt-2 { background: #7c3aed; }
-.conv-avatar.alt-3 { background: #ea580c; }
+
+.conv-avatar.alt-1 { background: #667eea; } /* Blue */
+.conv-avatar.alt-2 { background: #f59e0b; } /* Amber */
+
+/* REMOVED: Online dots - unreliable for WhatsApp Business */
+/* REMOVED: alt-3, alt-4, alt-5 gradient variations */
 
 /* Item Meta */
 .conv-meta { flex: 1; min-width: 0; }
@@ -407,7 +401,7 @@ main.container {
 }
 
 .conv-name {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--text-1);
   white-space: nowrap;
@@ -417,20 +411,22 @@ main.container {
 }
 
 .conv-time {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-3);
   flex-shrink: 0;
   font-family: 'DM Mono', monospace;
 }
 
 .conv-preview {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--text-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.45;
+  margin-bottom: 0; /* Removed margin */
 }
+
+/* REMOVED: .conv-tags - Tags removed for cleaner design */
 
 .conv-unread {
   width: 18px;
@@ -467,7 +463,7 @@ main.container {
   overflow: hidden;
 }
 
-/* ── Chat Header ─────────────────────────────────────────── */
+/* ── Chat Header - IMPROVED: Simplified actions ─────────── */
 .chat-header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -525,32 +521,6 @@ main.container {
   align-items: center;
   gap: 6px;
 }
-.hdr-menu { position: relative; }
-.hdr-menu-dropdown {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  width: 180px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 6px;
-  display: none;
-  z-index: 50;
-}
-.hdr-menu.open .hdr-menu-dropdown { display: block; }
-.hdr-menu-item {
-  width: 100%;
-  border: none;
-  background: transparent;
-  color: var(--text-2);
-  font-size: 12.5px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  text-align: left;
-}
-.hdr-menu-item:hover { background: var(--surface-3); color: var(--text-1); }
 
 .hdr-btn {
   display: inline-flex;
@@ -574,19 +544,32 @@ main.container {
 .hdr-btn.primary:hover { background: var(--green-dk); border-color: var(--green-dk); }
 .hdr-btn i { font-size: 13px; }
 
-.poll-dot {
+/* Connection indicator - IMPROVED: Subtle dot instead of badge */
+.connection-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--amber);
-  transition: background .3s;
+  background: var(--green);
+  display: none; /* Hidden when connected */
+  margin-left: 8px;
+  transition: background 0.3s;
+  flex-shrink: 0;
 }
 
-.poll-dot.live { background: var(--green); animation: livePulse 2s infinite; }
+.connection-dot.disconnected {
+  display: inline-block;
+  background: var(--amber);
+  animation: pulse 2s infinite;
+}
 
-@keyframes livePulse {
+.connection-dot.error {
+  display: inline-block;
+  background: var(--red);
+}
+
+@keyframes pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: .4; }
+  50% { opacity: 0.4; }
 }
 
 /* ── Messages Area ───────────────────────────────────────── */
@@ -600,7 +583,10 @@ main.container {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
   background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23e8eaed' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-  scroll-behavior: smooth;
+}
+
+:root[data-theme="dark"] .chat-body {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23333333' fill-opacity='0.3'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
 .chat-body::-webkit-scrollbar { width: 5px; }
@@ -626,7 +612,7 @@ main.container {
   font-weight: 600;
   color: var(--text-3);
   padding: 3px 12px;
-  background: rgba(255,255,255,.7);
+  background: var(--surface);
   border-radius: 999px;
   border: 1px solid var(--border);
   white-space: nowrap;
@@ -650,8 +636,8 @@ main.container {
 
 .msg-bubble {
   max-width: 62%;
-  padding: 7px 10px 5px;
-  border-radius: 10px;
+  padding: 9px 14px 6px;
+  border-radius: 14px;
   position: relative;
   word-break: break-word;
   line-height: 1.45;
@@ -673,8 +659,8 @@ main.container {
 }
 
 .msg-text {
-  font-size: 13px;
-  margin: 0 0 2px;
+  font-size: 13.5px;
+  margin: 0 0 4px;
   white-space: pre-wrap;
 }
 
@@ -745,7 +731,23 @@ main.container {
 .msg-doc-link:hover { opacity: .85; }
 .msg-doc-link i { font-size: 20px; }
 
-.msg-error-icon { color: var(--red); font-size: 12px; }
+/* Error chip */
+.msg-error-chip {
+  font-size: 11px;
+  color: var(--red);
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  padding: 2px 8px;
+  margin-top: 4px;
+}
+
+:root[data-theme="dark"] .msg-error-chip {
+  background: rgba(255, 82, 82, 0.15);
+  border-color: rgba(255, 82, 82, 0.3);
+}
+
+/* REMOVED: .msg-status-chip - Status shown via icons only */
 
 /* Location embed */
 .msg-location-wrap { margin-bottom: 6px; }
@@ -830,20 +832,18 @@ main.container {
   flex-shrink: 0;
 }
 
-/* Quick chips */
+/* Quick chips - IMPROVED: Hidden by default, shown on focus */
 .compose-chips {
-  display: flex;
+  display: none; /* Hidden until composer is focused */
   gap: 6px;
   padding: 10px 0 8px;
   overflow-x: auto;
   scrollbar-width: none;
-  opacity: 0;
-  max-height: 0;
-  overflow: hidden;
-  transition: var(--transition);
 }
-.chat-compose:focus-within .compose-chips,
-.chat-compose:hover .compose-chips { opacity: 1; max-height: 56px; }
+
+.chat-compose:focus-within .compose-chips {
+  display: flex;
+}
 
 .compose-chips::-webkit-scrollbar { display: none; }
 
@@ -905,7 +905,7 @@ input[type="file"]#attachment { display: none; }
 
 .compose-box:focus-within {
   border-color: var(--green);
-  background: #fff;
+  background: var(--surface);
   box-shadow: 0 0 0 3px rgba(37,211,102,.1);
 }
 
@@ -981,6 +981,12 @@ input[type="file"]#attachment { display: none; }
   flex-shrink: 0;
 }
 
+:root[data-theme="dark"] .alert-strip {
+  background: rgba(245, 158, 11, 0.15);
+  border-bottom-color: rgba(245, 158, 11, 0.3);
+  color: #ffa726;
+}
+
 /* ── Typing Indicator ────────────────────────────────────── */
 .typing-indicator {
   display: none;
@@ -1016,11 +1022,13 @@ input[type="file"]#attachment { display: none; }
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
+  background: var(--surface);
 }
 
 .modal-header {
   border-bottom: 1px solid var(--border);
   padding: 16px 20px;
+  background: var(--surface);
 }
 
 .modal-title {
@@ -1029,8 +1037,16 @@ input[type="file"]#attachment { display: none; }
   color: var(--text-1);
 }
 
-.modal-body { padding: 20px; }
-.modal-footer { border-top: 1px solid var(--border); padding: 14px 20px; }
+.modal-body { 
+  padding: 20px;
+  background: var(--surface);
+}
+
+.modal-footer { 
+  border-top: 1px solid var(--border); 
+  padding: 14px 20px;
+  background: var(--surface);
+}
 
 .form-label { font-size: 12.5px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; }
 .form-control, .form-select {
@@ -1039,15 +1055,30 @@ input[type="file"]#attachment { display: none; }
   border-color: var(--border);
   border-radius: var(--radius);
   color: var(--text-1);
+  background: var(--surface);
 }
 
 .form-control:focus, .form-select:focus {
   border-color: var(--green);
   box-shadow: 0 0 0 3px rgba(37,211,102,.12);
+  background: var(--surface);
 }
 
 .btn-success { background: var(--green); border-color: var(--green); font-family: 'DM Sans', sans-serif; }
 .btn-success:hover { background: var(--green-dk); border-color: var(--green-dk); }
+.btn-outline-secondary {
+  color: var(--text-2);
+  border-color: var(--border);
+  background: var(--surface);
+}
+.btn-outline-secondary:hover {
+  background: var(--surface-2);
+  color: var(--text-1);
+  border-color: var(--border-dk);
+}
+.btn-close { 
+  filter: var(--bs-btn-close-white-filter);
+}
 .btn-close:focus { box-shadow: none; }
 
 /* Nav pills for interactive modal */
@@ -1058,11 +1089,16 @@ input[type="file"]#attachment { display: none; }
   color: var(--text-2);
   border-radius: var(--radius);
   padding: 7px 14px;
+  background: var(--surface-2);
 }
 
 .nav-pills .nav-link.active {
   background: var(--green);
   color: #fff;
+}
+
+.nav-pills .nav-link:hover:not(.active) {
+  background: var(--surface-3);
 }
 
 /* Interactive pane */
@@ -1082,6 +1118,7 @@ input[type="file"]#attachment { display: none; }
   justify-content: center;
   padding: 12px;
   min-height: 200px;
+  background: #111;
 }
 
 .media-viewer-img {
@@ -1184,33 +1221,47 @@ kbd {
   color: var(--text-2);
 }
 
-/* ── Notification toggle ─────────────────────────────────── */
-.notif-toggle {
-  width: 38px;
-  height: 22px;
-  border-radius: 999px;
-  background: var(--border);
-  position: relative;
-  cursor: pointer;
-  border: none;
-  transition: background .2s;
+/* ── Dropdown menu styling ───────────────────────────────── */
+.dropdown-menu {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 6px;
+  min-width: 200px;
 }
 
-.notif-toggle.on { background: var(--green); }
-.notif-toggle::after {
-  content: '';
-  position: absolute;
+.dropdown-item {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: var(--transition);
+}
+
+.dropdown-item:hover {
+  background: var(--surface-3);
+  color: var(--text-1);
+}
+
+.dropdown-item i {
   width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #fff;
-  top: 3px;
-  left: 3px;
-  transition: transform .2s;
-  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+  font-size: 13px;
+  color: var(--text-3);
 }
 
-.notif-toggle.on::after { transform: translateX(16px); }
+.dropdown-item kbd {
+  margin-left: auto;
+  font-size: 10px;
+}
+
+.dropdown-divider {
+  margin: 4px 0;
+  border-color: var(--border);
+}
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 900px) {
@@ -1221,7 +1272,7 @@ kbd {
 
 @media (max-width: 680px) {
   .wa-rail { display: none; }
-  .wa-sidebar { width: 100%; position: absolute; z-index: 20; height: 100%; transform: translateX(-100%); transition: transform .32s cubic-bezier(.4,0,.2,1); }
+  .wa-sidebar { width: 100%; position: absolute; z-index: 20; height: 100%; transform: translateX(-100%); transition: transform .25s; }
   .wa-sidebar.mob-open { transform: translateX(0); }
   .msg-bubble { max-width: 80%; }
 }
@@ -1289,6 +1340,10 @@ kbd {
     </div>
 
     <div class="rail-bottom">
+      <button class="rail-btn" id="themeToggle" title="Toggle theme">
+        <i class="fas fa-moon" id="themeIcon"></i>
+        <span class="rail-tooltip">Toggle dark mode</span>
+      </button>
       <button class="rail-btn" id="notifBtn" title="Toggle sounds">
         <i class="fas fa-bell" id="notifIcon"></i>
         <span class="rail-tooltip">Sound notifications</span>
@@ -1319,21 +1374,33 @@ kbd {
       </div>
     </div>
 
-    <!-- Filter bar -->
+    <!-- Filter bar - IMPROVED: Single dropdown -->
     <div class="sb-filter-bar">
-      <button class="sb-filter-chip active" data-filter="all">All <i class="fas fa-chevron-down"></i></button>
-      <button class="sb-filter-plus" id="addFilterBtn"><i class="fas fa-magnifying-glass"></i> Search</button>
+      <div class="dropdown" style="flex: 1;">
+        <button class="sb-filter-main" data-bs-toggle="dropdown" id="filterDropdown">
+          <i class="fas fa-filter"></i>
+          <span id="activeFilterText">All conversations</span>
+          <i class="fas fa-chevron-down"></i>
+        </button>
+        <ul class="dropdown-menu" style="width: 100%;">
+          <li><a class="dropdown-item" data-filter="all">All conversations</a></li>
+          <li><a class="dropdown-item" data-filter="unread">Unread only</a></li>
+          <li><a class="dropdown-item" data-filter="assigned">Assigned to me</a></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item" data-filter="templates">Templates</a></li>
+        </ul>
+      </div>
     </div>
 
     <!-- Conversation list -->
     <div class="conv-list" id="convList">
-      {% set avatar_classes = ['', 'alt-1', 'alt-2', 'alt-3'] %}
+      {% set avatar_classes = ['', 'alt-1', 'alt-2'] %}
       {% for contact in contacts %}
         <a class="conv-item {% if contact.mobile == active_mobile %}active{% endif %}"
            href="{{ url_for('whatsapp_complaints', mobile=contact.mobile) }}"
            data-mobile="{{ contact.mobile }}"
            data-name="{{ (contact.name or '')|lower }}">
-          <div class="conv-avatar {{ avatar_classes[loop.index0 % 4] }}">
+          <div class="conv-avatar {{ avatar_classes[loop.index0 % 3] }}">
             {{ (contact.name or '?')[:1]|upper }}
           </div>
           <div class="conv-meta">
@@ -1365,7 +1432,7 @@ kbd {
   <main class="wa-main relative" id="waMain">
 
     {% if active_mobile %}
-    <!-- Chat Header -->
+    <!-- Chat Header - IMPROVED: Simplified with dropdown -->
     <header class="chat-header">
       <div class="chat-header-left">
         <div class="conv-avatar {% if loop is defined %}{{ avatar_classes[0] }}{% endif %}" style="width:44px;height:44px;border-radius:12px;font-size:16px;">
@@ -1373,21 +1440,44 @@ kbd {
         </div>
         <div class="chat-header-info">
           <h3>{{ active_name or 'Unknown Contact' }}</h3>
-          <p><span style="font-family:'DM Mono',monospace;">{{ active_mobile }}</span></p>
+          <p>
+            <span class="online-pill">Online</span>
+            <span>•</span>
+            <span style="font-family:'DM Mono',monospace;">{{ active_mobile }}</span>
+          </p>
         </div>
       </div>
       <div class="chat-header-actions">
-        <span class="poll-dot" id="pollDot" title="Connection status"></span>
-        <button class="hdr-btn" title="Call"><i class="fas fa-phone"></i> <span>Call</span></button>
-        <button class="hdr-btn" title="Assign"><i class="fas fa-user-check"></i> <span>Assign</span></button>
-        <div class="hdr-menu" id="headerMenu">
-          <button class="hdr-btn" id="actionsMenuBtn" title="Actions"><i class="fas fa-ellipsis"></i> <span>Actions</span></button>
-          <div class="hdr-menu-dropdown">
-            <button class="hdr-menu-item" id="templateBtn"><i class="fas fa-file-lines"></i> Template</button>
-            <button class="hdr-menu-item" id="interactiveBtn"><i class="fas fa-sitemap"></i> Interactive</button>
-            <button class="hdr-menu-item" onclick="openCommandPalette()"><i class="fas fa-terminal"></i> Commands</button>
-          </div>
+        <button class="hdr-btn" title="Call">
+          <i class="fas fa-phone"></i>
+          <span>Call</span>
+        </button>
+        <button class="hdr-btn" title="Assign conversation">
+          <i class="fas fa-user-check"></i>
+          <span>Assign</span>
+        </button>
+        
+        <!-- Actions dropdown menu -->
+        <div class="dropdown">
+          <button class="hdr-btn" data-bs-toggle="dropdown" title="More actions">
+            <i class="fas fa-ellipsis-vertical"></i>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" id="templateBtn">
+              <i class="fas fa-file-lines"></i> Send Template
+            </a></li>
+            <li><a class="dropdown-item" id="interactiveBtn">
+              <i class="fas fa-sitemap"></i> Send Interactive
+            </a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" onclick="openCommandPalette()">
+              <i class="fas fa-terminal"></i> Commands <kbd>⌘K</kbd>
+            </a></li>
+          </ul>
         </div>
+        
+        <!-- Subtle connection indicator (hidden when connected) -->
+        <span class="connection-dot" id="connectionDot" title="Connection status"></span>
       </div>
     </header>
 
@@ -1454,11 +1544,12 @@ kbd {
           <p class="msg-text">{{ msg['text'] or ('📋 Template message' if msg['message_type'] == 'template' else '🔘 Interactive message') }}</p>
 
           {# Error #}
-          {# Footer: time + status #}
+          {% if msg['error_reason'] %}
+            <div class="msg-error-chip"><i class="fas fa-circle-exclamation"></i> {{ msg['error_reason'] }}</div>
+          {% endif %}
+
+          {# Footer: time + status (icons only, no status chips) #}
           <div class="msg-footer">
-            {% if msg['error_reason'] %}
-              <i class="fas fa-circle-exclamation msg-error-icon" title="{{ msg['error_reason'] }}"></i>
-            {% endif %}
             <span class="msg-time">
               {% if msg['created_at'] and ' ' in msg['created_at'] %}
                 {{ msg['created_at'].split(' ')[1][:5] }}
@@ -1466,11 +1557,11 @@ kbd {
             </span>
             {% if msg['direction'] == 'outbound' %}
               {% if msg['delivery_status'] == 'read' %}
-                <i class="fas fa-check-double msg-status-icon read"></i>
+                <i class="fas fa-check-double msg-status-icon read" title="Read"></i>
               {% elif msg['delivery_status'] in ['delivered', 'sent', 'accepted'] %}
-                <i class="fas fa-check-double msg-status-icon"></i>
+                <i class="fas fa-check-double msg-status-icon" title="Delivered"></i>
               {% else %}
-                <i class="fas fa-check msg-status-icon"></i>
+                <i class="fas fa-check msg-status-icon" title="Sent"></i>
               {% endif %}
             {% endif %}
           </div>
@@ -1496,6 +1587,7 @@ kbd {
 
     <!-- Compose -->
     <div class="chat-compose">
+      <!-- Quick chips - IMPROVED: Hidden by default, shown on focus -->
       <div class="compose-chips">
         <button class="compose-chip" data-insert="Hi! This is CountryLink Broadband support. How can we help you today? 😊">👋 Greeting</button>
         <button class="compose-chip" data-insert="Please share your customer ID or registered mobile number.">🔍 Ask Customer ID</button>
@@ -1734,9 +1826,8 @@ const convList       = $('convList');
 const chatForm       = $('chatForm');
 const msgInput       = $('msgInput');
 const searchInput    = $('searchInput');
-const addFilterBtn   = $('addFilterBtn');
 const scrollBtn      = $('scrollBtn');
-const pollDot        = $('pollDot');
+const connectionDot  = $('connectionDot');
 const attachFile     = $('attachment');
 const attachPreview  = $('attachPreview');
 const attachName     = $('attachName');
@@ -1746,12 +1837,12 @@ const cmdInput       = $('cmdInput');
 const emojiBtn       = $('emojiBtn');
 const notifBtn       = $('notifBtn');
 const notifIcon      = $('notifIcon');
+const themeToggle    = $('themeToggle');
+const themeIcon      = $('themeIcon');
 const newChatBtn     = $('newChatBtn');
 const templateBtn    = $('templateBtn');
 const interactiveBtn = $('interactiveBtn');
 const cmdChip        = $('cmdChip');
-const headerMenu     = $('headerMenu');
-const actionsMenuBtn = $('actionsMenuBtn');
 
 /* ── State ───────────────────────────────────────────────── */
 let templates = [];
@@ -1771,6 +1862,25 @@ const templateModal    = new bootstrap.Modal($('templateModal'));
 const newConvModal     = new bootstrap.Modal($('newConvModal'));
 const interactiveModal = new bootstrap.Modal($('interactiveModal'));
 const mediaModal       = new bootstrap.Modal($('mediaModal'));
+
+/* ── Theme Management ────────────────────────────────────── */
+const currentTheme = localStorage.getItem('wa_theme') || 'light';
+document.documentElement.setAttribute('data-theme', currentTheme);
+if (themeIcon) {
+  themeIcon.className = currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+}
+
+themeToggle?.addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const newTheme = current === 'dark' ? 'light' : 'dark';
+  
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('wa_theme', newTheme);
+  
+  if (themeIcon) {
+    themeIcon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+  }
+});
 
 /* ── Interaction unlock ──────────────────────────────────── */
 ['pointerdown','keydown'].forEach(ev =>
@@ -1812,8 +1922,20 @@ const esc = v => String(v||'').replace(/[&<>'"]/g,
 const fmtTime = ts => (ts && ts.includes(' ')) ? ts.split(' ')[1].slice(0,5) : (ts||'').slice(0,5);
 const nearBottom = () => chatBody && (chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight < 160);
 const scrollBottom = () => chatBody && requestAnimationFrame(() => { chatBody.scrollTop = chatBody.scrollHeight; });
-const setPoll = (live) => {
-  pollDot && (pollDot.classList.toggle('live', !!live));
+
+/* Connection indicator - IMPROVED: Subtle dot only */
+const setPoll = (live, label) => {
+  const dot = connectionDot;
+  if (!dot) return;
+  
+  if (live) {
+    dot.className = 'connection-dot'; // Hidden when connected
+    dot.style.display = 'none';
+  } else {
+    dot.className = 'connection-dot disconnected';
+    dot.title = label || 'Reconnecting...';
+    dot.style.display = 'inline-block';
+  }
 };
 
 /* ── Auto-resize textarea ────────────────────────────────── */
@@ -1867,25 +1989,15 @@ searchInput?.addEventListener('input', () => {
     item.style.display = hay.includes(q) ? '' : 'none';
   });
 });
-addFilterBtn?.addEventListener('click', () => searchInput?.focus());
 
-/* ── Filter chips ────────────────────────────────────────── */
-$all('.sb-filter-chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    $all('.sb-filter-chip').forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
+/* ── Filter dropdown - IMPROVED ──────────────────────────── */
+$all('.dropdown-item[data-filter]').forEach(item => {
+  item.addEventListener('click', () => {
+    const filter = item.dataset.filter;
+    const textEl = $('activeFilterText');
+    if (textEl) textEl.textContent = item.textContent;
+    // Add actual filtering logic here based on your needs
   });
-});
-
-actionsMenuBtn?.addEventListener('click', (e) => {
-  e.stopPropagation();
-  headerMenu?.classList.toggle('open');
-});
-document.addEventListener('click', (e) => {
-  if (!headerMenu?.contains(e.target)) headerMenu?.classList.remove('open');
-});
-headerMenu?.addEventListener('click', (e) => {
-  if (e.target.closest('.hdr-menu-item')) headerMenu.classList.remove('open');
 });
 
 /* ── Scroll button ───────────────────────────────────────── */
@@ -1918,10 +2030,10 @@ const renderMsg = m => {
   const status = (m.delivery_status||'').toLowerCase();
   const statusIcon = m.direction === 'outbound'
     ? (status === 'read'
-      ? '<i class="fas fa-check-double msg-status-icon read"></i>'
+      ? '<i class="fas fa-check-double msg-status-icon read" title="Read"></i>'
       : ['delivered','sent','accepted'].includes(status)
-        ? '<i class="fas fa-check-double msg-status-icon"></i>'
-        : '<i class="fas fa-check msg-status-icon"></i>')
+        ? '<i class="fas fa-check-double msg-status-icon" title="Delivered"></i>'
+        : '<i class="fas fa-check msg-status-icon" title="Sent"></i>')
     : '';
 
   let mediaHtml = '';
@@ -1949,7 +2061,6 @@ const renderMsg = m => {
 
   const textContent = esc(m.text || (m.message_type === 'template' ? '📋 Template message' : m.message_type === 'interactive' ? '🔘 Interactive message' : ''));
   const errorHtml = m.error_reason ? `<div class="msg-error-chip"><i class="fas fa-circle-exclamation"></i> ${esc(m.error_reason)}</div>` : '';
-  const statusChip = m.delivery_status ? `<span class="msg-status-chip">${esc(m.delivery_status)}</span>` : '';
   const senderName = m.direction === 'inbound'
     ? `<div class="msg-sender-name">${esc(m.name || 'Customer')}</div>` : '';
 
@@ -1959,7 +2070,7 @@ const renderMsg = m => {
       ${locHtml}${mediaHtml}
       <p class="msg-text">${textContent}</p>
       ${errorHtml}
-      <div class="msg-footer">${statusChip}<span class="msg-time">${fmtTime(m.created_at)}</span>${statusIcon}</div>
+      <div class="msg-footer"><span class="msg-time">${fmtTime(m.created_at)}</span>${statusIcon}</div>
     </div>`;
   return row;
 };
@@ -1993,8 +2104,14 @@ const upsertMsg = m => {
   };
 
   const status = (m.delivery_status||'').toLowerCase();
-  const statusChip = m.delivery_status ? `<span class="msg-status-chip">${esc(m.delivery_status)}</span>` : '';
-  patchStatus('.msg-status-chip', statusChip);
+  const statusIcon = m.direction === 'outbound'
+    ? (status === 'read'
+      ? '<i class="fas fa-check-double msg-status-icon read" title="Read"></i>'
+      : ['delivered','sent','accepted'].includes(status)
+        ? '<i class="fas fa-check-double msg-status-icon" title="Delivered"></i>'
+        : '<i class="fas fa-check msg-status-icon" title="Sent"></i>')
+    : '';
+  patchStatus('.msg-status-icon', statusIcon);
 
   const errorChip = m.error_reason ? `<div class="msg-error-chip"><i class="fas fa-circle-exclamation"></i> ${esc(m.error_reason)}</div>` : '';
   patchStatus('.msg-error-chip', errorChip);
@@ -2003,22 +2120,20 @@ const upsertMsg = m => {
 };
 
 /* ── Render contacts ─────────────────────────────────────── */
-const avatarClasses = ['', 'alt-1', 'alt-2', 'alt-3', 'alt-4', 'alt-5'];
+const avatarClasses = ['', 'alt-1', 'alt-2'];
 const renderContacts = contacts => {
   if (!convList) return;
   if (!contacts.length) {
     convList.innerHTML = `<div class="conv-empty"><i class="fab fa-whatsapp"></i><h4>No conversations yet</h4><p>New WhatsApp messages will appear here in real time</p></div>`;
     return;
   }
-  const currentFilter = $q('.sb-filter-chip.active')?.dataset.filter || 'all';
   const query = (searchInput?.value || '').toLowerCase();
 
   convList.innerHTML = contacts.map((c, i) => {
     const name = c.name || c.mobile || 'Unknown';
     const initial = (name[0]||'?').toUpperCase();
     const isActive = c.mobile === ACTIVE_MOBILE;
-    const cls = avatarClasses[i % 6];
-    const onlineDot = i % 4 === 0 ? '<span class="conv-online-dot"></span>' : '';
+    const cls = avatarClasses[i % 3];
     const unread = !isActive && i < 2 ? `<span class="conv-unread">${i+1}</span>` : '';
     const time = fmtTime(c.created_at);
     return `
@@ -2026,17 +2141,13 @@ const renderContacts = contacts => {
          href="${PAGE_URL}?mobile=${encodeURIComponent(c.mobile)}"
          data-mobile="${esc(c.mobile)}"
          data-name="${esc(name.toLowerCase())}">
-        <div class="conv-avatar ${cls}">${initial}${onlineDot}</div>
+        <div class="conv-avatar ${cls}">${initial}</div>
         <div class="conv-meta">
           <div class="conv-row1">
             <div class="conv-name">${esc(name)}</div>
             <div class="conv-time">${esc(time)}</div>
           </div>
           <div class="conv-preview">${esc(c.preview || 'No messages yet')}</div>
-          <div class="conv-tags">
-            <span class="conv-tag green">Active</span>
-            <span class="conv-tag">Countrylink</span>
-          </div>
         </div>
         ${unread}
       </a>`;
@@ -2073,7 +2184,7 @@ const poll = async () => {
   }
 
   pollFails = 0;
-  setPoll(true, 'Live');
+  setPoll(true, 'Connected');
 };
 
 const schedulePoll = (delay = POLL_BASE) => {
