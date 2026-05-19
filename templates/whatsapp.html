@@ -61,9 +61,9 @@ main.container {
 
 /* ── CSS Variables (Dark Theme) ─────────────────────────── */
 :root[data-theme="dark"] {
-  --green:       #2fd06f;
-  --green-dk:    #26bd62;
-  --green-lt:    #153b27;
+  --green:       #1f8f4d;
+  --green-dk:    #16673a;
+  --green-lt:    #133322;
   --blue:        #67a9ff;
   --red:         #ff6b6b;
   --amber:       #ffb84d;
@@ -652,8 +652,8 @@ main.container {
 }
 
 .outbound .msg-bubble {
-  background: linear-gradient(145deg, #2fd06f, #22ba5e);
-  color: #f9fffb;
+  background: linear-gradient(145deg, #1f8f4d, #166d3a);
+  color: #effff5;
   border-bottom-right-radius: 4px;
   box-shadow: 0 2px 10px rgba(37,211,102,.25);
 }
@@ -759,17 +759,35 @@ main.container {
 }
 
 :root[data-theme="dark"] .typing-indicator {
-  background: var(--surface-2);
-  border-color: var(--border-dk);
+  background: #141d26;
+  border-color: #2d3a47;
+}
+
+:root[data-theme="dark"] .typing-dot {
+  background: #90a3b8;
+}
+
+:root[data-theme="dark"] .compose-action {
+  background: #141d26;
+  border-color: #2d3a47;
+  color: #9fb0c2;
+}
+
+:root[data-theme="dark"] .compose-action:hover {
+  border-color: #1f8f4d;
+  color: #e8fff2;
+  background: #193126;
 }
 
 :root[data-theme="dark"] .compose-box {
-  background: #151c24;
+  background: #141d26;
+  border-color: #2d3a47;
 }
 
 :root[data-theme="dark"] .compose-box:focus-within {
-  background: #101820;
-  box-shadow: 0 0 0 3px rgba(47,208,111,.14);
+  background: #0f1821;
+  border-color: #1f8f4d;
+  box-shadow: 0 0 0 3px rgba(31,143,77,.2);
 }
 /* Error chip */
 .msg-error-chip {
@@ -1560,15 +1578,18 @@ kbd {
           {% endif %}
 
           {# Media #}
-          {% if msg['message_type'] in ['image', 'sticker'] and msg['media_url'] %}
-            <img class="{{ 'msg-sticker msg-media' if msg['message_type'] == 'sticker' else 'msg-media' }}" data-type="image"
+          {% set msg_type = (msg['message_type'] or '')|lower %}
+          {% set media_ref = ((msg['media_url'] or '') ~ ' ' ~ (msg['file_name'] or ''))|lower %}
+          {% if msg['media_url'] and (msg_type in ['image', 'sticker'] or '.png' in media_ref or '.jpg' in media_ref or '.jpeg' in media_ref or '.webp' in media_ref) %}
+            {% set is_sticker = (msg_type == 'sticker' or '.webp' in media_ref) %}
+            <img class="{{ 'msg-sticker msg-media' if is_sticker else 'msg-media' }}" data-type="image"
                  src="{{ url_for('static', filename=msg['media_url']) }}"
-                 alt="{{ 'Sticker' if msg['message_type'] == 'sticker' else 'Image' }}" loading="lazy">
-          {% elif msg['message_type'] == 'video' and msg['media_url'] %}
+                 alt="{{ 'Sticker' if is_sticker else 'Image' }}" loading="lazy">
+          {% elif msg['media_url'] and (msg_type in ['video', 'gif'] or '.gif' in media_ref or '.mp4' in media_ref or '.mov' in media_ref or '.webm' in media_ref) %}
             <video class="msg-media" data-type="video"
                    src="{{ url_for('static', filename=msg['media_url']) }}"
                    controls preload="metadata"></video>
-          {% elif msg['message_type'] == 'audio' and msg['media_url'] %}
+          {% elif msg['media_url'] and (msg_type == 'audio' or '.mp3' in media_ref or '.ogg' in media_ref or '.wav' in media_ref or '.m4a' in media_ref) %}
             <audio class="msg-audio" controls
                    src="{{ url_for('static', filename=msg['media_url']) }}" preload="none"></audio>
           {% elif msg['media_url'] %}
@@ -1581,7 +1602,11 @@ kbd {
           {% endif %}
 
           {# Text #}
-          <p class="msg-text">{{ msg['text'] or ('📋 Template message' if msg['message_type'] == 'template' else '🔘 Interactive message') }}</p>
+          {% set fallback_text = '📋 Template message' if msg['message_type'] == 'template' else ('🔘 Interactive message' if msg['message_type'] == 'interactive' else '') %}
+          {% set msg_text = msg['text'] or fallback_text %}
+          {% if msg_text %}
+            <p class="msg-text">{{ msg_text }}</p>
+          {% endif %}
 
           {# Error #}
           {% if msg['error_reason'] %}
@@ -2061,6 +2086,19 @@ chatBody?.addEventListener('click', e => {
   mediaModal.show();
 });
 
+const inferMediaKind = (m = {}) => {
+  const type = (m.message_type || '').toLowerCase();
+  if (['image', 'sticker'].includes(type)) return 'image';
+  if (type === 'video' || type === 'gif') return 'video';
+  if (type === 'audio') return 'audio';
+
+  const candidate = `${m.file_name || ''} ${m.media_url || ''}`.toLowerCase();
+  if (/\.(webp|png|jpe?g|bmp|svg)(\?|$)/.test(candidate)) return 'image';
+  if (/\.(gif|mp4|mov|webm|mkv|3gp)(\?|$)/.test(candidate)) return 'video';
+  if (/\.(mp3|ogg|wav|m4a|aac|opus)(\?|$)/.test(candidate)) return 'audio';
+  return 'document';
+};
+
 /* ── Render message ──────────────────────────────────────── */
 const renderMsg = m => {
   const row = document.createElement('div');
@@ -2079,13 +2117,15 @@ const renderMsg = m => {
   let mediaHtml = '';
   if (m.media_url) {
     const src = `${STATIC_BASE}${m.media_url}`;
-    if (m.message_type === 'image' || m.message_type === 'sticker') {
-      const cls = m.message_type === 'sticker' ? 'msg-sticker msg-media' : 'msg-media';
-      const alt = m.message_type === 'sticker' ? 'Sticker' : 'Image';
+    const mediaKind = inferMediaKind(m);
+    if (mediaKind === 'image') {
+      const isSticker = (m.message_type || '').toLowerCase() === 'sticker' || /\.webp(\?|$)/i.test(src);
+      const cls = isSticker ? 'msg-sticker msg-media' : 'msg-media';
+      const alt = isSticker ? 'Sticker' : 'Image';
       mediaHtml = `<img class="${cls}" data-type="image" src="${esc(src)}" alt="${alt}" loading="lazy">`;
-    } else if (m.message_type === 'video') {
-      mediaHtml = `<video class="msg-media" data-type="video" src="${esc(src)}" controls preload="none"></video>`;
-    } else if (m.message_type === 'audio') {
+    } else if (mediaKind === 'video') {
+      mediaHtml = `<video class="msg-media" data-type="video" src="${esc(src)}" controls preload="metadata"></video>`;
+    } else if (mediaKind === 'audio') {
       mediaHtml = `<audio class="msg-audio" controls src="${esc(src)}" preload="none"></audio>`;
     } else {
       mediaHtml = `<a class="msg-doc-link" href="${esc(src)}" target="_blank" rel="noopener" download><i class="fas fa-file-arrow-down"></i><span class="msg-doc-meta"><span class="msg-doc-name">${esc(m.file_name||'Attachment')}</span><span class="msg-doc-type">${esc((m.message_type||'file').replace('_',' '))}</span></span></a>`;
@@ -2103,6 +2143,7 @@ const renderMsg = m => {
 
   const fallbackText = m.message_type === 'template' ? '📋 Template message' : m.message_type === 'interactive' ? '🔘 Interactive message' : m.message_type === 'sticker' ? '🧩 Sticker' : '';
   const textContent = esc(m.text || fallbackText);
+  const showText = Boolean((m.text || fallbackText || '').trim());
   const errorHtml = m.error_reason ? `<div class="msg-error-chip"><i class="fas fa-circle-exclamation"></i> ${esc(m.error_reason)}</div>` : '';
   const senderName = m.direction === 'inbound'
     ? `<div class="msg-sender-name">${esc(m.name || 'Customer')}</div>` : '';
@@ -2111,7 +2152,7 @@ const renderMsg = m => {
     ${senderName}
     <div class="msg-bubble">
       ${locHtml}${mediaHtml}
-      <p class="msg-text">${textContent}</p>
+      ${showText ? `<p class="msg-text">${textContent}</p>` : ''}
       ${errorHtml}
       <div class="msg-footer"><span class="msg-time">${fmtTime(m.created_at)}</span>${statusIcon}</div>
     </div>`;
