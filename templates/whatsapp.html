@@ -2002,7 +2002,7 @@ kbd {
 'use strict';
 
 /* ── Config ──────────────────────────────────────────────── */
-const ACTIVE_MOBILE   = '{{ active_mobile or "" }}';
+let ACTIVE_MOBILE     = '{{ active_mobile or "" }}';
 const API_URL         = '{{ url_for("whatsapp_messages_api") }}';
 const PAGE_URL        = '{{ url_for("whatsapp_complaints") }}';
 const SEND_URL        = '{{ url_for("send_whatsapp") }}';
@@ -2093,14 +2093,31 @@ themeToggle?.addEventListener('click', () => {
 const NOTIFICATION_SOUND_URL = `${STATIC_BASE}audio/whatsapp_notification.wav`;
 const notificationAudio = new Audio(NOTIFICATION_SOUND_URL);
 notificationAudio.preload = 'auto';
+notificationAudio.volume = 1.0;
+
+// Debug: confirm file loads correctly
+notificationAudio.addEventListener('error', () => {
+  console.warn('⚠️ Notification sound failed to load from:', NOTIFICATION_SOUND_URL);
+});
+notificationAudio.addEventListener('canplaythrough', () => {
+  console.log('✅ Notification sound loaded:', NOTIFICATION_SOUND_URL);
+});
 
 const beep = () => {
-  if (!soundEnabled || !hasInteracted) return;
+  if (!soundEnabled) return;
+  if (!hasInteracted) {
+    console.warn('Sound blocked — user has not interacted with page yet');
+    return;
+  }
   try {
-    notificationAudio.pause();
-    notificationAudio.currentTime = 0;
-    notificationAudio.play().catch(() => {});
-  } catch (e) {}
+    const clip = notificationAudio.cloneNode();
+    clip.volume = 1.0;
+    clip.play().catch(err => {
+      console.warn('Sound play failed:', err.message);
+    });
+  } catch (e) {
+    console.warn('Beep error:', e);
+  }
 };
 
 const updateSoundUi = () => {
@@ -2189,12 +2206,58 @@ searchInput?.addEventListener('input', () => {
     item.style.display = hay.includes(q) ? '' : 'none';
   });
 });
-document.addEventListener('click', e => {
-  const chatLink = e.target.closest('.conv-item[href]');
-  if (!chatLink || chatLink.classList.contains('active')) return;
-  showPageLoader();
-});
 
+convList.addEventListener('click', async e => {
+  const link = e.target.closest('.conv-item[data-mobile]');
+  if (!link) return;
+  e.preventDefault();
+
+  const mobile = link.dataset.mobile;
+  if (mobile === ACTIVE_MOBILE) return;
+
+  // Swap active highlight immediately — no flicker
+  $all('.conv-item').forEach(el => el.classList.toggle('active', el.dataset.mobile === mobile));
+
+  // Update URL without page reload
+  history.pushState({}, '', `${PAGE_URL}?mobile=${encodeURIComponent(mobile)}`);
+
+  // Reset chat for new contact
+  ACTIVE_MOBILE = mobile;
+  lastMsgId = 0;
+  knownIds.clear();
+
+  if (chatBody) {
+    chatBody.innerHTML = `
+      <div class="chat-empty" id="chatEmptyHint">
+        <div class="chat-empty-icon"><i class="fab fa-whatsapp"></i></div>
+        <h3>Loading messages…</h3>
+        <p>Please wait</p>
+      </div>`;
+  }
+
+  // Update header name and mobile
+  const contactName = link.querySelector('.conv-name')?.textContent || mobile;
+  const headerName = document.querySelector('.chat-header-info h3');
+  const headerSub  = document.querySelector('.chat-header-info p span[style*="monospace"]');
+  if (headerName) headerName.textContent = contactName;
+  if (headerSub)  headerSub.textContent  = mobile;
+
+  // Update compose form mobile field
+  const mobileInput = chatForm?.querySelector('input[name="mobile"]');
+  if (mobileInput) mobileInput.value = mobile;
+
+  // Enable composer
+  if (msgInput) msgInput.disabled = false;
+  const sendBtn = $('sendBtn');
+  if (sendBtn) sendBtn.disabled = false;
+
+  // Restart poll for new contact
+  clearTimeout(pollTimer);
+  await poll();
+  scrollBottom();
+  schedulePoll(POLL_BASE);
+  msgInput?.focus();
+});
 /* ── Filter dropdown - IMPROVED ──────────────────────────── */
 $all('.dropdown-item[data-filter]').forEach(item => {
   item.addEventListener('click', () => {
@@ -2346,42 +2409,77 @@ const upsertMsg = m => {
 /* ── Render contacts ─────────────────────────────────────── */
 const avatarClasses = ['', 'alt-1', 'alt-2'];
 const renderContacts = contacts => {
-  const activeMobile = ACTIVE_MOBILE;
   if (!convList) return;
+
   if (!contacts.length) {
-    convList.innerHTML = `<div class="conv-empty"><i class="fab fa-whatsapp"></i><h4>No conversations yet</h4><p>New WhatsApp messages will appear here in real time</p></div>`;
+    if (!convList.querySelector('.conv-empty')) {
+      convList.innerHTML = `<div class="conv-empty"><i class="fab fa-whatsapp"></i><h4>No conversations yet</h4><p>New WhatsApp messages will appear here in real time</p></div>`;
+    }
     return;
   }
-  const query = (searchInput?.value || '').toLowerCase();
 
-  convList.innerHTML = contacts.map((c, i) => {
-    const name = c.name || c.mobile || 'Unknown';
-    const initial = (name[0]||'?').toUpperCase();
+  // Remove empty state if present
+  const emptyEl = convList.querySelector('.conv-empty');
+  if (emptyEl) emptyEl.remove();
+
+  contacts.forEach((c, i) => {
     const mobile = c.mobile || '';
-    const isActive = mobile === activeMobile;
+    if (!mobile) return;
+    const isActive = mobile === ACTIVE_MOBILE;
     if (isActive) unreadByMobile.delete(mobile);
+    const name = c.name || mobile || 'Unknown';
     const cls = avatarClasses[i % 3];
-    const unreadCount = unreadByMobile.get(mobile) || 0;
-    const unread = !isActive && unreadCount > 0 ? `<span class="conv-unread">${unreadCount}</span>` : '';
+    const unreadCount = !isActive ? (unreadByMobile.get(mobile) || 0) : 0;
     const time = fmtTime(c.created_at);
-    return `
-      <a class="conv-item ${isActive ? 'active' : ''}"
-         href="${PAGE_URL}?mobile=${encodeURIComponent(mobile)}"
-         data-mobile="${esc(mobile)}"
-         data-name="${esc(name.toLowerCase())}">
-        <div class="conv-avatar ${cls}">${initial}</div>
-        <div class="conv-meta">
-          <div class="conv-row1">
-            <div class="conv-name">${esc(name)}</div>
-            <div class="conv-time">${esc(time)}</div>
-          </div>
-          <div class="conv-preview">${esc(c.preview || 'No messages yet')}</div>
-        </div>
-        ${unread}
-      </a>`;
-  }).join('');
-};
+    const preview = c.preview || 'No messages yet';
 
+    const existing = convList.querySelector(`[data-mobile="${CSS.escape(mobile)}"]`);
+
+    if (existing) {
+      // Patch only what changed — no full re-render, no flash
+      existing.classList.toggle('active', isActive);
+
+      const nameEl = existing.querySelector('.conv-name');
+      if (nameEl && nameEl.textContent !== name) nameEl.textContent = name;
+
+      const previewEl = existing.querySelector('.conv-preview');
+      if (previewEl && previewEl.textContent !== preview) previewEl.textContent = preview;
+
+      const timeEl = existing.querySelector('.conv-time');
+      if (timeEl && timeEl.textContent !== time) timeEl.textContent = time;
+
+      let unreadEl = existing.querySelector('.conv-unread');
+      if (unreadCount > 0) {
+        if (!unreadEl) {
+          existing.insertAdjacentHTML('beforeend', `<span class="conv-unread">${unreadCount}</span>`);
+        } else if (unreadEl.textContent !== String(unreadCount)) {
+          unreadEl.textContent = unreadCount;
+        }
+      } else if (unreadEl) {
+        unreadEl.remove();
+      }
+    } else {
+      // Brand new contact — build and append
+      const unreadHtml = unreadCount > 0 ? `<span class="conv-unread">${unreadCount}</span>` : '';
+      const html = `
+        <a class="conv-item ${isActive ? 'active' : ''}"
+           href="${PAGE_URL}?mobile=${encodeURIComponent(mobile)}"
+           data-mobile="${esc(mobile)}"
+           data-name="${esc(name.toLowerCase())}">
+          <div class="conv-avatar ${cls}">${(name[0]||'?').toUpperCase()}</div>
+          <div class="conv-meta">
+            <div class="conv-row1">
+              <div class="conv-name">${esc(name)}</div>
+              <div class="conv-time">${esc(time)}</div>
+            </div>
+            <div class="conv-preview">${esc(preview)}</div>
+          </div>
+          ${unreadHtml}
+        </a>`;
+      convList.insertAdjacentHTML('beforeend', html);
+    }
+  });
+};
 /* ── Poll ────────────────────────────────────────────────── */
 const poll = async () => {
   const params = new URLSearchParams({ include_contacts: '1', since_inbox_id: String(lastInboxId) });
@@ -2402,16 +2500,19 @@ const poll = async () => {
       const mobile = m.mobile || '';
       const isInbound = m.direction !== 'outbound';
       const isActiveChatMessage = ACTIVE_MOBILE && mobile === ACTIVE_MOBILE;
+
       if (isInbound && mobile) {
         if (isActiveChatMessage) {
           unreadByMobile.delete(mobile);
+          beep(); // sound for messages in the currently open chat
         } else {
           unreadByMobile.set(mobile, (unreadByMobile.get(mobile) || 0) + 1);
-          beep();
+          beep(); // sound for messages in other chats
         }
       }
     });
   }
+
   if (data.last_inbox_message_id) lastInboxId = Math.max(lastInboxId, +data.last_inbox_message_id||0);
 
   if (data.messages?.length) {
@@ -2438,7 +2539,6 @@ const schedulePoll = (delay = POLL_BASE) => {
     }
   }, delay);
 };
-
 /* ── Send message ────────────────────────────────────────── */
 chatForm?.addEventListener('submit', async e => {
   e.preventDefault();
@@ -2749,14 +2849,12 @@ $all('.cmd-item').forEach(item => {
 });
 
 /* ── Init ────────────────────────────────────────────────── */
-setPoll(false, 'Connecting');
-schedulePoll(0);
+schedulePoll(0); // start silently — dot only appears on failure
 if ($('quickTemplateMobile') && ACTIVE_MOBILE) $('quickTemplateMobile').value = ACTIVE_MOBILE;
 setWorkspace('inbox');
 resizeInput();
 if (msgInput && !msgInput.disabled) msgInput.focus();
 scrollBottom();
-
 })();
 </script>
 {% endblock %}
