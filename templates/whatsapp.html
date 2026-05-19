@@ -17,8 +17,20 @@ html, body {
   overflow: hidden;
 }
 
-/* Hide the outer layout nav for this page */
-.floating-nav, .topnav, .tabs, nav.navbar { display: none !important; }
+/* Make this page truly full-screen inside shared layout */
+.header,
+.floating-nav,
+.topnav,
+.tabs,
+nav.navbar,
+#sidebarOverlay { display: none !important; }
+
+main.container {
+  max-width: none !important;
+  width: 100vw !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
 
 /* ── CSS Variables ──────────────────────────────────────── */
 :root {
@@ -1236,6 +1248,16 @@ kbd {
   .wa-sidebar { width: 100%; position: absolute; z-index: 20; height: 100%; transform: translateX(-100%); transition: transform .25s; }
   .wa-sidebar.mob-open { transform: translateX(0); }
   .msg-bubble { max-width: 80%; }
+}
+
+@media (max-width: 680px) {
+  .chat-header { padding: 10px 12px; }
+  .chat-header-actions { gap: 4px; }
+  .chat-body { padding: 14px 12px; }
+  .chat-compose { padding: 0 10px 10px; }
+  .compose-row { gap: 6px; }
+  .compose-action { width: 34px; height: 34px; }
+  .compose-send { width: 36px; height: 36px; }
 }
 
 /* ── Utility ─────────────────────────────────────────────── */
