@@ -785,14 +785,24 @@ main.container {
 }
 
 :root[data-theme="dark"] .compose-box {
-  background: #141d26;
+  background: #141d26 !important;
   border-color: #2d3a47;
 }
 
 :root[data-theme="dark"] .compose-box:focus-within {
-  background: #0f1821;
+  background: #0f1821 !important;
   border-color: #1f8f4d;
   box-shadow: 0 0 0 3px rgba(31,143,77,.2);
+}
+
+:root[data-theme="dark"] .compose-box textarea {
+  color: #e6edf3;
+  background: transparent !important;
+  -webkit-text-fill-color: #e6edf3;
+}
+
+:root[data-theme="dark"] #chatForm {
+  background: transparent;
 }
 /* Error chip */
 .msg-error-chip {
