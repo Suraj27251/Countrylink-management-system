@@ -1487,9 +1487,6 @@ kbd {
             </div>
             <div class="conv-preview">{{ contact.preview or 'No messages yet' }}</div>
           </div>
-          {% if loop.index0 < 2 %}
-            <span class="conv-unread">{{ loop.index0 + 1 }}</span>
-          {% endif %}
         </a>
       {% else %}
         <div class="conv-empty">
@@ -1937,6 +1934,7 @@ let knownIds = new Set(
 );
 let lastMsgId = Math.max(0, ...[...$all('#chatBody .msg-row[data-message-id]')].map(el => +el.dataset.messageId));
 let lastInboxId = lastMsgId;
+let unreadByMobile = new Map();
 
 const templateModal    = new bootstrap.Modal($('templateModal'));
 const newConvModal     = new bootstrap.Modal($('newConvModal'));
@@ -2218,6 +2216,7 @@ const upsertMsg = m => {
 /* ── Render contacts ─────────────────────────────────────── */
 const avatarClasses = ['', 'alt-1', 'alt-2'];
 const renderContacts = contacts => {
+  const activeMobile = ACTIVE_MOBILE;
   if (!convList) return;
   if (!contacts.length) {
     convList.innerHTML = `<div class="conv-empty"><i class="fab fa-whatsapp"></i><h4>No conversations yet</h4><p>New WhatsApp messages will appear here in real time</p></div>`;
@@ -2228,14 +2227,17 @@ const renderContacts = contacts => {
   convList.innerHTML = contacts.map((c, i) => {
     const name = c.name || c.mobile || 'Unknown';
     const initial = (name[0]||'?').toUpperCase();
-    const isActive = c.mobile === ACTIVE_MOBILE;
+    const mobile = c.mobile || '';
+    const isActive = mobile === activeMobile;
+    if (isActive) unreadByMobile.delete(mobile);
     const cls = avatarClasses[i % 3];
-    const unread = !isActive && i < 2 ? `<span class="conv-unread">${i+1}</span>` : '';
+    const unreadCount = unreadByMobile.get(mobile) || 0;
+    const unread = !isActive && unreadCount > 0 ? `<span class="conv-unread">${unreadCount}</span>` : '';
     const time = fmtTime(c.created_at);
     return `
       <a class="conv-item ${isActive ? 'active' : ''}"
-         href="${PAGE_URL}?mobile=${encodeURIComponent(c.mobile)}"
-         data-mobile="${esc(c.mobile)}"
+         href="${PAGE_URL}?mobile=${encodeURIComponent(mobile)}"
+         data-mobile="${esc(mobile)}"
          data-name="${esc(name.toLowerCase())}">
         <div class="conv-avatar ${cls}">${initial}</div>
         <div class="conv-meta">
@@ -2266,7 +2268,18 @@ const poll = async () => {
       if (knownIds.has(idStr)) return;
       knownIds.add(idStr);
       lastInboxId = Math.max(lastInboxId, +m.id||0);
-      if (m.direction !== 'outbound') beep();
+
+      const mobile = m.mobile || '';
+      const isInbound = m.direction !== 'outbound';
+      const isActiveChatMessage = ACTIVE_MOBILE && mobile === ACTIVE_MOBILE;
+      if (isInbound && mobile) {
+        if (isActiveChatMessage) {
+          unreadByMobile.delete(mobile);
+        } else {
+          unreadByMobile.set(mobile, (unreadByMobile.get(mobile) || 0) + 1);
+          beep();
+        }
+      }
     });
   }
   if (data.last_inbox_message_id) lastInboxId = Math.max(lastInboxId, +data.last_inbox_message_id||0);
