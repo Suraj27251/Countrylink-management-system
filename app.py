@@ -2127,6 +2127,7 @@ def whatsapp_complaints():
 
     messages = []
     active_name = None
+    last_inbox_message_id = max((row["id"] for row in rows), default=0)
     if active_mobile:
         messages = [row for row in rows if mobiles_equivalent(row["mobile"], active_mobile)]
         messages = sorted(messages, key=lambda item: (item["created_at"], item["id"]))
@@ -2144,6 +2145,7 @@ def whatsapp_complaints():
         config_ready=whatsapp_config_ready(),
         phone_number_id=os.environ.get('PHONE_NUMBER_ID'),
         waba_id=os.environ.get('WABA_ID'),
+        last_inbox_message_id=last_inbox_message_id,
     )
 
 

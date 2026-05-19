@@ -1892,6 +1892,7 @@ const SYNC_FLOWS_URL  = '{{ url_for("sync_whatsapp_flows_api") }}';
 const STATIC_BASE     = '{{ url_for("static", filename="") }}';
 const POLL_BASE       = 5000;
 const POLL_MAX        = 30000;
+const INITIAL_LAST_INBOX_ID = Number('{{ last_inbox_message_id or 0 }}') || 0;
 
 /* ── DOM ─────────────────────────────────────────────────── */
 const $  = (id) => document.getElementById(id);
@@ -1933,7 +1934,7 @@ let knownIds = new Set(
   $all('#chatBody .msg-row[data-message-id]').map(el => el.dataset.messageId)
 );
 let lastMsgId = Math.max(0, ...[...$all('#chatBody .msg-row[data-message-id]')].map(el => +el.dataset.messageId));
-let lastInboxId = lastMsgId;
+let lastInboxId = Math.max(lastMsgId, INITIAL_LAST_INBOX_ID);
 let unreadByMobile = new Map();
 
 const templateModal    = new bootstrap.Modal($('templateModal'));
