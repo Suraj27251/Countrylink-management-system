@@ -213,33 +213,6 @@ main.container {
   flex-direction: column;
   overflow: hidden;
 }
-.workspace-switcher {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-}
-.ws-btn {
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text-2);
-  font-size: 12px;
-  padding: 6px 4px;
-  border-radius: 8px;
-  cursor: pointer;
-}
-.ws-btn.active {
-  background: var(--green-lt);
-  color: var(--green-dk);
-  border-color: color-mix(in srgb, var(--green) 35%, var(--border));
-}
-.workspace-panel { display: none; height: 100%; overflow: auto; }
-.workspace-panel.active { display: block; }
-.workspace-wrap { padding: 20px; }
-.ws-grid { display: grid; grid-template-columns: repeat(2, minmax(220px,1fr)); gap: 14px; margin-top: 14px; }
-.ws-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; box-shadow: var(--shadow-sm); }
 
 /* Sidebar Header */
 .sb-header {
@@ -1408,22 +1381,10 @@ kbd {
         <i class="fas fa-gauge-high"></i>
         <span class="rail-tooltip">Dashboard</span>
       </a>
-      <button class="rail-btn active workspace-link" data-workspace="inbox" type="button">
+      <a href="{{ url_for('whatsapp_complaints') }}" class="rail-btn active" title="">
         <i class="fas fa-inbox"></i>
         <span class="rail-tooltip">Inbox</span>
-      </button>
-      <button class="rail-btn workspace-link" data-workspace="templates" type="button">
-        <i class="fas fa-file-lines"></i>
-        <span class="rail-tooltip">Templates</span>
-      </button>
-      <button class="rail-btn workspace-link" data-workspace="campaigns" type="button">
-        <i class="fas fa-bullhorn"></i>
-        <span class="rail-tooltip">Campaigns</span>
-      </button>
-      <button class="rail-btn workspace-link" data-workspace="automation" type="button">
-        <i class="fas fa-bolt"></i>
-        <span class="rail-tooltip">Automation</span>
-      </button>
+      </a>
       <a href="{{ url_for('complaints_page') }}" class="rail-btn" title="">
         <i class="fas fa-ticket"></i>
         <span class="rail-tooltip">Complaints</span>
@@ -1466,12 +1427,6 @@ kbd {
 
   <!-- ── SIDEBAR ───────────────────────────────────────── -->
   <aside class="wa-sidebar" id="waSidebar">
-    <div class="workspace-switcher">
-      <button class="ws-btn active" data-workspace="inbox" type="button">Inbox</button>
-      <button class="ws-btn" data-workspace="templates" type="button">Templates</button>
-      <button class="ws-btn" data-workspace="campaigns" type="button">Campaigns</button>
-      <button class="ws-btn" data-workspace="automation" type="button">Flows</button>
-    </div>
     <!-- Header -->
     <div class="sb-header">
       <div class="sb-header-row">
@@ -1545,29 +1500,6 @@ kbd {
 
   <!-- ── MAIN CHAT ──────────────────────────────────────── -->
   <main class="wa-main relative" id="waMain">
-    <section class="workspace-panel" id="templatesPanel">
-      <div class="workspace-wrap">
-        <h3><i class="fas fa-file-lines"></i> Approved Templates Hub</h3>
-        <p class="text-muted mb-3">Browse approved templates, preview variables, and send quickly by filling parameters.</p>
-        <div class="ws-card mb-3">
-          <div class="row g-2">
-            <div class="col-md-5"><select id="quickTemplateSelect" class="form-select"><option value="">Select approved template</option></select></div>
-            <div class="col-md-3"><input id="quickTemplateMobile" class="form-control" placeholder="Recipient mobile"></div>
-            <div class="col-md-2"><input id="quickTemplateLang" class="form-control" value="en_US"></div>
-            <div class="col-md-2 d-grid"><button class="btn btn-success" id="quickTemplateSendBtn" type="button">Send</button></div>
-          </div>
-          <div id="quickTemplateVars" class="row g-2 mt-2"></div>
-        </div>
-        <div class="ws-grid" id="approvedTemplateCards"></div>
-      </div>
-    </section>
-    <section class="workspace-panel" id="campaignsPanel">
-      <div class="workspace-wrap"><h3><i class="fas fa-bullhorn"></i> Campaign Planner</h3><div class="ws-grid"><div class="ws-card"><h5>Scheduled Broadcasts</h5><p class="mb-1">Create date/time campaigns with approved templates.</p><button class="btn btn-outline-primary btn-sm">New Broadcast</button></div><div class="ws-card"><h5>Audience Segments</h5><p class="mb-1">Saved filters: unpaid invoices, new leads, renewal due.</p><button class="btn btn-outline-primary btn-sm">Manage Segments</button></div><div class="ws-card"><h5>A/B Template Test</h5><p class="mb-1">Send variant A/B and compare reply rates.</p><button class="btn btn-outline-primary btn-sm">Start Test</button></div><div class="ws-card"><h5>Campaign Analytics</h5><p class="mb-1">Track delivered, read, clicked and response SLA.</p><button class="btn btn-outline-primary btn-sm">Open Report</button></div></div></div>
-    </section>
-    <section class="workspace-panel" id="automationPanel">
-      <div class="workspace-wrap"><h3><i class="fas fa-bolt"></i> Automation & Agent Tools</h3><div class="ws-grid"><div class="ws-card"><h5>Template Trigger Rules</h5><p>Auto-send approved template on ticket created/payment reminder.</p></div><div class="ws-card"><h5>Flow Launcher</h5><p>Map WhatsApp flows to support intents from inbox tags.</p></div><div class="ws-card"><h5>Escalation Bot</h5><p>Escalate unread chats after 5/15/30 minutes to a human queue.</p></div><div class="ws-card"><h5>SLA Watcher</h5><p>Live queue of conversations breaching first response SLA.</p></div></div></div>
-    </section>
-    <section class="workspace-panel active" id="inboxPanel">
 
     {% if active_mobile %}
     <!-- Chat Header - IMPROVED: Simplified with dropdown -->
@@ -1781,7 +1713,6 @@ kbd {
       <p>Select a conversation from the sidebar to view messages and start responding</p>
     </div>
     {% endif %}
-    </section>
 
   </main>
 </div>
@@ -2439,53 +2370,9 @@ const loadTemplates = async () => {
   const opts = templates.map(t => `<option value="${esc(t.name)}">${esc(t.name)} (${esc(t.language||'en')})</option>`).join('');
   if ($('templateSelect'))    { $('templateSelect').innerHTML    = opts || '<option value="">No templates</option>'; }
   if ($('newConvTemplate'))   { $('newConvTemplate').innerHTML   = opts || '<option value="">No templates</option>'; }
-  if ($('quickTemplateSelect')) { $('quickTemplateSelect').innerHTML = '<option value="">Select approved template</option>' + opts; }
   onTemplateChange('templateSelect', 'templateLang', 'templateParamsWrap');
   onTemplateChange('newConvTemplate', 'newConvLang', 'newConvParamsWrap');
-  renderApprovedTemplateCards();
 };
-
-const renderApprovedTemplateCards = () => {
-  const wrap = $('approvedTemplateCards');
-  if (!wrap) return;
-  if (!templates.length) {
-    wrap.innerHTML = '<div class="ws-card"><p class="mb-0 text-muted">No approved templates synced yet.</p></div>';
-    return;
-  }
-  wrap.innerHTML = templates.map(t => {
-    const body = esc(getBodyText(t) || 'No body text');
-    const vars = extractVars(getBodyText(t)).length;
-    return `<div class="ws-card"><div class="d-flex justify-content-between mb-1"><strong>${esc(t.name)}</strong><span class="badge bg-success-subtle text-success">${esc(t.language || 'en_US')}</span></div><p class="small mb-2">${body}</p><div class="small text-muted">Variables: ${vars}</div></div>`;
-  }).join('');
-};
-
-$('quickTemplateSelect')?.addEventListener('change', () => onTemplateChange('quickTemplateSelect', 'quickTemplateLang', 'quickTemplateVars'));
-
-$('quickTemplateSendBtn')?.addEventListener('click', async () => {
-  const tName = $('quickTemplateSelect')?.value;
-  const mobile = ($('quickTemplateMobile')?.value || ACTIVE_MOBILE || '').replace(/\D/g, '');
-  if (!tName || !mobile) return alert('Select template and recipient.');
-  const lang = $('quickTemplateLang')?.value || 'en_US';
-  const params = $all('#quickTemplateVars .tpl-param').map(i => i.value.trim());
-  if (params.some(v => !v)) return alert('Fill all variable values.');
-  const t = templates.find(x => x.name === tName);
-  const body = { mobile, template_name: tName, language_code: lang, template_preview: getBodyText(t) || `Template: ${tName}`,
-    components: params.length ? [{ type:'body', parameters: params.map(text=>({type:'text', text})) }] : [] };
-  const r = await fetch(SEND_TPL_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-  const d = await r.json();
-  if (!r.ok) return alert(d.error || 'Failed to send.');
-  alert('Template sent successfully.');
-});
-
-const setWorkspace = async (name = 'inbox') => {
-  ['inbox', 'templates', 'campaigns', 'automation'].forEach(key => {
-    $(`#${key}Panel`)?.classList.toggle('active', key === name);
-  });
-  $all('.workspace-link, .ws-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.workspace === name));
-  if (name === 'templates') await loadTemplates();
-};
-
-$all('.workspace-link, .ws-btn').forEach(btn => btn.addEventListener('click', () => setWorkspace(btn.dataset.workspace)));
 
 $('templateSelect')?.addEventListener('change', () => onTemplateChange('templateSelect', 'templateLang', 'templateParamsWrap'));
 $('newConvTemplate')?.addEventListener('change', () => onTemplateChange('newConvTemplate', 'newConvLang', 'newConvParamsWrap'));
@@ -2691,8 +2578,6 @@ $all('.cmd-item').forEach(item => {
 /* ── Init ────────────────────────────────────────────────── */
 setPoll(false, 'Connecting');
 schedulePoll(0);
-if ($('quickTemplateMobile') && ACTIVE_MOBILE) $('quickTemplateMobile').value = ACTIVE_MOBILE;
-setWorkspace('inbox');
 resizeInput();
 if (msgInput && !msgInput.disabled) msgInput.focus();
 scrollBottom();
