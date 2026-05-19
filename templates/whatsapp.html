@@ -59,6 +59,18 @@ main.container {
   --transition:  all .18s cubic-bezier(.4,0,.2,1);
 }
 
+[data-theme="dark"] {
+  --surface: #1a1a1a;
+  --surface-2: #242424;
+  --surface-3: #161616;
+  --green-lt: #123024;
+  --text-1: #e8eaed;
+  --text-2: #9ca3af;
+  --text-3: #6b7280;
+  --border: #3a3a3a;
+  --border-dk: #4b5563;
+}
+
 /* ── Shell ──────────────────────────────────────────────── */
 .wa-shell {
   display: flex;
@@ -274,14 +286,11 @@ main.container {
 .sb-filter-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 8px;
   padding: 8px 16px;
   border-bottom: 1px solid var(--border);
-  overflow-x: auto;
-  scrollbar-width: none;
 }
-
-.sb-filter-bar::-webkit-scrollbar { display: none; }
 
 .sb-filter-chip {
   display: inline-flex;
@@ -374,7 +383,7 @@ main.container {
   width: 42px;
   height: 42px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #25d366, #128c7e);
+  background: #16a34a;
   color: #fff;
   font-size: 15px;
   font-weight: 700;
@@ -384,23 +393,9 @@ main.container {
   flex-shrink: 0;
   position: relative;
 }
-
-.conv-avatar.alt-1 { background: linear-gradient(135deg, #667eea, #764ba2); }
-.conv-avatar.alt-2 { background: linear-gradient(135deg, #f093fb, #f5576c); }
-.conv-avatar.alt-3 { background: linear-gradient(135deg, #4facfe, #00f2fe); }
-.conv-avatar.alt-4 { background: linear-gradient(135deg, #f6d365, #fda085); }
-.conv-avatar.alt-5 { background: linear-gradient(135deg, #a18cd1, #fbc2eb); }
-
-.conv-online-dot {
-  position: absolute;
-  bottom: -1px;
-  right: -1px;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: var(--green);
-  border: 2px solid #fff;
-}
+.conv-avatar.alt-1 { background: #2563eb; }
+.conv-avatar.alt-2 { background: #7c3aed; }
+.conv-avatar.alt-3 { background: #ea580c; }
 
 /* Item Meta */
 .conv-meta { flex: 1; min-width: 0; }
@@ -413,7 +408,7 @@ main.container {
 }
 
 .conv-name {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-1);
   white-space: nowrap;
@@ -423,37 +418,20 @@ main.container {
 }
 
 .conv-time {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-3);
   flex-shrink: 0;
   font-family: 'DM Mono', monospace;
 }
 
 .conv-preview {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--text-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 4px;
+  line-height: 1.45;
 }
-
-.conv-tags {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.conv-tag {
-  font-size: 10.5px;
-  font-weight: 500;
-  padding: 1px 7px;
-  border-radius: 4px;
-  background: #f0f2f5;
-  color: var(--text-2);
-}
-
-.conv-tag.green { background: var(--green-lt); color: var(--green-dk); }
 
 .conv-unread {
   width: 18px;
@@ -548,6 +526,32 @@ main.container {
   align-items: center;
   gap: 6px;
 }
+.hdr-menu { position: relative; }
+.hdr-menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  width: 180px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 6px;
+  display: none;
+  z-index: 50;
+}
+.hdr-menu.open .hdr-menu-dropdown { display: block; }
+.hdr-menu-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12.5px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: left;
+}
+.hdr-menu-item:hover { background: var(--surface-3); color: var(--text-1); }
 
 .hdr-btn {
   display: inline-flex;
@@ -571,22 +575,9 @@ main.container {
 .hdr-btn.primary:hover { background: var(--green-dk); border-color: var(--green-dk); }
 .hdr-btn i { font-size: 13px; }
 
-.poll-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--text-3);
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-}
-
 .poll-dot {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--amber);
   transition: background .3s;
@@ -610,6 +601,10 @@ main.container {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
   background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23e8eaed' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  scroll-behavior: smooth;
+}
+[data-theme="dark"] .chat-body {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%233a3a3a' fill-opacity='0.28'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
 .chat-body::-webkit-scrollbar { width: 5px; }
@@ -659,8 +654,8 @@ main.container {
 
 .msg-bubble {
   max-width: 62%;
-  padding: 9px 14px 6px;
-  border-radius: 14px;
+  padding: 7px 10px 5px;
+  border-radius: 10px;
   position: relative;
   word-break: break-word;
   line-height: 1.45;
@@ -680,10 +675,11 @@ main.container {
   border-bottom-right-radius: 4px;
   box-shadow: 0 2px 8px rgba(37,211,102,.2);
 }
+[data-theme="dark"] .outbound .msg-bubble { background: #1faa59; }
 
 .msg-text {
-  font-size: 13.5px;
-  margin: 0 0 4px;
+  font-size: 13px;
+  margin: 0 0 2px;
   white-space: pre-wrap;
 }
 
@@ -754,28 +750,7 @@ main.container {
 .msg-doc-link:hover { opacity: .85; }
 .msg-doc-link i { font-size: 20px; }
 
-/* Error / status chips */
-.msg-error-chip {
-  font-size: 11px;
-  color: var(--red);
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 4px;
-  padding: 2px 8px;
-  margin-top: 4px;
-}
-
-.msg-status-chip {
-  font-size: 10.5px;
-  font-family: 'DM Mono', monospace;
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: rgba(0,0,0,.05);
-  color: var(--text-3);
-  margin-top: 2px;
-  text-transform: uppercase;
-  letter-spacing: .5px;
-}
+.msg-error-icon { color: var(--red); font-size: 12px; }
 
 /* Location embed */
 .msg-location-wrap { margin-bottom: 6px; }
@@ -867,7 +842,13 @@ main.container {
   padding: 10px 0 8px;
   overflow-x: auto;
   scrollbar-width: none;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: var(--transition);
 }
+.chat-compose:focus-within .compose-chips,
+.chat-compose:hover .compose-chips { opacity: 1; max-height: 56px; }
 
 .compose-chips::-webkit-scrollbar { display: none; }
 
@@ -931,6 +912,10 @@ input[type="file"]#attachment { display: none; }
   border-color: var(--green);
   background: #fff;
   box-shadow: 0 0 0 3px rgba(37,211,102,.1);
+}
+[data-theme="dark"] .compose-box:focus-within {
+  background: #20242a;
+  box-shadow: 0 0 0 3px rgba(37,211,102,.2);
 }
 
 .compose-box textarea {
@@ -1018,6 +1003,10 @@ input[type="file"]#attachment { display: none; }
   border: 1px solid var(--border);
   margin-bottom: 4px;
 }
+[data-theme="dark"] .typing-indicator {
+  background: var(--surface-2);
+  border-color: var(--border-dk);
+}
 
 .typing-dot {
   width: 7px;
@@ -1026,6 +1015,7 @@ input[type="file"]#attachment { display: none; }
   background: var(--text-3);
   animation: typingBounce 1.4s infinite;
 }
+[data-theme="dark"] .typing-dot { background: #c9ced6; }
 
 .typing-dot:nth-child(2) { animation-delay: .2s; }
 .typing-dot:nth-child(3) { animation-delay: .4s; }
@@ -1245,7 +1235,7 @@ kbd {
 
 @media (max-width: 680px) {
   .wa-rail { display: none; }
-  .wa-sidebar { width: 100%; position: absolute; z-index: 20; height: 100%; transform: translateX(-100%); transition: transform .25s; }
+  .wa-sidebar { width: 100%; position: absolute; z-index: 20; height: 100%; transform: translateX(-100%); transition: transform .32s cubic-bezier(.4,0,.2,1); }
   .wa-sidebar.mob-open { transform: translateX(0); }
   .msg-bubble { max-width: 80%; }
 }
@@ -1345,24 +1335,20 @@ kbd {
 
     <!-- Filter bar -->
     <div class="sb-filter-bar">
-      <button class="sb-filter-chip active" data-filter="all">Active <i class="fas fa-chevron-down"></i></button>
-      <button class="sb-filter-chip" data-filter="unread">Unread</button>
-      <button class="sb-filter-chip" data-filter="assigned">Assigned</button>
-      <button class="sb-filter-chip" data-filter="templates">Templates</button>
-      <button class="sb-filter-plus" id="addFilterBtn"><i class="fas fa-plus"></i> Filter</button>
+      <button class="sb-filter-chip active" data-filter="all">All <i class="fas fa-chevron-down"></i></button>
+      <button class="sb-filter-plus" id="addFilterBtn"><i class="fas fa-magnifying-glass"></i> Search</button>
     </div>
 
     <!-- Conversation list -->
     <div class="conv-list" id="convList">
-      {% set avatar_classes = ['', 'alt-1', 'alt-2', 'alt-3', 'alt-4', 'alt-5'] %}
+      {% set avatar_classes = ['', 'alt-1', 'alt-2', 'alt-3'] %}
       {% for contact in contacts %}
         <a class="conv-item {% if contact.mobile == active_mobile %}active{% endif %}"
            href="{{ url_for('whatsapp_complaints', mobile=contact.mobile) }}"
            data-mobile="{{ contact.mobile }}"
            data-name="{{ (contact.name or '')|lower }}">
-          <div class="conv-avatar {{ avatar_classes[loop.index0 % 6] }} {% if loop.index0 % 3 == 0 %}{% endif %}">
+          <div class="conv-avatar {{ avatar_classes[loop.index0 % 4] }}">
             {{ (contact.name or '?')[:1]|upper }}
-            {% if loop.index0 % 4 == 0 %}<span class="conv-online-dot"></span>{% endif %}
           </div>
           <div class="conv-meta">
             <div class="conv-row1">
@@ -1374,10 +1360,6 @@ kbd {
               </div>
             </div>
             <div class="conv-preview">{{ contact.preview or 'No messages yet' }}</div>
-            <div class="conv-tags">
-              <span class="conv-tag green">Active</span>
-              <span class="conv-tag">Countrylink</span>
-            </div>
           </div>
           {% if loop.index0 < 2 %}
             <span class="conv-unread">{{ loop.index0 + 1 }}</span>
@@ -1405,29 +1387,21 @@ kbd {
         </div>
         <div class="chat-header-info">
           <h3>{{ active_name or 'Unknown Contact' }}</h3>
-          <p>
-            <span class="online-pill">Online</span>
-            <span>•</span>
-            <span style="font-family:'DM Mono',monospace;">{{ active_mobile }}</span>
-          </p>
+          <p><span style="font-family:'DM Mono',monospace;">{{ active_mobile }}</span></p>
         </div>
       </div>
       <div class="chat-header-actions">
-        <span class="poll-badge" id="pollBadge">
-          <span class="poll-dot" id="pollDot"></span>
-          <span id="pollText">Connecting</span>
-        </span>
+        <span class="poll-dot" id="pollDot" title="Connection status"></span>
         <button class="hdr-btn" title="Call"><i class="fas fa-phone"></i> <span>Call</span></button>
         <button class="hdr-btn" title="Assign"><i class="fas fa-user-check"></i> <span>Assign</span></button>
-        <button class="hdr-btn" id="templateBtn" title="Send Template">
-          <i class="fas fa-file-lines"></i> <span>Template</span>
-        </button>
-        <button class="hdr-btn" id="interactiveBtn" title="Interactive">
-          <i class="fas fa-sitemap"></i> <span>Interactive</span>
-        </button>
-        <button class="hdr-btn" onclick="openCommandPalette()" title="Commands (Ctrl+K)">
-          <i class="fas fa-terminal"></i>
-        </button>
+        <div class="hdr-menu" id="headerMenu">
+          <button class="hdr-btn" id="actionsMenuBtn" title="Actions"><i class="fas fa-ellipsis"></i> <span>Actions</span></button>
+          <div class="hdr-menu-dropdown">
+            <button class="hdr-menu-item" id="templateBtn"><i class="fas fa-file-lines"></i> Template</button>
+            <button class="hdr-menu-item" id="interactiveBtn"><i class="fas fa-sitemap"></i> Interactive</button>
+            <button class="hdr-menu-item" onclick="openCommandPalette()"><i class="fas fa-terminal"></i> Commands</button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -1474,6 +1448,10 @@ kbd {
             <img class="msg-media" data-type="image"
                  src="{{ url_for('static', filename=msg['media_url']) }}"
                  alt="Image" loading="lazy">
+          {% elif msg['message_type'] == 'sticker' and msg['media_url'] %}
+            <img class="msg-media" data-type="image"
+                 src="{{ url_for('static', filename=msg['media_url']) }}"
+                 alt="Sticker" loading="lazy">
           {% elif msg['message_type'] == 'video' and msg['media_url'] %}
             <video class="msg-media" data-type="video"
                    src="{{ url_for('static', filename=msg['media_url']) }}"
@@ -1486,22 +1464,30 @@ kbd {
                href="{{ url_for('static', filename=msg['media_url']) }}"
                target="_blank" rel="noopener">
               <i class="fas fa-file"></i>
-              {{ msg['file_name'] or 'Attachment' }}
+              {{ msg['file_name'] or (msg['message_type']|replace('_', ' ')|title) or 'Attachment' }}
             </a>
           {% endif %}
 
           {# Text #}
-          <p class="msg-text">{{ msg['text'] or ('📋 Template message' if msg['message_type'] == 'template' else '🔘 Interactive message') }}</p>
+          {% set fallback_text = {
+            'template': '📋 Template message',
+            'interactive': '🔘 Interactive message',
+            'sticker': '🧩 Sticker',
+            'image': '🖼️ Image',
+            'video': '🎥 Video',
+            'audio': '🎵 Audio',
+            'document': '📄 Document',
+            'file': '📎 File',
+            'location': '📍 Location',
+            'contacts': '👤 Contact card'
+          } %}
+          <p class="msg-text">{{ msg['text'] or fallback_text.get(msg['message_type'], '📎 Attachment') }}</p>
 
           {# Error #}
-          {% if msg['error_reason'] %}
-            <div class="msg-error-chip"><i class="fas fa-circle-exclamation"></i> {{ msg['error_reason'] }}</div>
-          {% endif %}
-
           {# Footer: time + status #}
           <div class="msg-footer">
-            {% if msg['delivery_status'] %}
-              <span class="msg-status-chip">{{ msg['delivery_status'] }}</span>
+            {% if msg['error_reason'] %}
+              <i class="fas fa-circle-exclamation msg-error-icon" title="{{ msg['error_reason'] }}"></i>
             {% endif %}
             <span class="msg-time">
               {% if msg['created_at'] and ' ' in msg['created_at'] %}
@@ -1778,9 +1764,9 @@ const convList       = $('convList');
 const chatForm       = $('chatForm');
 const msgInput       = $('msgInput');
 const searchInput    = $('searchInput');
+const addFilterBtn   = $('addFilterBtn');
 const scrollBtn      = $('scrollBtn');
 const pollDot        = $('pollDot');
-const pollText       = $('pollText');
 const attachFile     = $('attachment');
 const attachPreview  = $('attachPreview');
 const attachName     = $('attachName');
@@ -1794,6 +1780,8 @@ const newChatBtn     = $('newChatBtn');
 const templateBtn    = $('templateBtn');
 const interactiveBtn = $('interactiveBtn');
 const cmdChip        = $('cmdChip');
+const headerMenu     = $('headerMenu');
+const actionsMenuBtn = $('actionsMenuBtn');
 
 /* ── State ───────────────────────────────────────────────── */
 let templates = [];
@@ -1854,9 +1842,8 @@ const esc = v => String(v||'').replace(/[&<>'"]/g,
 const fmtTime = ts => (ts && ts.includes(' ')) ? ts.split(' ')[1].slice(0,5) : (ts||'').slice(0,5);
 const nearBottom = () => chatBody && (chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight < 160);
 const scrollBottom = () => chatBody && requestAnimationFrame(() => { chatBody.scrollTop = chatBody.scrollHeight; });
-const setPoll = (live, label) => {
+const setPoll = (live) => {
   pollDot && (pollDot.classList.toggle('live', !!live));
-  pollText && (pollText.textContent = label || (live ? 'Live' : 'Reconnecting'));
 };
 
 /* ── Auto-resize textarea ────────────────────────────────── */
@@ -1910,6 +1897,7 @@ searchInput?.addEventListener('input', () => {
     item.style.display = hay.includes(q) ? '' : 'none';
   });
 });
+addFilterBtn?.addEventListener('click', () => searchInput?.focus());
 
 /* ── Filter chips ────────────────────────────────────────── */
 $all('.sb-filter-chip').forEach(chip => {
@@ -1917,6 +1905,17 @@ $all('.sb-filter-chip').forEach(chip => {
     $all('.sb-filter-chip').forEach(c => c.classList.remove('active'));
     chip.classList.add('active');
   });
+});
+
+actionsMenuBtn?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  headerMenu?.classList.toggle('open');
+});
+document.addEventListener('click', (e) => {
+  if (!headerMenu?.contains(e.target)) headerMenu?.classList.remove('open');
+});
+headerMenu?.addEventListener('click', (e) => {
+  if (e.target.closest('.hdr-menu-item')) headerMenu.classList.remove('open');
 });
 
 /* ── Scroll button ───────────────────────────────────────── */
@@ -1958,14 +1957,16 @@ const renderMsg = m => {
   let mediaHtml = '';
   if (m.media_url) {
     const src = `${STATIC_BASE}${m.media_url}`;
-    if (m.message_type === 'image') {
-      mediaHtml = `<img class="msg-media" data-type="image" src="${esc(src)}" alt="Image" loading="lazy">`;
+    if (['image', 'sticker'].includes(m.message_type)) {
+      const mediaAlt = m.message_type === 'sticker' ? 'Sticker' : 'Image';
+      mediaHtml = `<img class="msg-media" data-type="image" src="${esc(src)}" alt="${mediaAlt}" loading="lazy">`;
     } else if (m.message_type === 'video') {
       mediaHtml = `<video class="msg-media" data-type="video" src="${esc(src)}" controls preload="none"></video>`;
     } else if (m.message_type === 'audio') {
       mediaHtml = `<audio class="msg-audio" controls src="${esc(src)}" preload="none"></audio>`;
     } else {
-      mediaHtml = `<a class="msg-doc-link" href="${esc(src)}" target="_blank" rel="noopener"><i class="fas fa-file"></i>${esc(m.file_name||'Attachment')}</a>`;
+      const label = m.file_name || (m.message_type ? m.message_type.replaceAll('_', ' ') : '') || 'Attachment';
+      mediaHtml = `<a class="msg-doc-link" href="${esc(src)}" target="_blank" rel="noopener"><i class="fas fa-file"></i>${esc(label)}</a>`;
     }
   }
 
@@ -1978,9 +1979,20 @@ const renderMsg = m => {
        </div>`
     : '';
 
-  const textContent = esc(m.text || (m.message_type === 'template' ? '📋 Template message' : m.message_type === 'interactive' ? '🔘 Interactive message' : ''));
-  const errorHtml = m.error_reason ? `<div class="msg-error-chip"><i class="fas fa-circle-exclamation"></i> ${esc(m.error_reason)}</div>` : '';
-  const statusChip = m.delivery_status ? `<span class="msg-status-chip">${esc(m.delivery_status)}</span>` : '';
+  const fallbackTextByType = {
+    template: '📋 Template message',
+    interactive: '🔘 Interactive message',
+    sticker: '🧩 Sticker',
+    image: '🖼️ Image',
+    video: '🎥 Video',
+    audio: '🎵 Audio',
+    document: '📄 Document',
+    file: '📎 File',
+    location: '📍 Location',
+    contacts: '👤 Contact card'
+  };
+  const textContent = esc(m.text || fallbackTextByType[m.message_type] || '📎 Attachment');
+  const errorHtml = m.error_reason ? `<i class="fas fa-circle-exclamation msg-error-icon" title="${esc(m.error_reason)}"></i>` : '';
   const senderName = m.direction === 'inbound'
     ? `<div class="msg-sender-name">${esc(m.name || 'Customer')}</div>` : '';
 
@@ -1989,8 +2001,7 @@ const renderMsg = m => {
     <div class="msg-bubble">
       ${locHtml}${mediaHtml}
       <p class="msg-text">${textContent}</p>
-      ${errorHtml}
-      <div class="msg-footer">${statusChip}<span class="msg-time">${fmtTime(m.created_at)}</span>${statusIcon}</div>
+      <div class="msg-footer">${errorHtml}<span class="msg-time">${fmtTime(m.created_at)}</span>${statusIcon}</div>
     </div>`;
   return row;
 };
@@ -2012,29 +2023,12 @@ const upsertMsg = m => {
     return true;
   }
 
-  // Patch status only
-  const patchStatus = (selector, html) => {
-    let el = existing.querySelector(selector);
-    if (html && !el) {
-      el = document.createElement('div');
-      const timeEl = existing.querySelector('.msg-time');
-      timeEl ? timeEl.before(el) : existing.querySelector('.msg-bubble')?.appendChild(el);
-    }
-    if (el) el.outerHTML = html || '';
-  };
-
-  const status = (m.delivery_status||'').toLowerCase();
-  const statusChip = m.delivery_status ? `<span class="msg-status-chip">${esc(m.delivery_status)}</span>` : '';
-  patchStatus('.msg-status-chip', statusChip);
-
-  const errorChip = m.error_reason ? `<div class="msg-error-chip"><i class="fas fa-circle-exclamation"></i> ${esc(m.error_reason)}</div>` : '';
-  patchStatus('.msg-error-chip', errorChip);
-
+  existing.innerHTML = renderMsg(m).innerHTML;
   return false;
 };
 
 /* ── Render contacts ─────────────────────────────────────── */
-const avatarClasses = ['', 'alt-1', 'alt-2', 'alt-3', 'alt-4', 'alt-5'];
+const avatarClasses = ['', 'alt-1', 'alt-2', 'alt-3'];
 const renderContacts = contacts => {
   if (!convList) return;
   if (!contacts.length) {
@@ -2048,8 +2042,7 @@ const renderContacts = contacts => {
     const name = c.name || c.mobile || 'Unknown';
     const initial = (name[0]||'?').toUpperCase();
     const isActive = c.mobile === ACTIVE_MOBILE;
-    const cls = avatarClasses[i % 6];
-    const onlineDot = i % 4 === 0 ? '<span class="conv-online-dot"></span>' : '';
+    const cls = avatarClasses[i % 4];
     const unread = !isActive && i < 2 ? `<span class="conv-unread">${i+1}</span>` : '';
     const time = fmtTime(c.created_at);
     return `
