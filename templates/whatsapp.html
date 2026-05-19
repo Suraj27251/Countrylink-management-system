@@ -237,6 +237,13 @@ main.container {
 }
 .workspace-panel { display: none; height: 100%; overflow: auto; }
 .workspace-panel.active { display: block; }
+#inboxPanel {
+  overflow: hidden;
+}
+#inboxPanel.active {
+  display: flex;
+  flex-direction: column;
+}
 .workspace-wrap { padding: 20px; }
 .ws-grid { display: grid; grid-template-columns: repeat(2, minmax(220px,1fr)); gap: 14px; margin-top: 14px; }
 .ws-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; box-shadow: var(--shadow-sm); }
