@@ -61,24 +61,24 @@ main.container {
 
 /* ── CSS Variables (Dark Theme) ─────────────────────────── */
 :root[data-theme="dark"] {
-  --green:       #25d366;
-  --green-dk:    #20ba5a;
-  --green-lt:    #1a4d2e;
-  --blue:        #4a9eff;
-  --red:         #ff5252;
-  --amber:       #ffa726;
-  --surface:     #1a1a1a;
-  --surface-2:   #242424;
-  --surface-3:   #2a2a2a;
-  --border:      #3a3a3a;
-  --border-dk:   #4a4a4a;
-  --text-1:      #e8eaed;
-  --text-2:      #b8b8b8;
-  --text-3:      #888888;
-  --text-inv:    #1a1a1a;
-  --shadow-sm:   0 1px 3px rgba(0,0,0,.3), 0 1px 2px rgba(0,0,0,.2);
-  --shadow:      0 4px 12px rgba(0,0,0,.4);
-  --shadow-lg:   0 12px 32px rgba(0,0,0,.6);
+  --green:       #2fd06f;
+  --green-dk:    #26bd62;
+  --green-lt:    #153b27;
+  --blue:        #67a9ff;
+  --red:         #ff6b6b;
+  --amber:       #ffb84d;
+  --surface:     #12181f;
+  --surface-2:   #1a222c;
+  --surface-3:   #0f141a;
+  --border:      #2b3642;
+  --border-dk:   #3a4654;
+  --text-1:      #e6edf3;
+  --text-2:      #b8c2cc;
+  --text-3:      #8895a3;
+  --text-inv:    #091015;
+  --shadow-sm:   0 1px 3px rgba(0,0,0,.45), 0 1px 2px rgba(0,0,0,.35);
+  --shadow:      0 6px 16px rgba(0,0,0,.5);
+  --shadow-lg:   0 16px 40px rgba(0,0,0,.65);
 }
 
 /* ── Shell ──────────────────────────────────────────────── */
@@ -652,10 +652,10 @@ main.container {
 }
 
 .outbound .msg-bubble {
-  background: var(--green);
-  color: #fff;
+  background: linear-gradient(145deg, #2fd06f, #22ba5e);
+  color: #f9fffb;
   border-bottom-right-radius: 4px;
-  box-shadow: 0 2px 8px rgba(37,211,102,.2);
+  box-shadow: 0 2px 10px rgba(37,211,102,.25);
 }
 
 .msg-text {
@@ -731,6 +731,46 @@ main.container {
 .msg-doc-link:hover { opacity: .85; }
 .msg-doc-link i { font-size: 20px; }
 
+
+.msg-sticker {
+  width: 140px;
+  max-width: 100%;
+  border-radius: 12px;
+  margin-bottom: 6px;
+  display: block;
+  cursor: pointer;
+  background: rgba(255,255,255,.5);
+}
+
+.msg-doc-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.msg-doc-name {
+  font-weight: 600;
+  font-size: 12.8px;
+}
+
+.msg-doc-type {
+  font-size: 11px;
+  opacity: .75;
+}
+
+:root[data-theme="dark"] .typing-indicator {
+  background: var(--surface-2);
+  border-color: var(--border-dk);
+}
+
+:root[data-theme="dark"] .compose-box {
+  background: #151c24;
+}
+
+:root[data-theme="dark"] .compose-box:focus-within {
+  background: #101820;
+  box-shadow: 0 0 0 3px rgba(47,208,111,.14);
+}
 /* Error chip */
 .msg-error-chip {
   font-size: 11px;
@@ -1520,23 +1560,23 @@ kbd {
           {% endif %}
 
           {# Media #}
-          {% if msg['message_type'] == 'image' and msg['media_url'] %}
-            <img class="msg-media" data-type="image"
+          {% if msg['message_type'] in ['image', 'sticker'] and msg['media_url'] %}
+            <img class="{{ 'msg-sticker msg-media' if msg['message_type'] == 'sticker' else 'msg-media' }}" data-type="image"
                  src="{{ url_for('static', filename=msg['media_url']) }}"
-                 alt="Image" loading="lazy">
+                 alt="{{ 'Sticker' if msg['message_type'] == 'sticker' else 'Image' }}" loading="lazy">
           {% elif msg['message_type'] == 'video' and msg['media_url'] %}
             <video class="msg-media" data-type="video"
                    src="{{ url_for('static', filename=msg['media_url']) }}"
-                   controls preload="none"></video>
+                   controls preload="metadata"></video>
           {% elif msg['message_type'] == 'audio' and msg['media_url'] %}
             <audio class="msg-audio" controls
                    src="{{ url_for('static', filename=msg['media_url']) }}" preload="none"></audio>
           {% elif msg['media_url'] %}
             <a class="msg-doc-link"
                href="{{ url_for('static', filename=msg['media_url']) }}"
-               target="_blank" rel="noopener">
-              <i class="fas fa-file"></i>
-              {{ msg['file_name'] or 'Attachment' }}
+               target="_blank" rel="noopener" download>
+              <i class="fas fa-file-arrow-down"></i>
+              <span class="msg-doc-meta"><span class="msg-doc-name">{{ msg['file_name'] or 'Attachment' }}</span><span class="msg-doc-type">{{ (msg['message_type'] or 'file')|capitalize }}</span></span>
             </a>
           {% endif %}
 
@@ -2039,14 +2079,16 @@ const renderMsg = m => {
   let mediaHtml = '';
   if (m.media_url) {
     const src = `${STATIC_BASE}${m.media_url}`;
-    if (m.message_type === 'image') {
-      mediaHtml = `<img class="msg-media" data-type="image" src="${esc(src)}" alt="Image" loading="lazy">`;
+    if (m.message_type === 'image' || m.message_type === 'sticker') {
+      const cls = m.message_type === 'sticker' ? 'msg-sticker msg-media' : 'msg-media';
+      const alt = m.message_type === 'sticker' ? 'Sticker' : 'Image';
+      mediaHtml = `<img class="${cls}" data-type="image" src="${esc(src)}" alt="${alt}" loading="lazy">`;
     } else if (m.message_type === 'video') {
       mediaHtml = `<video class="msg-media" data-type="video" src="${esc(src)}" controls preload="none"></video>`;
     } else if (m.message_type === 'audio') {
       mediaHtml = `<audio class="msg-audio" controls src="${esc(src)}" preload="none"></audio>`;
     } else {
-      mediaHtml = `<a class="msg-doc-link" href="${esc(src)}" target="_blank" rel="noopener"><i class="fas fa-file"></i>${esc(m.file_name||'Attachment')}</a>`;
+      mediaHtml = `<a class="msg-doc-link" href="${esc(src)}" target="_blank" rel="noopener" download><i class="fas fa-file-arrow-down"></i><span class="msg-doc-meta"><span class="msg-doc-name">${esc(m.file_name||'Attachment')}</span><span class="msg-doc-type">${esc((m.message_type||'file').replace('_',' '))}</span></span></a>`;
     }
   }
 
@@ -2059,7 +2101,8 @@ const renderMsg = m => {
        </div>`
     : '';
 
-  const textContent = esc(m.text || (m.message_type === 'template' ? '📋 Template message' : m.message_type === 'interactive' ? '🔘 Interactive message' : ''));
+  const fallbackText = m.message_type === 'template' ? '📋 Template message' : m.message_type === 'interactive' ? '🔘 Interactive message' : m.message_type === 'sticker' ? '🧩 Sticker' : '';
+  const textContent = esc(m.text || fallbackText);
   const errorHtml = m.error_reason ? `<div class="msg-error-chip"><i class="fas fa-circle-exclamation"></i> ${esc(m.error_reason)}</div>` : '';
   const senderName = m.direction === 'inbound'
     ? `<div class="msg-sender-name">${esc(m.name || 'Customer')}</div>` : '';
