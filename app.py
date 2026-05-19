@@ -2207,7 +2207,7 @@ def whatsapp_messages_api():
         if since_inbox_id > 0:
             c.execute(
                 """
-                SELECT id, direction
+                SELECT id, mobile, direction
                 FROM whatsapp_messages
                 WHERE id > ?
                 ORDER BY id ASC
@@ -2286,6 +2286,7 @@ def whatsapp_messages_api():
     serialized_inbox_messages = [
         {
             "id": msg["id"],
+            "mobile": normalize_mobile(msg["mobile"]),
             "direction": msg["direction"],
             "from_me": msg["direction"] == "outbound",
         }
