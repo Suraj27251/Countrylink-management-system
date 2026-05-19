@@ -89,6 +89,46 @@ main.container {
   background: var(--surface-3);
   overflow: hidden;
 }
+/* ── Page loading overlay ───────────────────────────────── */
+.page-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: color-mix(in srgb, var(--surface-3) 92%, transparent);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .18s ease, visibility .18s ease;
+}
+.page-loader.show { opacity: 1; visibility: visible; pointer-events: auto; }
+.page-loader-card {
+  min-width: 140px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+.page-loader-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid color-mix(in srgb, var(--green) 24%, var(--border));
+  border-top-color: var(--green-dk);
+  border-radius: 50%;
+  animation: waSpin .75s linear infinite;
+}
+@keyframes waSpin { to { transform: rotate(360deg); } }
 
 /* ── Icon Rail (far left) ───────────────────────────────── */
 .wa-rail {
@@ -1403,6 +1443,12 @@ kbd {
 {% block tabs %}{% endblock %}
 
 {% block content %}
+<div class="page-loader" id="pageLoader" aria-hidden="true">
+  <div class="page-loader-card" role="status" aria-live="polite">
+    <span class="page-loader-spinner" aria-hidden="true"></span>
+    <span>Loading chat…</span>
+  </div>
+</div>
 <!-- ── APP SHELL ──────────────────────────────────────────── -->
 <div class="wa-shell">
 
@@ -1997,6 +2043,7 @@ const newChatBtn     = $('newChatBtn');
 const templateBtn    = $('templateBtn');
 const interactiveBtn = $('interactiveBtn');
 const cmdChip        = $('cmdChip');
+const pageLoader     = $('pageLoader');
 
 /* ── State ───────────────────────────────────────────────── */
 let templates = [];
@@ -2074,6 +2121,7 @@ const esc = v => String(v||'').replace(/[&<>'"]/g,
 const fmtTime = ts => (ts && ts.includes(' ')) ? ts.split(' ')[1].slice(0,5) : (ts||'').slice(0,5);
 const nearBottom = () => chatBody && (chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight < 160);
 const scrollBottom = () => chatBody && requestAnimationFrame(() => { chatBody.scrollTop = chatBody.scrollHeight; });
+const showPageLoader = () => pageLoader?.classList.add('show');
 
 /* Connection indicator - IMPROVED: Subtle dot only */
 const setPoll = (live, label) => {
@@ -2140,6 +2188,11 @@ searchInput?.addEventListener('input', () => {
     const hay = (item.dataset.name || '') + ' ' + (item.dataset.mobile || '');
     item.style.display = hay.includes(q) ? '' : 'none';
   });
+});
+document.addEventListener('click', e => {
+  const chatLink = e.target.closest('.conv-item[href]');
+  if (!chatLink || chatLink.classList.contains('active')) return;
+  showPageLoader();
 });
 
 /* ── Filter dropdown - IMPROVED ──────────────────────────── */
