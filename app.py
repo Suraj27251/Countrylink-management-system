@@ -2185,6 +2185,7 @@ def whatsapp_messages_api():
     contacts = []
     messages = []
     inbox_messages = []
+    latest_inbox_id = 0
     active_name = ""
 
     if has_whatsapp_messages:
@@ -2199,7 +2200,11 @@ def whatsapp_messages_api():
             )
             contacts = build_whatsapp_contacts(c.fetchall())
 
-        if since_inbox_id:
+        c.execute("SELECT COALESCE(MAX(id), 0) AS latest_id FROM whatsapp_messages")
+        latest_row = c.fetchone()
+        latest_inbox_id = latest_row["latest_id"] if latest_row else 0
+
+        if since_inbox_id > 0:
             c.execute(
                 """
                 SELECT id, direction
@@ -2238,7 +2243,8 @@ def whatsapp_messages_api():
         # Preserve legacy fallback behavior when whatsapp_messages has no rows.
         rows, legacy_mode = load_whatsapp_rows(conn)
         contacts = build_whatsapp_contacts(rows)
-        if since_inbox_id:
+        latest_inbox_id = max((row["id"] for row in rows), default=0)
+        if since_inbox_id > 0:
             inbox_messages = [row for row in rows if row["id"] > since_inbox_id]
             inbox_messages = sorted(inbox_messages, key=lambda item: item["id"])
         if mobile:
@@ -2286,7 +2292,7 @@ def whatsapp_messages_api():
         for msg in inbox_messages
     ]
     last_message_id = serialized_messages[-1]["id"] if serialized_messages else None
-    last_inbox_message_id = serialized_inbox_messages[-1]["id"] if serialized_inbox_messages else None
+    last_inbox_message_id = serialized_inbox_messages[-1]["id"] if serialized_inbox_messages else latest_inbox_id
 
     response_payload = {
         "contacts": contacts if include_contacts else [],
