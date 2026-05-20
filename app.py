@@ -2519,33 +2519,115 @@ def send_whatsapp():
         app.logger.error("Failed to send WhatsApp message to %s: %s", mobile, exc)
         return jsonify({"error": f"Failed to send message: {exc}"}), 500
 
-    created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute(
-        """
-        INSERT INTO whatsapp_messages
-        (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, latitude, longitude, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            message_id,
-            session.get('user_name', 'Agent'),
-            mobile,
-            'outbound',
-            message_type,
-            message_text,
-            media_id,
-            media_url,
-            media_mime_type,
-            file_name,
-            latitude,
-            longitude,
-            created_at,
-        ),
-    )
-    conn.commit()
-    conn.close()
+    mysql_conn = None
+    mysql_cursor = None
+    try:
+        mysql_conn = mysql.connector.connect(
+            host=MYSQL_DB_HOST,
+            database=MYSQL_DB_NAME,
+            user=MYSQL_DB_USER,
+            password=MYSQL_DB_PASSWORD,
+        )
+        mysql_cursor = mysql_conn.cursor(dictionary=True)
+
+        mysql_cursor.execute(
+            """
+            SELECT id
+            FROM whatsapp_conversations
+            WHERE phone = %s
+            LIMIT 1
+            """,
+            (mobile,),
+        )
+        conversation = mysql_cursor.fetchone()
+
+        if conversation:
+            conversation_id = conversation["id"]
+        else:
+            mysql_cursor.execute(
+                """
+                INSERT INTO whatsapp_conversations (
+                    phone,
+                    customer_name,
+                    last_message,
+                    last_message_at,
+                    unread_count,
+                    ai_enabled,
+                    created_at,
+                    updated_at
+                )
+                VALUES (%s, %s, %s, NOW(), 0, 1, NOW(), NOW())
+                """,
+                (mobile, mobile_raw or mobile, message_text or '[media]'),
+            )
+            mysql_conn.commit()
+            conversation_id = mysql_cursor.lastrowid
+
+        inserted = False
+        if message_id:
+            mysql_cursor.execute(
+                """
+                SELECT id
+                FROM whatsapp_messages
+                WHERE whatsapp_message_id = %s
+                LIMIT 1
+                """,
+                (message_id,),
+            )
+            inserted = mysql_cursor.fetchone() is None
+        else:
+            inserted = True
+
+        if inserted:
+            mysql_cursor.execute(
+                """
+                INSERT INTO whatsapp_messages (
+                    conversation_id,
+                    whatsapp_message_id,
+                    sender_type,
+                    phone,
+                    message_text,
+                    message_type,
+                    media_url,
+                    status,
+                    created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                """,
+                (
+                    conversation_id,
+                    message_id,
+                    'agent',
+                    mobile,
+                    message_text,
+                    message_type,
+                    media_url,
+                    'sent',
+                ),
+            )
+
+        mysql_cursor.execute(
+            """
+            UPDATE whatsapp_conversations
+            SET
+                last_message = %s,
+                last_message_at = NOW(),
+                updated_at = NOW()
+            WHERE id = %s
+            """,
+            (message_text or '[media]', conversation_id),
+        )
+
+        mysql_conn.commit()
+
+    except Exception as exc:
+        app.logger.exception("Failed to persist outbound WhatsApp message for %s", mobile)
+        return jsonify({"error": f"Message sent, but failed to persist in inbox: {exc}"}), 500
+    finally:
+        if mysql_cursor:
+            mysql_cursor.close()
+        if mysql_conn:
+            mysql_conn.close()
 
     return jsonify({"status": "sent"}), 200
 
