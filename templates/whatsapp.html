@@ -1859,17 +1859,17 @@ kbd {
     <!-- Scroll to bottom -->
     <button class="scroll-btn" id="scrollBtn"><i class="fas fa-chevron-down"></i></button>
 
-    <!-- Compose -->
-    <div class="chat-compose">
-      <!-- Quick chips - IMPROVED: Hidden by default, shown on focus -->
-      <div class="compose-chips">
-        <button class="compose-chip" data-insert="Hi! This is CountryLink Broadband support. How can we help you today? 😊">👋 Greeting</button>
-        <button class="compose-chip" data-insert="Please share your customer ID or registered mobile number.">🔍 Ask Customer ID</button>
-        <button class="compose-chip" data-insert="We're checking your connection status and will update you shortly.">📡 Status Update</button>
-        <button class="compose-chip" data-insert="Thank you for contacting CountryLink Broadband. Have a great day!">✅ Thank You</button>
-        <button class="compose-chip" id="cmdChip"><i class="fas fa-terminal" style="font-size:11px;"></i> Commands</button>
-      </div>
-
+  <!-- Compose -->
+<div class="chat-compose">
+  <!-- Quick chips - IMPROVED: Hidden by default, shown on focus -->
+  <div class="compose-chips">
+    <button class="compose-chip" data-insert="Hi! This is CountryLink Broadband support. How can we help you today? 😊">👋 Greeting</button>
+    <button class="compose-chip" data-insert="Please share your customer ID or registered mobile number.">🔍 Ask Customer ID</button>
+    <button class="compose-chip" data-insert="We're checking your connection status and will update you shortly.">📡 Status Update</button>
+    <button class="compose-chip" data-insert="Thank you for contacting CountryLink Broadband. Have a great day!">✅ Thank You</button>
+    <button class="compose-chip" id="cmdChip"><i class="fas fa-terminal" style="font-size:11px;"></i> Commands</button>
+    <button class="compose-chip" id="aiToggleBtn" data-phone="{{ active_mobile }}" data-human="{{ 1 if conversation and conversation.human_takeover else 0 }}"><i class="fas {{ 'fa-user' if conversation and conversation.human_takeover else 'fa-robot' }}" style="font-size:11px;"></i> <span id="aiToggleText">{{ 'Human Mode' if conversation and conversation.human_takeover else 'AI Mode' }}</span></button>
+  </div>
       <div class="attach-preview" id="attachPreview">
         <i class="fas fa-paperclip"></i>
         <span class="attach-name" id="attachName">file.jpg</span>
@@ -3109,6 +3109,66 @@ resizeInput();
 if (msgInput && !msgInput.disabled) msgInput.focus();
 scrollBottom();
 })();
+  <script>
+document.addEventListener('DOMContentLoaded', () => {
+
+  const aiBtn = document.getElementById('aiToggleBtn');
+
+  if (!aiBtn) return;
+
+  aiBtn.addEventListener('click', async () => {
+
+    const phone = aiBtn.dataset.phone;
+    const currentHuman = parseInt(aiBtn.dataset.human || '0');
+
+    const newHuman = currentHuman ? 0 : 1;
+
+    try {
+
+      const response = await fetch('/api/whatsapp/toggle-ai', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          phone: phone,
+          human_takeover: newHuman
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+
+        aiBtn.dataset.human = newHuman;
+
+        const text = document.getElementById('aiToggleText');
+
+        if (newHuman === 1) {
+
+  aiBtn.innerHTML =
+    '<i class="fas fa-user" style="font-size:11px;"></i> ' +
+    '<span id="aiToggleText">Human Mode</span>';
+
+} else {
+
+  aiBtn.innerHTML =
+    '<i class="fas fa-robot" style="font-size:11px;"></i> ' +
+    '<span id="aiToggleText">AI Mode</span>';
+}
+
+} else {
+  alert('Failed to switch mode');
+}
+
+} catch (err) {
+  console.error(err);
+  alert('Error switching mode');
+}
+
+});
+});
+</script>
 </script>
 {% endblock %}
 ['templateSearchInput', 'templateStatusFilter', 'templateCategoryFilter'].forEach(id => {
