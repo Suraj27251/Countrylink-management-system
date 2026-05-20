@@ -2599,7 +2599,7 @@ def send_whatsapp():
                     message_id,
                     'agent',
                     mobile,
-                    message_text,
+                    message_text or '[media]',
                     message_type,
                     media_url,
                     'sent',
@@ -2615,23 +2615,41 @@ def send_whatsapp():
                 updated_at = NOW()
             WHERE id = %s
             """,
-            (message_text or '[media]', conversation_id),
+            (
+                message_text or '[media]',
+                conversation_id,
+            ),
         )
 
         mysql_conn.commit()
 
+        app.logger.info(
+            "Human outgoing WhatsApp message stored mobile=%s message_id=%s",
+            mobile,
+            message_id or 'no-id',
+        )
+
     except Exception as exc:
-        app.logger.exception("Failed to persist outbound WhatsApp message for %s", mobile)
-        return jsonify({"error": f"Message sent, but failed to persist in inbox: {exc}"}), 500
+        app.logger.exception(
+            "Failed to persist outbound WhatsApp message for %s",
+            mobile
+        )
+
+        return jsonify({
+            "error": f"Message sent, but failed to persist in inbox: {exc}"
+        }), 500
+
     finally:
         if mysql_cursor:
             mysql_cursor.close()
-        if mysql_conn:
+
+        if mysql_conn and mysql_conn.is_connected():
             mysql_conn.close()
 
-    return jsonify({"status": "sent"}), 200
-
-
+    return jsonify({
+        "status": "sent",
+        "message_id": message_id
+    }), 200
 @app.route('/api/whatsapp/templates')
 @login_required
 def whatsapp_templates_api():
