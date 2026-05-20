@@ -654,6 +654,7 @@ def process_incoming_message(message, metadata):
 
             if conversation:
                 conversation_id = conversation["id"]
+
             else:
                 mysql_cursor.execute("""
                     INSERT INTO whatsapp_conversations (
@@ -733,98 +734,13 @@ def process_incoming_message(message, metadata):
                 mobile
             )
 
-send_whatsapp_message(
-    mobile,
-    message_type,
-    text=text
-)
-
-# =========================
-# Save Human/Agent Message
-# =========================
-
-try:
-
-    agent_conn = mysql.connector.connect(
-        host=MYSQL_DB_HOST,
-        database=MYSQL_DB_NAME,
-        user=MYSQL_DB_USER,
-        password=MYSQL_DB_PASSWORD,
-    )
-
-    agent_cursor = agent_conn.cursor(dictionary=True)
-
-    agent_cursor.execute("""
-        SELECT id
-        FROM whatsapp_conversations
-        WHERE phone = %s
-        LIMIT 1
-    """, (mobile,))
-
-    conversation = agent_cursor.fetchone()
-
-    if conversation:
-
-        conversation_id = conversation["id"]
-
-        agent_cursor.execute("""
-            INSERT INTO whatsapp_messages (
-                conversation_id,
-                whatsapp_message_id,
-                sender_type,
-                phone,
-                message_text,
-                message_type,
-                status,
-                created_at
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
-        """, (
-            conversation_id,
-            None,
-            'agent',
+    except Exception:
+        app.logger.exception(
+            "Failed storing inbound WhatsApp message id=%s mobile=%s",
+            message_id or 'no-id',
             mobile,
-            text,
-            message_type,
-            'sent'
-        ))
-
-        agent_cursor.execute("""
-            UPDATE whatsapp_conversations
-            SET
-                last_message = %s,
-                last_message_at = NOW(),
-                updated_at = NOW()
-            WHERE id = %s
-        """, (
-            text,
-            conversation_id
-        ))
-
-        agent_conn.commit()
-
-    agent_cursor.close()
-    agent_conn.close()
-
-    app.logger.info(
-        "Human agent reply saved mobile=%s",
-        mobile
-    )
-
-except Exception:
-    app.logger.exception(
-        "Failed saving human agent reply mobile=%s",
-        mobile
-    )
-        except Exception:
-            app.logger.exception(
-                "Failed to insert complaint for inbound WhatsApp message id=%s mobile=%s",
-                message_id or 'no-id',
-                mobile,
-            )
-            raise
-
-
+        )
+        raise
 def process_whatsapp_webhook_payload(data):
     webhook_logger = get_whatsapp_webhook_logger()
     try:
