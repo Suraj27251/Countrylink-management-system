@@ -1220,7 +1220,7 @@ def generate_ai_whatsapp_reply(customer_message, mobile, customer_name):
         }
 
         response = requests.post(
-            "https://countrylinks.in/agent/kapso",
+            "https://countrylinks.in/agent/webhook-ai",
             json=payload,
             headers=headers,
             timeout=45
@@ -1237,7 +1237,37 @@ def generate_ai_whatsapp_reply(customer_message, mobile, customer_name):
             or ""
         ).strip()
 
-        return reply_text or None
+        if not reply_text:
+            app.logger.warning(
+                "AI agent returned empty reply for mobile=%s",
+                mobile
+            )
+            return None
+
+        return reply_text
+
+    except requests.Timeout:
+
+        app.logger.error(
+            "AI agent timeout for mobile=%s",
+            mobile,
+            exc_info=True
+        )
+
+        return (
+            "Sorry, response is taking longer than expected. "
+            "Please try again shortly."
+        )
+
+    except requests.RequestException as e:
+
+        app.logger.error(
+            "AI agent request failed: %s",
+            e,
+            exc_info=True
+        )
+
+        return None
 
     except Exception as e:
 
@@ -1248,17 +1278,6 @@ def generate_ai_whatsapp_reply(customer_message, mobile, customer_name):
         )
 
         return None
-    except Exception as e:
-
-        app.logger.error(
-            "External AI agent error: %s",
-            e,
-            exc_info=True
-        )
-
-        return None
-
-
 def send_whatsapp_template_message(to_number, template_name, language_code, components=None):
     headers = get_whatsapp_headers()
     phone_number_id = get_whatsapp_phone_number_id()
