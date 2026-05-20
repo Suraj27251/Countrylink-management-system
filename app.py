@@ -733,188 +733,89 @@ def process_incoming_message(message, metadata):
                 mobile
             )
 
-        # =========================
-        # AI Auto Reply System
-        # =========================
+send_whatsapp_message(
+    mobile,
+    message_type,
+    text=text
+)
 
-        try:
-            ai_conn = mysql.connector.connect(
-                host=MYSQL_DB_HOST,
-                database=MYSQL_DB_NAME,
-                user=MYSQL_DB_USER,
-                password=MYSQL_DB_PASSWORD,
+# =========================
+# Save Human/Agent Message
+# =========================
+
+try:
+
+    agent_conn = mysql.connector.connect(
+        host=MYSQL_DB_HOST,
+        database=MYSQL_DB_NAME,
+        user=MYSQL_DB_USER,
+        password=MYSQL_DB_PASSWORD,
+    )
+
+    agent_cursor = agent_conn.cursor(dictionary=True)
+
+    agent_cursor.execute("""
+        SELECT id
+        FROM whatsapp_conversations
+        WHERE phone = %s
+        LIMIT 1
+    """, (mobile,))
+
+    conversation = agent_cursor.fetchone()
+
+    if conversation:
+
+        conversation_id = conversation["id"]
+
+        agent_cursor.execute("""
+            INSERT INTO whatsapp_messages (
+                conversation_id,
+                whatsapp_message_id,
+                sender_type,
+                phone,
+                message_text,
+                message_type,
+                status,
+                created_at
             )
-
-            ai_cursor = ai_conn.cursor(dictionary=True)
-
-            ai_cursor.execute("""
-                SELECT human_takeover
-                FROM whatsapp_conversations
-                WHERE phone = %s
-                LIMIT 1
-            """, (mobile,))
-
-            ai_settings = ai_cursor.fetchone()
-
-            human_takeover = (
-                ai_settings
-                and int(ai_settings.get("human_takeover", 0)) == 1
-            )
-
-            ai_cursor.close()
-            ai_conn.close()
-
-            # Only reply if AI mode active
-            if not human_takeover:
-
-                app.logger.info(
-                    "AI auto-reply enabled for mobile=%s",
-                    mobile
-                )
-
-                ai_response = requests.post(
-                    "https://countrylinks.in/agent/kapso",
-                    json={
-                        "message": text_body,
-                        "phone": mobile,
-                        "name": name,
-                    },
-                    timeout=60
-                )
-
-                ai_json = ai_response.json()
-
-                ai_reply = (
-                    ai_json.get("reply", "")
-                    if isinstance(ai_json, dict)
-                    else ""
-                )
-
-                if ai_reply:
-
-                    # Send WhatsApp reply
-                    send_whatsapp_message(
-                        mobile,
-                        "text",
-                        text=ai_reply
-                    )
-
-                    # Save AI reply in MySQL
-                    ai_conn = mysql.connector.connect(
-                        host=MYSQL_DB_HOST,
-                        database=MYSQL_DB_NAME,
-                        user=MYSQL_DB_USER,
-                        password=MYSQL_DB_PASSWORD,
-                    )
-
-                    ai_cursor = ai_conn.cursor(dictionary=True)
-
-                    ai_cursor.execute("""
-                        SELECT id
-                        FROM whatsapp_conversations
-                        WHERE phone = %s
-                        LIMIT 1
-                    """, (mobile,))
-
-                    conversation = ai_cursor.fetchone()
-
-                    if conversation:
-                        conversation_id = conversation["id"]
-
-                        ai_cursor.execute("""
-                            INSERT INTO whatsapp_messages (
-                                conversation_id,
-                                whatsapp_message_id,
-                                sender_type,
-                                phone,
-                                message_text,
-                                message_type,
-                                status,
-                                created_at
-                            )
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
-                        """, (
-                            conversation_id,
-                            None,
-                            'ai',
-                            mobile,
-                            ai_reply,
-                            'text',
-                            'sent'
-                        ))
-
-                        ai_cursor.execute("""
-                            UPDATE whatsapp_conversations
-                            SET
-                                last_message = %s,
-                                last_message_at = NOW(),
-                                updated_at = NOW()
-                            WHERE id = %s
-                        """, (
-                            ai_reply,
-                            conversation_id
-                        ))
-
-                        ai_conn.commit()
-
-                    ai_cursor.close()
-                    ai_conn.close()
-
-                    app.logger.info(
-                        "AI reply sent successfully mobile=%s",
-                        mobile
-                    )
-
-            else:
-                app.logger.info(
-                    "Human takeover active, skipping AI reply mobile=%s",
-                    mobile
-                )
-
-        except Exception:
-            app.logger.exception(
-                "AI auto-reply failed for mobile=%s",
-                mobile
-            )
-
-    except Exception:
-        app.logger.exception(
-            "Failed storing inbound WhatsApp message id=%s mobile=%s",
-            message_id or 'no-id',
+            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+        """, (
+            conversation_id,
+            None,
+            'agent',
             mobile,
-        )
-        raise
+            text,
+            message_type,
+            'sent'
+        ))
 
-    if inserted_new_message and is_new_chat:
-        send_auto_notification_templates(
-            inbound_message_id=message_id,
-            sender_mobile=mobile,
-        )
-    elif not inserted_new_message:
-        app.logger.info(
-            "Skipping auto-template trigger for duplicate inbound message id=%s",
-            message_id or 'no-id',
-        )
-    else:
-        app.logger.info(
-            "Skipping auto-template trigger because mobile=%s is not a new chat",
-            mobile,
-        )
-    if message_type == 'text' and name and name != '.' and text_body.strip():
-        category = predict_category(text_body)
-        try:
-            with WHATSAPP_DB_WRITE_LOCK:
-                conn = get_db_connection()
-                c = conn.cursor()
-                c.execute(
-                    """
-                    INSERT INTO complaints (name, mobile, complaint, category, status, created_at, source)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (name, mobile, text_body, category, 'Pending', created_at, 'WhatsApp')
-                )
-                conn.commit()
-                conn.close()
+        agent_cursor.execute("""
+            UPDATE whatsapp_conversations
+            SET
+                last_message = %s,
+                last_message_at = NOW(),
+                updated_at = NOW()
+            WHERE id = %s
+        """, (
+            text,
+            conversation_id
+        ))
+
+        agent_conn.commit()
+
+    agent_cursor.close()
+    agent_conn.close()
+
+    app.logger.info(
+        "Human agent reply saved mobile=%s",
+        mobile
+    )
+
+except Exception:
+    app.logger.exception(
+        "Failed saving human agent reply mobile=%s",
+        mobile
+    )
         except Exception:
             app.logger.exception(
                 "Failed to insert complaint for inbound WhatsApp message id=%s mobile=%s",
