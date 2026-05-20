@@ -621,7 +621,118 @@ def process_incoming_message(message, metadata):
                 inserted_new_message = True
             conn.commit()
             conn.close()
-        app.logger.info("Stored inbound WhatsApp message id=%s mobile=%s", message_id or 'no-id', mobile)
+
+        app.logger.info(
+            "Stored inbound WhatsApp message id=%s mobile=%s",
+            message_id or 'no-id',
+            mobile
+        )
+
+        # =========================
+        # MySQL AI Inbox Sync
+        # =========================
+
+        try:
+            mysql_conn = mysql.connector.connect(
+                host=MYSQL_DB_HOST,
+                database=MYSQL_DB_NAME,
+                user=MYSQL_DB_USER,
+                password=MYSQL_DB_PASSWORD,
+            )
+
+            mysql_cursor = mysql_conn.cursor(dictionary=True)
+
+            # Find existing conversation
+            mysql_cursor.execute("""
+                SELECT id
+                FROM whatsapp_conversations
+                WHERE phone = %s
+                LIMIT 1
+            """, (mobile,))
+
+            conversation = mysql_cursor.fetchone()
+
+            if conversation:
+                conversation_id = conversation["id"]
+            else:
+                mysql_cursor.execute("""
+                    INSERT INTO whatsapp_conversations (
+                        phone,
+                        customer_name,
+                        last_message,
+                        last_message_at,
+                        unread_count,
+                        ai_enabled,
+                        created_at,
+                        updated_at
+                    )
+                    VALUES (%s, %s, %s, NOW(), 1, 1, NOW(), NOW())
+                """, (
+                    mobile,
+                    name,
+                    text_body
+                ))
+
+                mysql_conn.commit()
+
+                conversation_id = mysql_cursor.lastrowid
+
+            # Save customer message
+            mysql_cursor.execute("""
+                INSERT INTO whatsapp_messages (
+                    conversation_id,
+                    whatsapp_message_id,
+                    sender_type,
+                    phone,
+                    message_text,
+                    message_type,
+                    media_url,
+                    status,
+                    created_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+            """, (
+                conversation_id,
+                message_id,
+                'customer',
+                mobile,
+                text_body,
+                message_type,
+                media_url,
+                'received'
+            ))
+
+            # Update conversation
+            mysql_cursor.execute("""
+                UPDATE whatsapp_conversations
+                SET
+                    last_message = %s,
+                    last_message_at = NOW(),
+                    unread_count = unread_count + 1,
+                    updated_at = NOW()
+                WHERE id = %s
+            """, (
+                text_body,
+                conversation_id
+            ))
+
+            mysql_conn.commit()
+
+            mysql_cursor.close()
+            mysql_conn.close()
+
+            app.logger.info(
+                "MySQL inbox sync success mobile=%s conversation_id=%s",
+                mobile,
+                conversation_id
+            )
+
+        except Exception:
+            app.logger.exception(
+                "MySQL inbox sync failed for mobile=%s",
+                mobile
+            )
+
     except Exception:
         app.logger.exception(
             "Failed storing inbound WhatsApp message id=%s mobile=%s",
@@ -645,7 +756,6 @@ def process_incoming_message(message, metadata):
             "Skipping auto-template trigger because mobile=%s is not a new chat",
             mobile,
         )
-
     if message_type == 'text' and name and name != '.' and text_body.strip():
         category = predict_category(text_body)
         try:
