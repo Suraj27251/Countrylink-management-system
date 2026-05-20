@@ -632,6 +632,8 @@ def process_incoming_message(message, metadata):
         # MySQL AI Inbox Sync
         # =========================
 
+        mysql_conn = None
+        mysql_cursor = None
         try:
             mysql_conn = mysql.connector.connect(
                 host=MYSQL_DB_HOST,
@@ -639,7 +641,7 @@ def process_incoming_message(message, metadata):
                 user=MYSQL_DB_USER,
                 password=MYSQL_DB_PASSWORD,
             )
-
+            app.logger.info("MySQL connection opened mobile=%s", mobile)
             mysql_cursor = mysql_conn.cursor(dictionary=True)
 
             # Find existing conversation
@@ -654,7 +656,7 @@ def process_incoming_message(message, metadata):
 
             if conversation:
                 conversation_id = conversation["id"]
-
+                app.logger.info("Conversation found mobile=%s conversation_id=%s", mobile, conversation_id)
             else:
                 mysql_cursor.execute("""
                     INSERT INTO whatsapp_conversations (
@@ -678,6 +680,7 @@ def process_incoming_message(message, metadata):
                 mysql_conn.commit()
 
                 conversation_id = mysql_cursor.lastrowid
+                app.logger.info("Conversation created mobile=%s conversation_id=%s", mobile, conversation_id)
 
             # Save customer message
             mysql_cursor.execute("""
@@ -703,6 +706,7 @@ def process_incoming_message(message, metadata):
                 media_url,
                 'received'
             ))
+            app.logger.info("Customer message saved mobile=%s conversation_id=%s", mobile, conversation_id)
 
             # Update conversation
             mysql_cursor.execute("""
@@ -720,22 +724,12 @@ def process_incoming_message(message, metadata):
 
             mysql_conn.commit()
 
-            mysql_cursor.close()
-            mysql_conn.close()
-
             app.logger.info(
                 "MySQL inbox sync success mobile=%s conversation_id=%s",
                 mobile,
                 conversation_id
             )
 
-            mysql_conn = mysql.connector.connect(
-                host=MYSQL_DB_HOST,
-                database=MYSQL_DB_NAME,
-                user=MYSQL_DB_USER,
-                password=MYSQL_DB_PASSWORD,
-            )
-            mysql_cursor = mysql_conn.cursor(dictionary=True)
             mysql_cursor.execute(
                 """
                 SELECT
@@ -752,52 +746,62 @@ def process_incoming_message(message, metadata):
             human_takeover = int(convo_flags.get("human_takeover", 0) or 0)
 
             if inserted_new_message and ai_enabled == 1 and human_takeover == 0 and whatsapp_config_ready():
-                ai_reply_text = generate_ai_whatsapp_reply(text_body, mobile, name)
-                if ai_reply_text:
-                    ai_response_payload = send_whatsapp_message(mobile, 'text', text=ai_reply_text)
-                    ai_message_id = (ai_response_payload.get('messages') or [{}])[0].get('id')
-                    mysql_cursor.execute(
-                        """
-                        INSERT INTO whatsapp_messages (
-                            conversation_id,
-                            whatsapp_message_id,
-                            sender_type,
-                            phone,
-                            message_text,
-                            message_type,
-                            media_url,
-                            status,
-                            created_at
+                try:
+                    ai_reply_text = generate_ai_whatsapp_reply(text_body, mobile, name)
+                    if ai_reply_text:
+                        ai_response_payload = send_whatsapp_message(mobile, 'text', text=ai_reply_text)
+                        ai_message_id = (ai_response_payload.get('messages') or [{}])[0].get('id')
+                        mysql_cursor.execute(
+                            """
+                            INSERT INTO whatsapp_messages (
+                                conversation_id,
+                                whatsapp_message_id,
+                                sender_type,
+                                phone,
+                                message_text,
+                                message_type,
+                                media_url,
+                                status,
+                                created_at
+                            )
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                            """,
+                            (
+                                conversation_id,
+                                ai_message_id,
+                                'agent',
+                                mobile,
+                                ai_reply_text,
+                                'text',
+                                None,
+                                'sent',
+                            ),
                         )
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
-                        """,
-                        (
-                            conversation_id,
-                            ai_message_id,
-                            'agent',
-                            mobile,
-                            ai_reply_text,
-                            'text',
-                            None,
-                            'sent',
-                        ),
+                        mysql_cursor.execute(
+                            """
+                            UPDATE whatsapp_conversations
+                            SET
+                                last_message = %s,
+                                last_message_at = NOW(),
+                                updated_at = NOW()
+                            WHERE id = %s
+                            """,
+                            (ai_reply_text, conversation_id),
+                        )
+                        mysql_conn.commit()
+                        app.logger.info("AI reply generated mobile=%s conversation_id=%s", mobile, conversation_id)
+                    else:
+                        app.logger.info("AI reply skipped mobile=%s conversation_id=%s reason=empty_reply", mobile, conversation_id)
+                except Exception:
+                    app.logger.exception(
+                        "AI auto-reply failed mobile=%s conversation_id=%s",
+                        mobile,
+                        conversation_id,
                     )
-                    mysql_cursor.execute(
-                        """
-                        UPDATE whatsapp_conversations
-                        SET
-                            last_message = %s,
-                            last_message_at = NOW(),
-                            updated_at = NOW()
-                        WHERE id = %s
-                        """,
-                        (ai_reply_text, conversation_id),
-                    )
-                    mysql_conn.commit()
-                    app.logger.info("AI auto-reply sent mobile=%s conversation_id=%s", mobile, conversation_id)
+                    app.logger.info("AI reply skipped mobile=%s conversation_id=%s reason=ai_error", mobile, conversation_id)
             else:
                 app.logger.info(
-                    "AI auto-reply skipped mobile=%s conversation_id=%s ai_enabled=%s human_takeover=%s inserted_new_message=%s",
+                    "AI reply skipped mobile=%s conversation_id=%s ai_enabled=%s human_takeover=%s inserted_new_message=%s",
                     mobile,
                     conversation_id,
                     ai_enabled,
@@ -805,14 +809,17 @@ def process_incoming_message(message, metadata):
                     inserted_new_message,
                 )
 
-            mysql_cursor.close()
-            mysql_conn.close()
-
         except Exception:
             app.logger.exception(
                 "MySQL inbox sync failed for mobile=%s",
                 mobile
             )
+        finally:
+            if mysql_cursor:
+                mysql_cursor.close()
+            if mysql_conn and mysql_conn.is_connected():
+                mysql_conn.close()
+            app.logger.info("MySQL connection closed mobile=%s", mobile)
 
     except Exception:
         app.logger.exception(
