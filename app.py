@@ -1206,33 +1206,57 @@ def send_whatsapp_message(to_number, message_type, text=None, media_id=None, fil
 
 
 def generate_ai_whatsapp_reply(customer_message, mobile, customer_name):
-    api_key = os.environ.get('OPENAI_API_KEY', '').strip()
-    if not api_key:
+
+    try:
+
+        payload = {
+            "message": customer_message,
+            "phone": mobile,
+            "name": customer_name or "Customer"
+        }
+
+        headers = {
+            "X-Internal-Token": os.environ.get("AGENT_INTERNAL_TOKEN", "")
+        }
+
+        response = requests.post(
+            "https://countrylinks.in/agent/kapso",
+            json=payload,
+            headers=headers,
+            timeout=45
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        reply_text = (
+            data.get("reply")
+            or data.get("response")
+            or data.get("message")
+            or ""
+        ).strip()
+
+        return reply_text or None
+
+    except Exception as e:
+
+        app.logger.error(
+            "External AI agent error: %s",
+            e,
+            exc_info=True
+        )
+
         return None
+    except Exception as e:
 
-    base_url = os.environ.get('OPENAI_BASE_URL', 'https://api.openai.com/v1').rstrip('/')
-    model = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini').strip() or 'gpt-4o-mini'
-    system_prompt = (os.environ.get('WHATSAPP_AI_SYSTEM_PROMPT') or "You are a helpful WhatsApp CRM assistant.").strip()
-    url = f"{base_url}/chat/completions"
+        app.logger.error(
+            "External AI agent error: %s",
+            e,
+            exc_info=True
+        )
 
-    payload = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Customer: {customer_name or mobile}\nMessage: {customer_message}"},
-        ],
-        "temperature": 0.4,
-    }
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-
-    response = requests.post(url, headers=headers, json=payload, timeout=45)
-    response.raise_for_status()
-    content = ((response.json().get("choices") or [{}])[0].get("message") or {}).get("content", "")
-    reply_text = (content or "").strip()
-    return reply_text or None
+        return None
 
 
 def send_whatsapp_template_message(to_number, template_name, language_code, components=None):
