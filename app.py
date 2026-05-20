@@ -3671,7 +3671,59 @@ def check_invoice_sent_status(invoice_id):
             cursor.close()
         if conn and conn.is_connected():
             conn.close()
+@app.route('/api/whatsapp/toggle-ai', methods=['POST'])
+def toggle_whatsapp_ai():
+    try:
+        data = request.get_json(force=True)
 
+        phone = str(data.get('phone', '')).strip()
+        human_takeover = int(data.get('human_takeover', 0))
+
+        if not phone:
+            return jsonify({
+                'success': False,
+                'error': 'Phone is required'
+            }), 400
+
+        conn = mysql.connector.connect(
+            host=MYSQL_DB_HOST,
+            database=MYSQL_DB_NAME,
+            user=MYSQL_DB_USER,
+            password=MYSQL_DB_PASSWORD,
+        )
+
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            UPDATE whatsapp_conversations
+            SET
+                human_takeover = %s,
+                updated_at = NOW()
+            WHERE phone = %s
+        """, (
+            human_takeover,
+            phone
+        ))
+
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'phone': phone,
+            'human_takeover': human_takeover,
+            'mode': 'human' if human_takeover else 'ai'
+        })
+
+    except Exception as e:
+        app.logger.exception("Failed to toggle WhatsApp AI mode")
+
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 if __name__ == '__main__':
     try:
