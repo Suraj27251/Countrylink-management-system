@@ -1443,7 +1443,6 @@ kbd {
 .tpl-badge-pending {
   background: #fef9c3; color: #854d0e; border: 1px solid #fef08a;
 }
-
 :root[data-theme="dark"] .tpl-badge-approved {
   background: #14532d; color: #86efac; border: 1px solid #166534;
 }
@@ -1453,13 +1452,35 @@ kbd {
 :root[data-theme="dark"] .tpl-badge-pending {
   background: #422006; color: #fcd34d; border: 1px solid #854d0e;
 }
-
 :root[data-theme="dark"] #approvedTemplateRows tr {
   border-bottom-color: var(--border);
 }
-
 :root[data-theme="dark"] #approvedTemplateRows tr:hover {
   background: var(--surface-2) !important;
+}
+
+/* Fix: sticky header must go on <th>, not <tr> */
+#templatesPanel thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-2);
+}
+
+/* Fix: dark mode row backgrounds and text */
+:root[data-theme="dark"] #templatesPanel table {
+  background: var(--surface);
+}
+:root[data-theme="dark"] #templatesPanel thead th {
+  background: var(--surface-2);
+  color: var(--text-2);
+  border-bottom: 1px solid var(--border);
+}
+:root[data-theme="dark"] #approvedTemplateRows tr {
+  background: var(--surface);
+}
+:root[data-theme="dark"] #approvedTemplateRows td {
+  color: var(--text-2);
 }
 /* ── Utility ─────────────────────────────────────────────── */
 .hidden { display: none !important; }
@@ -1654,13 +1675,13 @@ kbd {
         <div style="flex:1;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);">
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
             <thead>
-              <tr style="border-bottom:1px solid var(--border);background:var(--surface-2);position:sticky;top:0;z-index:1;">
-                <th style="padding:10px 16px;font-weight:600;color:var(--text-2);text-align:left;white-space:nowrap;">Name</th>
-                <th style="padding:10px 12px;font-weight:600;color:var(--text-2);text-align:left;white-space:nowrap;">Status</th>
-                <th style="padding:10px 12px;font-weight:600;color:var(--text-2);text-align:left;white-space:nowrap;">Category</th>
-                <th style="padding:10px 12px;font-weight:600;color:var(--text-2);text-align:left;white-space:nowrap;">Language</th>
-                <th style="padding:10px 12px;font-weight:600;color:var(--text-2);text-align:left;">Preview</th>
-                <th style="padding:10px 16px;font-weight:600;color:var(--text-2);text-align:right;white-space:nowrap;"></th>
+              <tr>
+                <th style="padding:10px 16px;font-weight:600;color:var(--text-2);text-align:left;white-space:nowrap;border-bottom:1px solid var(--border);">Name</th>
+                <th style="padding:10px 12px;font-weight:600;color:var(--text-2);text-align:left;white-space:nowrap;border-bottom:1px solid var(--border);">Status</th>
+                <th style="padding:10px 12px;font-weight:600;color:var(--text-2);text-align:left;white-space:nowrap;border-bottom:1px solid var(--border);">Category</th>
+                <th style="padding:10px 12px;font-weight:600;color:var(--text-2);text-align:left;white-space:nowrap;border-bottom:1px solid var(--border);">Language</th>
+                <th style="padding:10px 12px;font-weight:600;color:var(--text-2);text-align:left;border-bottom:1px solid var(--border);">Preview</th>
+                <th style="padding:10px 16px;font-weight:600;color:var(--text-2);text-align:right;white-space:nowrap;border-bottom:1px solid var(--border);"></th>
               </tr>
             </thead>
             <tbody id="approvedTemplateRows"></tbody>
