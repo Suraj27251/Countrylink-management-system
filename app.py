@@ -2430,149 +2430,143 @@ def whatsapp_messages_api():
     since_id = parse_non_negative_int(since_id_raw, 'since_id')
     since_inbox_id = parse_non_negative_int(since_inbox_id_raw, 'since_inbox_id')
 
-    conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    c.execute("SELECT COUNT(*) AS total FROM whatsapp_messages")
-    count_row = c.fetchone()
-    has_whatsapp_messages = (count_row["total"] if count_row else 0) > 0
-
-    legacy_mode = False
     contacts = []
     messages = []
     inbox_messages = []
     latest_inbox_id = 0
     active_name = ""
 
-    if has_whatsapp_messages:
-        if include_contacts:
-            # Fetch only required columns for contact list generation.
-            c.execute(
-                """
-                SELECT id, name, mobile, direction, message_type, text, created_at
-                FROM whatsapp_messages
-                ORDER BY datetime(created_at) DESC, id DESC
-                """
+    # =========================
+    # MYSQL AI CRM MODE
+    # =========================
+
+    mysql_conn = mysql.connector.connect(
+        host=MYSQL_DB_HOST,
+        database=MYSQL_DB_NAME,
+        user=MYSQL_DB_USER,
+        password=MYSQL_DB_PASSWORD,
+    )
+
+    mysql_cursor = mysql_conn.cursor(dictionary=True)
+
+    if include_contacts:
+
+        mysql_cursor.execute("""
+            SELECT
+                phone AS mobile,
+                customer_name AS name,
+                last_message AS text,
+                last_message_at AS created_at
+            FROM whatsapp_conversations
+            ORDER BY updated_at DESC
+        """)
+
+        raw_contacts = mysql_cursor.fetchall()
+
+        contacts = []
+
+        for idx, row in enumerate(raw_contacts, start=1):
+            contacts.append({
+                "id": idx,
+                "name": row.get("name") or row.get("mobile"),
+                "mobile": normalize_mobile(row.get("mobile")),
+                "text": row.get("text") or "",
+                "created_at": row.get("created_at"),
+                "message_type": "text",
+                "direction": "inbound",
+            })
+
+    mysql_cursor.execute("""
+        SELECT COALESCE(MAX(id), 0) AS latest_id
+        FROM whatsapp_messages
+    """)
+
+    latest_row = mysql_cursor.fetchone()
+    latest_inbox_id = latest_row["latest_id"] if latest_row else 0
+
+    if mobile:
+
+        mysql_cursor.execute("""
+            SELECT
+                id,
+                whatsapp_message_id AS message_id,
+                phone AS mobile,
+                sender_type,
+                message_text AS text,
+                message_type,
+                media_url,
+                status,
+                created_at
+            FROM whatsapp_messages
+            WHERE phone = %s
+            ORDER BY created_at ASC, id ASC
+        """, (mobile,))
+
+        db_messages = mysql_cursor.fetchall()
+
+        for msg in db_messages:
+
+            sender_type = msg.get("sender_type", "customer")
+
+            direction = (
+                "inbound"
+                if sender_type == "customer"
+                else "outbound"
             )
-            contacts = build_whatsapp_contacts(c.fetchall())
 
-        c.execute("SELECT COALESCE(MAX(id), 0) AS latest_id FROM whatsapp_messages")
-        latest_row = c.fetchone()
-        latest_inbox_id = latest_row["latest_id"] if latest_row else 0
+            messages.append({
+                "id": msg["id"],
+                "message_id": msg.get("message_id"),
+                "name": active_name or mobile,
+                "mobile": normalize_mobile(msg["mobile"]),
+                "direction": direction,
+                "from_me": direction == "outbound",
+                "message_type": msg.get("message_type") or "text",
+                "text": msg.get("text") or "",
+                "media_url": msg.get("media_url"),
+                "media_public_url": url_for(
+                    'static',
+                    filename=msg["media_url"],
+                    _external=True
+                ) if msg.get("media_url") else None,
+                "file_name": None,
+                "media_mime_type": None,
+                "latitude": None,
+                "longitude": None,
+                "delivery_status": msg.get("status"),
+                "error_reason": None,
+                "created_at": msg.get("created_at"),
+            })
 
-        if since_inbox_id > 0:
-            c.execute(
-                """
-                SELECT id, mobile, direction
-                FROM whatsapp_messages
-                WHERE id > ?
-                ORDER BY id ASC
-                """,
-                (since_inbox_id,),
-            )
-            inbox_messages = c.fetchall()
+        mysql_cursor.execute("""
+            SELECT customer_name
+            FROM whatsapp_conversations
+            WHERE phone = %s
+            LIMIT 1
+        """, (mobile,))
 
-        if mobile:
-            mobile_key = conversation_mobile_key(mobile)
-            query = """
-                SELECT id, message_id, name, mobile, direction, message_type, text, media_url, file_name, media_mime_type, latitude, longitude, delivery_status, error_reason, created_at
-                FROM whatsapp_messages
-                WHERE (substr(mobile, -10) = ? OR mobile = ?)
-            """
-            params = [mobile_key, mobile]
-            if since_id:
-                # Include the cursor row as well so existing messages can still
-                # receive status/error updates without reloading all messages.
-                query += " AND id >= ?"
-                params.append(since_id)
-            query += " ORDER BY datetime(created_at) ASC, id ASC"
-            c.execute(query, params)
-            messages = c.fetchall()
+        active_contact = mysql_cursor.fetchone()
 
-            active_name = next(
-                (contact["name"] for contact in contacts if mobiles_equivalent(contact["mobile"], mobile)),
-                "",
-            )
-            if not active_name and messages:
-                active_name = messages[0]["name"] or mobile
-    else:
-        # Preserve legacy fallback behavior when whatsapp_messages has no rows.
-        rows, legacy_mode = load_whatsapp_rows(conn)
-        contacts = build_whatsapp_contacts(rows)
-        latest_inbox_id = max((row["id"] for row in rows), default=0)
-        if since_inbox_id > 0:
-            inbox_messages = [row for row in rows if row["id"] > since_inbox_id]
-            inbox_messages = sorted(inbox_messages, key=lambda item: item["id"])
-        if mobile:
-            messages = [row for row in rows if mobiles_equivalent(row["mobile"], mobile)]
-            if since_id:
-                messages = [row for row in messages if row["id"] >= since_id]
-            messages = sorted(messages, key=lambda item: (item["created_at"], item["id"]))
-            active_name = next((contact["name"] for contact in contacts if mobiles_equivalent(contact["mobile"], mobile)), "")
-            if not active_name and messages:
-                active_name = messages[0]["name"] or mobile
+        if active_contact:
+            active_name = active_contact.get("customer_name") or mobile
 
-    if not mobile and include_contacts:
-        app.logger.info("WhatsApp messages API called without mobile. Returning contacts only.")
+    mysql_cursor.close()
+    mysql_conn.close()
 
-    conn.close()
-
-    def serialize_message(msg):
-        return {
-            "id": msg["id"],
-            "message_id": msg.get("message_id") if isinstance(msg, dict) else msg["message_id"],
-            "name": msg["name"],
-            "mobile": normalize_mobile(msg["mobile"]),
-            "direction": msg["direction"],
-            "from_me": msg["direction"] == "outbound",
-            "message_type": msg["message_type"],
-            "text": msg["text"],
-            "media_url": msg["media_url"],
-            "media_public_url": url_for('static', filename=msg["media_url"], _external=True) if msg["media_url"] else None,
-            "file_name": msg["file_name"],
-            "media_mime_type": msg.get("media_mime_type") if isinstance(msg, dict) else msg["media_mime_type"],
-            "latitude": msg.get("latitude") if isinstance(msg, dict) else msg["latitude"],
-            "longitude": msg.get("longitude") if isinstance(msg, dict) else msg["longitude"],
-            "delivery_status": msg.get("delivery_status") if isinstance(msg, dict) else msg["delivery_status"],
-            "error_reason": msg.get("error_reason") if isinstance(msg, dict) else msg["error_reason"],
-            "created_at": msg["created_at"],
-        }
-
-    serialized_messages = [serialize_message(msg) for msg in messages]
-    serialized_inbox_messages = [
-        {
-            "id": msg["id"],
-            "mobile": normalize_mobile(msg["mobile"]),
-            "direction": msg["direction"],
-            "from_me": msg["direction"] == "outbound",
-        }
-        for msg in inbox_messages
-    ]
-    last_message_id = serialized_messages[-1]["id"] if serialized_messages else None
-    last_inbox_message_id = serialized_inbox_messages[-1]["id"] if serialized_inbox_messages else latest_inbox_id
+    last_message_id = messages[-1]["id"] if messages else None
 
     response_payload = {
         "contacts": contacts if include_contacts else [],
-        "messages": serialized_messages,
-        "inbox_messages": serialized_inbox_messages,
+        "messages": messages,
+        "inbox_messages": [],
         "active_mobile": mobile,
         "active_name": active_name,
         "last_message_id": last_message_id,
-        "last_inbox_message_id": last_inbox_message_id,
-        "legacy_mode": legacy_mode,
+        "last_inbox_message_id": latest_inbox_id,
+        "legacy_mode": False,
     }
 
-    if mobile:
-        app.logger.debug(
-            "WhatsApp messages API: mobile=%s since_id=%s messages=%s",
-            mobile,
-            since_id,
-            len(serialized_messages),
-        )
-
     return jsonify(response_payload)
-
-
 @app.route('/api/whatsapp/logs')
 @login_required
 def api_whatsapp_logs():
