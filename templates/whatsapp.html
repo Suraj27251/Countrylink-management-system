@@ -3108,19 +3108,16 @@ setWorkspace('inbox');
 resizeInput();
 if (msgInput && !msgInput.disabled) msgInput.focus();
 scrollBottom();
-})();
-  <script>
-document.addEventListener('DOMContentLoaded', () => {
 
-  const aiBtn = document.getElementById('aiToggleBtn');
+/* ── AI Toggle ───────────────────────────── */
+const aiBtn = document.getElementById('aiToggleBtn');
 
-  if (!aiBtn) return;
+if (aiBtn) {
 
   aiBtn.addEventListener('click', async () => {
 
     const phone = aiBtn.dataset.phone;
     const currentHuman = parseInt(aiBtn.dataset.human || '0');
-
     const newHuman = currentHuman ? 0 : 1;
 
     try {
@@ -3142,41 +3139,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
         aiBtn.dataset.human = newHuman;
 
-        const text = document.getElementById('aiToggleText');
-
         if (newHuman === 1) {
 
-  aiBtn.innerHTML =
-    '<i class="fas fa-user" style="font-size:11px;"></i> ' +
-    '<span id="aiToggleText">Human Mode</span>';
+          aiBtn.innerHTML =
+            '<i class="fas fa-user" style="font-size:11px;"></i> ' +
+            '<span id="aiToggleText">Human Mode</span>';
 
-} else {
+        } else {
 
-  aiBtn.innerHTML =
-    '<i class="fas fa-robot" style="font-size:11px;"></i> ' +
-    '<span id="aiToggleText">AI Mode</span>';
+          aiBtn.innerHTML =
+            '<i class="fas fa-robot" style="font-size:11px;"></i> ' +
+            '<span id="aiToggleText">AI Mode</span>';
+        }
+
+      }
+
+    } catch (err) {
+      console.error('AI toggle failed:', err);
+    }
+
+  });
+
 }
 
-} else {
-  alert('Failed to switch mode');
-}
-
-} catch (err) {
-  console.error(err);
-  alert('Error switching mode');
-}
-
-});
-});
-</script>
-</script>
-{% endblock %}
 ['templateSearchInput', 'templateStatusFilter', 'templateCategoryFilter'].forEach(id => {
   $(id)?.addEventListener('input', renderApprovedTemplateRows);
   $(id)?.addEventListener('change', renderApprovedTemplateRows);
 });
+
 $('templateSyncBtn')?.addEventListener('click', async () => {
   await loadTemplates(true);
   refreshTemplateCategories();
   renderApprovedTemplateRows();
 });
+
+})();
+</script>
+
+{% endblock %}
