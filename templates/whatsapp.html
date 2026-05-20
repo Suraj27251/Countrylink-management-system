@@ -1601,17 +1601,23 @@ kbd {
     <section class="workspace-panel" id="templatesPanel">
       <div class="workspace-wrap">
         <h3><i class="fas fa-file-lines"></i> Approved Templates Hub</h3>
-        <p class="text-muted mb-3">Browse approved templates, preview variables, and send quickly by filling parameters.</p>
+        <p class="text-muted mb-3">Kaspo-style approved templates list with search, filters, sync, and quick send popup.</p>
         <div class="ws-card mb-3">
-          <div class="row g-2">
-            <div class="col-md-5"><select id="quickTemplateSelect" class="form-select"><option value="">Select approved template</option></select></div>
-            <div class="col-md-3"><input id="quickTemplateMobile" class="form-control" placeholder="Recipient mobile"></div>
-            <div class="col-md-2"><input id="quickTemplateLang" class="form-control" value="en_US"></div>
-            <div class="col-md-2 d-grid"><button class="btn btn-success" id="quickTemplateSendBtn" type="button">Send</button></div>
+          <div class="row g-2 align-items-center">
+            <div class="col-md-4"><input id="templateSearchInput" class="form-control" placeholder="Search templates..."></div>
+            <div class="col-md-3"><select id="templateStatusFilter" class="form-select"><option value="all">All statuses</option><option value="APPROVED" selected>Approved</option><option value="REMOVED">Removed</option><option value="PENDING">Pending</option></select></div>
+            <div class="col-md-3"><select id="templateCategoryFilter" class="form-select"><option value="all">All categories</option></select></div>
+            <div class="col-md-2 d-grid"><button class="btn btn-outline-success" id="templateSyncBtn" type="button"><i class="fas fa-rotate"></i> Sync</button></div>
           </div>
-          <div id="quickTemplateVars" class="row g-2 mt-2"></div>
         </div>
-        <div class="ws-grid" id="approvedTemplateCards"></div>
+        <div class="ws-card p-0">
+          <div class="table-responsive">
+            <table class="table table-dark table-hover mb-0 align-middle">
+              <thead><tr><th>Name</th><th>Status</th><th>Category</th><th>Language</th><th>Preview</th><th class="text-end">Action</th></tr></thead>
+              <tbody id="approvedTemplateRows"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </section>
     <section class="workspace-panel" id="campaignsPanel">
@@ -1839,6 +1845,35 @@ kbd {
   </main>
 </div>
 
+<div class="modal fade" id="templateQuickSendModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Test WhatsApp Template</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2 text-muted" id="quickSendTemplateName"></div>
+        <label class="form-label">Phone Number</label>
+        <input id="quickTemplateMobile" class="form-control mb-2" placeholder="+919876543210">
+        <small class="text-muted d-block mb-3">Include country code (e.g. +1 or +91)</small>
+        <label class="form-label">Language Code</label>
+        <input id="quickTemplateLang" class="form-control mb-3" value="en_US">
+        <h6>Template Parameters</h6>
+        <div id="quickTemplateVars" class="row g-2"></div>
+        <div class="mt-3">
+          <h6>Preview</h6>
+          <div class="p-3 rounded border" id="quickTemplatePreviewText"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-success" id="quickTemplateSendBtn" type="button"><i class="fas fa-paper-plane"></i> Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ── COMMAND PALETTE ────────────────────────────────────── -->
 <div class="cmd-overlay" id="cmdOverlay">
   <div class="cmd-card">
@@ -2047,6 +2082,7 @@ const pageLoader     = $('pageLoader');
 
 /* ── State ───────────────────────────────────────────────── */
 let templates = [];
+let selectedQuickTemplate = null;
 let flows = [];
 let iType = 'button';
 let pollTimer = null;
@@ -2060,9 +2096,15 @@ let lastMsgId = Math.max(0, ...[...$all('#chatBody .msg-row[data-message-id]')].
 let lastInboxId = Math.max(lastMsgId, INITIAL_LAST_INBOX_ID);
 let unreadByMobile = new Map();
 
-const templateModal    = new bootstrap.Modal($('templateModal'));
-const newConvModal     = new bootstrap.Modal($('newConvModal'));
-const interactiveModal = new bootstrap.Modal($('interactiveModal'));
+const safeModal = id => {
+  const el = $(id);
+  if (!el || !window.bootstrap?.Modal) return null;
+  try { return new bootstrap.Modal(el); } catch (_) { return null; }
+};
+const templateModal    = safeModal('templateModal');
+const newConvModal     = safeModal('newConvModal');
+const interactiveModal = safeModal('interactiveModal');
+const templateQuickSendModal = safeModal('templateQuickSendModal');
 const mediaModal       = new bootstrap.Modal($('mediaModal'));
 
 /* ── Theme Management ────────────────────────────────────── */
@@ -2615,59 +2657,98 @@ const onTemplateChange = (selectId, langId, wrapId) => {
   if ($(langId)) $(langId).value = t?.language || 'en_US';
 };
 
-const loadTemplates = async () => {
-  if (templates.length) return;
+const loadTemplates = async (force = false) => {
+  if (templates.length && !force) return;
   const r = await fetch(TEMPLATE_URL);
   if (!r.ok) return;
   const data = await r.json();
-  templates = (data.data||[]).filter(t => (t.status||'').toUpperCase() === 'APPROVED');
+  templates = data.data || [];
   const opts = templates.map(t => `<option value="${esc(t.name)}">${esc(t.name)} (${esc(t.language||'en')})</option>`).join('');
   if ($('templateSelect'))    { $('templateSelect').innerHTML    = opts || '<option value="">No templates</option>'; }
   if ($('newConvTemplate'))   { $('newConvTemplate').innerHTML   = opts || '<option value="">No templates</option>'; }
-  if ($('quickTemplateSelect')) { $('quickTemplateSelect').innerHTML = '<option value="">Select approved template</option>' + opts; }
   onTemplateChange('templateSelect', 'templateLang', 'templateParamsWrap');
   onTemplateChange('newConvTemplate', 'newConvLang', 'newConvParamsWrap');
-  renderApprovedTemplateCards();
+  renderApprovedTemplateRows();
 };
 
-const renderApprovedTemplateCards = () => {
-  const wrap = $('approvedTemplateCards');
+const renderApprovedTemplateRows = () => {
+  const wrap = $('approvedTemplateRows');
   if (!wrap) return;
-  if (!templates.length) {
-    wrap.innerHTML = '<div class="ws-card"><p class="mb-0 text-muted">No approved templates synced yet.</p></div>';
+  const search = ($('templateSearchInput')?.value || '').trim().toLowerCase();
+  const statusFilter = $('templateStatusFilter')?.value || 'APPROVED';
+  const categoryFilter = $('templateCategoryFilter')?.value || 'all';
+  const filtered = templates.filter(t => {
+    const status = String(t.status || '').toUpperCase();
+    const category = String(t.category || 'UNCATEGORIZED').toUpperCase();
+    const text = `${t.name || ''} ${getBodyText(t) || ''} ${category}`.toLowerCase();
+    if (statusFilter !== 'all' && status !== statusFilter) return false;
+    if (categoryFilter !== 'all' && category !== categoryFilter) return false;
+    if (search && !text.includes(search)) return false;
+    return true;
+  });
+  if (!filtered.length) {
+    wrap.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No templates match current filters.</td></tr>';
     return;
   }
-  wrap.innerHTML = templates.map(t => {
-    const body = esc(getBodyText(t) || 'No body text');
-    const vars = extractVars(getBodyText(t)).length;
-    return `<div class="ws-card"><div class="d-flex justify-content-between mb-1"><strong>${esc(t.name)}</strong><span class="badge bg-success-subtle text-success">${esc(t.language || 'en_US')}</span></div><p class="small mb-2">${body}</p><div class="small text-muted">Variables: ${vars}</div></div>`;
+  wrap.innerHTML = filtered.map(t => {
+    const status = String(t.status || '').toUpperCase();
+    const body = esc((getBodyText(t) || 'No body text').slice(0, 90));
+    const category = esc(String(t.category || 'UNCATEGORIZED').toUpperCase());
+    const badgeCls = status === 'APPROVED' ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary';
+    return `<tr>
+      <td><strong>${esc(t.name || '-')}</strong></td>
+      <td><span class="badge ${badgeCls}">${esc(status || 'UNKNOWN')}</span></td>
+      <td>${category}</td>
+      <td>${esc(t.language || 'en_US')}</td>
+      <td>${body}</td>
+      <td class="text-end"><button class="btn btn-sm btn-outline-success quick-send-template-btn" data-template="${esc(t.name)}"><i class="fas fa-paper-plane"></i> Send</button></td>
+    </tr>`;
   }).join('');
 };
-
-$('quickTemplateSelect')?.addEventListener('change', () => onTemplateChange('quickTemplateSelect', 'quickTemplateLang', 'quickTemplateVars'));
+$('approvedTemplateRows')?.addEventListener('click', e => {
+  const btn = e.target.closest('.quick-send-template-btn');
+  if (!btn) return;
+  const tName = btn.dataset.template;
+  selectedQuickTemplate = templates.find(t => t.name === tName);
+  if (!selectedQuickTemplate) return;
+  $('quickSendTemplateName').textContent = `Send a test message using template "${selectedQuickTemplate.name}"`;
+  $('quickTemplateMobile').value = ACTIVE_MOBILE ? `+${ACTIVE_MOBILE}` : '';
+  $('quickTemplateLang').value = selectedQuickTemplate.language || 'en_US';
+  buildParamFields(extractVars(getBodyText(selectedQuickTemplate)), 'quickTemplateVars');
+  $('quickTemplatePreviewText').textContent = getBodyText(selectedQuickTemplate) || `Template: ${selectedQuickTemplate.name}`;
+  templateQuickSendModal?.show();
+});
 
 $('quickTemplateSendBtn')?.addEventListener('click', async () => {
-  const tName = $('quickTemplateSelect')?.value;
+  const tName = selectedQuickTemplate?.name;
   const mobile = ($('quickTemplateMobile')?.value || ACTIVE_MOBILE || '').replace(/\D/g, '');
   if (!tName || !mobile) return alert('Select template and recipient.');
   const lang = $('quickTemplateLang')?.value || 'en_US';
   const params = $all('#quickTemplateVars .tpl-param').map(i => i.value.trim());
   if (params.some(v => !v)) return alert('Fill all variable values.');
-  const t = templates.find(x => x.name === tName);
+  const t = selectedQuickTemplate || templates.find(x => x.name === tName);
   const body = { mobile, template_name: tName, language_code: lang, template_preview: getBodyText(t) || `Template: ${tName}`,
     components: params.length ? [{ type:'body', parameters: params.map(text=>({type:'text', text})) }] : [] };
   const r = await fetch(SEND_TPL_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
   const d = await r.json();
   if (!r.ok) return alert(d.error || 'Failed to send.');
   alert('Template sent successfully.');
+  templateQuickSendModal?.hide();
 });
+
+const refreshTemplateCategories = () => {
+  const el = $('templateCategoryFilter');
+  if (!el) return;
+  const unique = [...new Set(templates.map(t => String(t.category || 'UNCATEGORIZED').toUpperCase()))].sort();
+  el.innerHTML = '<option value="all">All categories</option>' + unique.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+};
 
 const setWorkspace = async (name = 'inbox') => {
   ['inbox', 'templates', 'campaigns', 'automation'].forEach(key => {
     $(`#${key}Panel`)?.classList.toggle('active', key === name);
   });
   $all('.workspace-link, .ws-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.workspace === name));
-  if (name === 'templates') await loadTemplates();
+  if (name === 'templates') { await loadTemplates(); refreshTemplateCategories(); renderApprovedTemplateRows(); }
 };
 
 $all('.workspace-link, .ws-btn').forEach(btn => btn.addEventListener('click', () => setWorkspace(btn.dataset.workspace)));
@@ -2675,8 +2756,8 @@ $all('.workspace-link, .ws-btn').forEach(btn => btn.addEventListener('click', ()
 $('templateSelect')?.addEventListener('change', () => onTemplateChange('templateSelect', 'templateLang', 'templateParamsWrap'));
 $('newConvTemplate')?.addEventListener('change', () => onTemplateChange('newConvTemplate', 'newConvLang', 'newConvParamsWrap'));
 
-templateBtn?.addEventListener('click', async () => { await loadTemplates(); templateModal.show(); });
-newChatBtn?.addEventListener('click', async () => { await loadTemplates(); newConvModal.show(); });
+newChatBtn?.addEventListener('click', async () => { await loadTemplates(); newConvModal?.show(); });
+templateBtn?.addEventListener('click', async () => { await loadTemplates(); templateModal?.show(); });
 
 /* ── Send template ───────────────────────────────────────── */
 $('sendTemplateBtn')?.addEventListener('click', async () => {
@@ -2883,3 +2964,12 @@ scrollBottom();
 })();
 </script>
 {% endblock %}
+['templateSearchInput', 'templateStatusFilter', 'templateCategoryFilter'].forEach(id => {
+  $(id)?.addEventListener('input', renderApprovedTemplateRows);
+  $(id)?.addEventListener('change', renderApprovedTemplateRows);
+});
+$('templateSyncBtn')?.addEventListener('click', async () => {
+  await loadTemplates(true);
+  refreshTemplateCategories();
+  renderApprovedTemplateRows();
+});
