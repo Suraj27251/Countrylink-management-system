@@ -2096,10 +2096,15 @@ let lastMsgId = Math.max(0, ...[...$all('#chatBody .msg-row[data-message-id]')].
 let lastInboxId = Math.max(lastMsgId, INITIAL_LAST_INBOX_ID);
 let unreadByMobile = new Map();
 
-const templateModal    = new bootstrap.Modal($('templateModal'));
-const newConvModal     = new bootstrap.Modal($('newConvModal'));
-const interactiveModal = new bootstrap.Modal($('interactiveModal'));
-const templateQuickSendModal = new bootstrap.Modal($('templateQuickSendModal'));
+const safeModal = id => {
+  const el = $(id);
+  if (!el || !window.bootstrap?.Modal) return null;
+  try { return new bootstrap.Modal(el); } catch (_) { return null; }
+};
+const templateModal    = safeModal('templateModal');
+const newConvModal     = safeModal('newConvModal');
+const interactiveModal = safeModal('interactiveModal');
+const templateQuickSendModal = safeModal('templateQuickSendModal');
 const mediaModal       = new bootstrap.Modal($('mediaModal'));
 
 /* ── Theme Management ────────────────────────────────────── */
@@ -2711,7 +2716,7 @@ $('approvedTemplateRows')?.addEventListener('click', e => {
   $('quickTemplateLang').value = selectedQuickTemplate.language || 'en_US';
   buildParamFields(extractVars(getBodyText(selectedQuickTemplate)), 'quickTemplateVars');
   $('quickTemplatePreviewText').textContent = getBodyText(selectedQuickTemplate) || `Template: ${selectedQuickTemplate.name}`;
-  templateQuickSendModal.show();
+  templateQuickSendModal?.show();
 });
 
 $('quickTemplateSendBtn')?.addEventListener('click', async () => {
@@ -2728,7 +2733,7 @@ $('quickTemplateSendBtn')?.addEventListener('click', async () => {
   const d = await r.json();
   if (!r.ok) return alert(d.error || 'Failed to send.');
   alert('Template sent successfully.');
-  templateQuickSendModal.hide();
+  templateQuickSendModal?.hide();
 });
 
 const refreshTemplateCategories = () => {
@@ -2751,8 +2756,8 @@ $all('.workspace-link, .ws-btn').forEach(btn => btn.addEventListener('click', ()
 $('templateSelect')?.addEventListener('change', () => onTemplateChange('templateSelect', 'templateLang', 'templateParamsWrap'));
 $('newConvTemplate')?.addEventListener('change', () => onTemplateChange('newConvTemplate', 'newConvLang', 'newConvParamsWrap'));
 
-templateBtn?.addEventListener('click', async () => { await loadTemplates(); templateModal.show(); });
-newChatBtn?.addEventListener('click', async () => { await loadTemplates(); newConvModal.show(); });
+newChatBtn?.addEventListener('click', async () => { await loadTemplates(); newConvModal?.show(); });
+templateBtn?.addEventListener('click', async () => { await loadTemplates(); templateModal?.show(); });
 
 /* ── Send template ───────────────────────────────────────── */
 $('sendTemplateBtn')?.addEventListener('click', async () => {
