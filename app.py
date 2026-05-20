@@ -664,10 +664,11 @@ def process_incoming_message(message, metadata):
                         last_message_at,
                         unread_count,
                         ai_enabled,
+                        human_takeover,
                         created_at,
                         updated_at
                     )
-                    VALUES (%s, %s, %s, NOW(), 1, 1, NOW(), NOW())
+                    VALUES (%s, %s, %s, NOW(), 1, 1, 0, NOW(), NOW())
                 """, (
                     mobile,
                     name,
@@ -727,6 +728,85 @@ def process_incoming_message(message, metadata):
                 mobile,
                 conversation_id
             )
+
+            mysql_conn = mysql.connector.connect(
+                host=MYSQL_DB_HOST,
+                database=MYSQL_DB_NAME,
+                user=MYSQL_DB_USER,
+                password=MYSQL_DB_PASSWORD,
+            )
+            mysql_cursor = mysql_conn.cursor(dictionary=True)
+            mysql_cursor.execute(
+                """
+                SELECT
+                    COALESCE(ai_enabled, 1) AS ai_enabled,
+                    COALESCE(human_takeover, 0) AS human_takeover
+                FROM whatsapp_conversations
+                WHERE id = %s
+                LIMIT 1
+                """,
+                (conversation_id,),
+            )
+            convo_flags = mysql_cursor.fetchone() or {}
+            ai_enabled = int(convo_flags.get("ai_enabled", 1) or 0)
+            human_takeover = int(convo_flags.get("human_takeover", 0) or 0)
+
+            if inserted_new_message and ai_enabled == 1 and human_takeover == 0 and whatsapp_config_ready():
+                ai_reply_text = generate_ai_whatsapp_reply(text_body, mobile, name)
+                if ai_reply_text:
+                    ai_response_payload = send_whatsapp_message(mobile, 'text', text=ai_reply_text)
+                    ai_message_id = (ai_response_payload.get('messages') or [{}])[0].get('id')
+                    mysql_cursor.execute(
+                        """
+                        INSERT INTO whatsapp_messages (
+                            conversation_id,
+                            whatsapp_message_id,
+                            sender_type,
+                            phone,
+                            message_text,
+                            message_type,
+                            media_url,
+                            status,
+                            created_at
+                        )
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                        """,
+                        (
+                            conversation_id,
+                            ai_message_id,
+                            'agent',
+                            mobile,
+                            ai_reply_text,
+                            'text',
+                            None,
+                            'sent',
+                        ),
+                    )
+                    mysql_cursor.execute(
+                        """
+                        UPDATE whatsapp_conversations
+                        SET
+                            last_message = %s,
+                            last_message_at = NOW(),
+                            updated_at = NOW()
+                        WHERE id = %s
+                        """,
+                        (ai_reply_text, conversation_id),
+                    )
+                    mysql_conn.commit()
+                    app.logger.info("AI auto-reply sent mobile=%s conversation_id=%s", mobile, conversation_id)
+            else:
+                app.logger.info(
+                    "AI auto-reply skipped mobile=%s conversation_id=%s ai_enabled=%s human_takeover=%s inserted_new_message=%s",
+                    mobile,
+                    conversation_id,
+                    ai_enabled,
+                    human_takeover,
+                    inserted_new_message,
+                )
+
+            mysql_cursor.close()
+            mysql_conn.close()
 
         except Exception:
             app.logger.exception(
@@ -1116,6 +1196,36 @@ def send_whatsapp_message(to_number, message_type, text=None, media_id=None, fil
     response = requests.post(url, headers=headers, json=payload, timeout=30)
     response.raise_for_status()
     return response.json()
+
+
+def generate_ai_whatsapp_reply(customer_message, mobile, customer_name):
+    api_key = os.environ.get('OPENAI_API_KEY', '').strip()
+    if not api_key:
+        return None
+
+    base_url = os.environ.get('OPENAI_BASE_URL', 'https://api.openai.com/v1').rstrip('/')
+    model = os.environ.get('OPENAI_MODEL', 'gpt-4o-mini').strip() or 'gpt-4o-mini'
+    system_prompt = (os.environ.get('WHATSAPP_AI_SYSTEM_PROMPT') or "You are a helpful WhatsApp CRM assistant.").strip()
+    url = f"{base_url}/chat/completions"
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Customer: {customer_name or mobile}\nMessage: {customer_message}"},
+        ],
+        "temperature": 0.4,
+    }
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    response = requests.post(url, headers=headers, json=payload, timeout=45)
+    response.raise_for_status()
+    content = ((response.json().get("choices") or [{}])[0].get("message") or {}).get("content", "")
+    reply_text = (content or "").strip()
+    return reply_text or None
 
 
 def send_whatsapp_template_message(to_number, template_name, language_code, components=None):
@@ -2553,10 +2663,11 @@ def send_whatsapp():
                     last_message_at,
                     unread_count,
                     ai_enabled,
+                    human_takeover,
                     created_at,
                     updated_at
                 )
-                VALUES (%s, %s, %s, NOW(), 0, 1, NOW(), NOW())
+                VALUES (%s, %s, %s, NOW(), 0, 1, 0, NOW(), NOW())
                 """,
                 (mobile, mobile_raw or mobile, message_text or '[media]'),
             )
