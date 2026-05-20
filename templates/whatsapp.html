@@ -1596,28 +1596,50 @@ kbd {
     </div>
   </aside>
 
-  <!-- ── MAIN CHAT ──────────────────────────────────────── -->
+<!-- ── MAIN CHAT ──────────────────────────────────────── -->
   <main class="wa-main relative" id="waMain">
     <section class="workspace-panel" id="templatesPanel">
-      <div class="workspace-wrap">
-        <h3><i class="fas fa-file-lines"></i> Approved Templates Hub</h3>
-        <p class="text-muted mb-3">Kaspo-style approved templates list with search, filters, sync, and quick send popup.</p>
-        <div class="ws-card mb-3">
-          <div class="row g-2 align-items-center">
-            <div class="col-md-4"><input id="templateSearchInput" class="form-control" placeholder="Search templates..."></div>
-            <div class="col-md-3"><select id="templateStatusFilter" class="form-select"><option value="all">All statuses</option><option value="APPROVED" selected>Approved</option><option value="REMOVED">Removed</option><option value="PENDING">Pending</option></select></div>
-            <div class="col-md-3"><select id="templateCategoryFilter" class="form-select"><option value="all">All categories</option></select></div>
-            <div class="col-md-2 d-grid"><button class="btn btn-outline-success" id="templateSyncBtn" type="button"><i class="fas fa-rotate"></i> Sync</button></div>
+      <div style="padding:20px;display:flex;flex-direction:column;gap:14px;height:100%;overflow:hidden;">
+
+        <!-- Filter bar -->
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+          <div style="position:relative;flex:1;max-width:280px;">
+            <i class="fas fa-magnifying-glass" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-3);font-size:13px;pointer-events:none;"></i>
+            <input id="templateSearchInput" class="form-control" placeholder="Search templates…" style="padding-left:32px;font-size:13px;">
+          </div>
+          <select id="templateStatusFilter" class="form-select" style="width:140px;font-size:13px;">
+            <option value="all">All statuses</option>
+            <option value="APPROVED" selected>Approved</option>
+            <option value="REMOVED">Removed</option>
+            <option value="PENDING">Pending</option>
+          </select>
+          <select id="templateCategoryFilter" class="form-select" style="width:150px;font-size:13px;">
+            <option value="all">All categories</option>
+          </select>
+          <div style="margin-left:auto;display:flex;gap:8px;">
+            <button class="hdr-btn" id="templateSyncBtn" type="button">
+              <i class="fas fa-rotate"></i> <span>Sync</span>
+            </button>
           </div>
         </div>
-        <div class="ws-card p-0">
-          <div class="table-responsive">
-            <table class="table table-dark table-hover mb-0 align-middle">
-              <thead><tr><th>Name</th><th>Status</th><th>Category</th><th>Language</th><th>Preview</th><th class="text-end">Action</th></tr></thead>
-              <tbody id="approvedTemplateRows"></tbody>
-            </table>
-          </div>
+
+        <!-- Table -->
+        <div style="flex:1;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border);background:var(--surface-2);position:sticky;top:0;z-index:1;">
+                <th style="padding:10px 16px;font-weight:600;color:var(--text-2);text-align:left;white-space:nowrap;">Name</th>
+                <th style="padding:10px 12px;font-weight:600;color:var(--text-2);text-align:left;white-space:nowrap;">Status</th>
+                <th style="padding:10px 12px;font-weight:600;color:var(--text-2);text-align:left;white-space:nowrap;">Category</th>
+                <th style="padding:10px 12px;font-weight:600;color:var(--text-2);text-align:left;white-space:nowrap;">Language</th>
+                <th style="padding:10px 12px;font-weight:600;color:var(--text-2);text-align:left;">Preview</th>
+                <th style="padding:10px 16px;font-weight:600;color:var(--text-2);text-align:right;white-space:nowrap;"></th>
+              </tr>
+            </thead>
+            <tbody id="approvedTemplateRows"></tbody>
+          </table>
         </div>
+
       </div>
     </section>
     <section class="workspace-panel" id="campaignsPanel">
@@ -2675,8 +2697,9 @@ const renderApprovedTemplateRows = () => {
   const wrap = $('approvedTemplateRows');
   if (!wrap) return;
   const search = ($('templateSearchInput')?.value || '').trim().toLowerCase();
-  const statusFilter = $('templateStatusFilter')?.value || 'APPROVED';
+  const statusFilter = $('templateStatusFilter')?.value || 'all';
   const categoryFilter = $('templateCategoryFilter')?.value || 'all';
+
   const filtered = templates.filter(t => {
     const status = String(t.status || '').toUpperCase();
     const category = String(t.category || 'UNCATEGORIZED').toUpperCase();
@@ -2686,37 +2709,101 @@ const renderApprovedTemplateRows = () => {
     if (search && !text.includes(search)) return false;
     return true;
   });
+
   if (!filtered.length) {
-    wrap.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">No templates match current filters.</td></tr>';
+    wrap.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:40px 16px;color:var(--text-3);font-size:13px;">No templates match current filters.</td></tr>`;
     return;
   }
+
   wrap.innerHTML = filtered.map(t => {
     const status = String(t.status || '').toUpperCase();
-    const body = esc((getBodyText(t) || 'No body text').slice(0, 90));
+    const bodyText = getBodyText(t) || '';
+    const vars = extractVars(bodyText);
+    const paramCount = vars.length;
     const category = esc(String(t.category || 'UNCATEGORIZED').toUpperCase());
-    const badgeCls = status === 'APPROVED' ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary';
-    return `<tr>
-      <td><strong>${esc(t.name || '-')}</strong></td>
-      <td><span class="badge ${badgeCls}">${esc(status || 'UNKNOWN')}</span></td>
-      <td>${category}</td>
-      <td>${esc(t.language || 'en_US')}</td>
-      <td>${body}</td>
-      <td class="text-end"><button class="btn btn-sm btn-outline-success quick-send-template-btn" data-template="${esc(t.name)}"><i class="fas fa-paper-plane"></i> Send</button></td>
+    const preview = esc(bodyText.slice(0, 80)) + (bodyText.length > 80 ? '…' : '');
+    const templateId = esc(t.id || t.name || '');
+    const shortId = templateId.length > 14 ? templateId.slice(0, 14) + '…' : templateId;
+
+    const badgeStyle = status === 'APPROVED'
+      ? 'background:#dcfce7;color:#166534;border:1px solid #bbf7d0;'
+      : status === 'REMOVED'
+        ? 'background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb;'
+        : 'background:#fef9c3;color:#854d0e;border:1px solid #fef08a;';
+
+    const badgeIcon = status === 'APPROVED'
+      ? '<i class="fas fa-circle-check" style="font-size:10px;"></i>'
+      : status === 'REMOVED'
+        ? '<i class="fas fa-circle-xmark" style="font-size:10px;"></i>'
+        : '<i class="fas fa-clock" style="font-size:10px;"></i>';
+
+    const statusLabel = status.charAt(0) + status.slice(1).toLowerCase();
+
+    return `<tr style="border-bottom:1px solid var(--border);transition:background .12s;"
+               onmouseover="this.style.background='var(--surface-2)'"
+               onmouseout="this.style.background=''">
+      <td style="padding:10px 16px;">
+        <div style="font-weight:600;color:var(--text-1);font-size:13px;">${esc(t.name || '-')}</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:2px;font-family:'DM Mono',monospace;">
+          ${paramCount > 0 ? `<span style="margin-right:8px;">${paramCount} param${paramCount !== 1 ? 's' : ''}</span>` : ''}
+          <span title="${templateId}">${shortId}</span>
+        </div>
+      </td>
+      <td style="padding:10px 12px;">
+        <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:500;${badgeStyle}">
+          ${badgeIcon} ${statusLabel}
+        </span>
+      </td>
+      <td style="padding:10px 12px;color:var(--text-2);font-size:12.5px;">${category}</td>
+      <td style="padding:10px 12px;color:var(--text-2);font-size:12.5px;font-family:'DM Mono',monospace;">${esc(t.language || 'en')}</td>
+      <td style="padding:10px 12px;color:var(--text-3);font-size:12.5px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${preview || '<em>No preview</em>'}</td>
+      <td style="padding:10px 16px;text-align:right;white-space:nowrap;">
+        <button class="quick-send-template-btn" data-template="${esc(t.name)}" title="Send template"
+          style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer;font-size:14px;display:inline-flex;align-items:center;justify-content:center;transition:all .15s;margin-right:4px;"
+          onmouseover="this.style.background='var(--green)';this.style.color='#fff';this.style.borderColor='var(--green)'"
+          onmouseout="this.style.background='var(--surface)';this.style.color='var(--text-2)';this.style.borderColor='var(--border)'">
+          <i class="fas fa-paper-plane" style="pointer-events:none;"></i>
+        </button>
+        <button class="tpl-more-btn" data-template="${esc(t.name)}" title="More options"
+          style="width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer;font-size:15px;display:inline-flex;align-items:center;justify-content:center;transition:all .15s;"
+          onmouseover="this.style.background='var(--surface-3)';this.style.color='var(--text-1)'"
+          onmouseout="this.style.background='var(--surface)';this.style.color='var(--text-2)'">
+          <i class="fas fa-ellipsis" style="pointer-events:none;"></i>
+        </button>
+      </td>
     </tr>`;
   }).join('');
 };
 $('approvedTemplateRows')?.addEventListener('click', e => {
+  // Quick send
   const btn = e.target.closest('.quick-send-template-btn');
-  if (!btn) return;
-  const tName = btn.dataset.template;
-  selectedQuickTemplate = templates.find(t => t.name === tName);
-  if (!selectedQuickTemplate) return;
-  $('quickSendTemplateName').textContent = `Send a test message using template "${selectedQuickTemplate.name}"`;
-  $('quickTemplateMobile').value = ACTIVE_MOBILE ? `+${ACTIVE_MOBILE}` : '';
-  $('quickTemplateLang').value = selectedQuickTemplate.language || 'en_US';
-  buildParamFields(extractVars(getBodyText(selectedQuickTemplate)), 'quickTemplateVars');
-  $('quickTemplatePreviewText').textContent = getBodyText(selectedQuickTemplate) || `Template: ${selectedQuickTemplate.name}`;
-  templateQuickSendModal?.show();
+  if (btn) {
+    const tName = btn.dataset.template;
+    selectedQuickTemplate = templates.find(t => t.name === tName);
+    if (!selectedQuickTemplate) return;
+    $('quickSendTemplateName').textContent = `Send a test message using template "${selectedQuickTemplate.name}"`;
+    $('quickTemplateMobile').value = ACTIVE_MOBILE ? `+${ACTIVE_MOBILE}` : '';
+    $('quickTemplateLang').value = selectedQuickTemplate.language || 'en_US';
+    buildParamFields(extractVars(getBodyText(selectedQuickTemplate)), 'quickTemplateVars');
+    $('quickTemplatePreviewText').textContent = getBodyText(selectedQuickTemplate) || `Template: ${selectedQuickTemplate.name}`;
+    templateQuickSendModal?.show();
+    return;
+  }
+
+  // More options (...)
+  const moreBtn = e.target.closest('.tpl-more-btn');
+  if (moreBtn) {
+    const tName = moreBtn.dataset.template;
+    const t = templates.find(x => x.name === tName);
+    if (!t) return;
+    const action = confirm(`Template: ${tName}\n\nClick OK to copy template name to clipboard.`);
+    if (action) {
+      navigator.clipboard?.writeText(tName).then(() => {
+        moreBtn.innerHTML = '<i class="fas fa-check" style="pointer-events:none;color:var(--green);"></i>';
+        setTimeout(() => { moreBtn.innerHTML = '<i class="fas fa-ellipsis" style="pointer-events:none;"></i>'; }, 1500);
+      });
+    }
+  }
 });
 
 $('quickTemplateSendBtn')?.addEventListener('click', async () => {
@@ -2752,13 +2839,25 @@ const setWorkspace = async (name = 'inbox') => {
 };
 
 $all('.workspace-link, .ws-btn').forEach(btn => btn.addEventListener('click', () => setWorkspace(btn.dataset.workspace)));
-
 $('templateSelect')?.addEventListener('change', () => onTemplateChange('templateSelect', 'templateLang', 'templateParamsWrap'));
 $('newConvTemplate')?.addEventListener('change', () => onTemplateChange('newConvTemplate', 'newConvLang', 'newConvParamsWrap'));
-
 newChatBtn?.addEventListener('click', async () => { await loadTemplates(); newConvModal?.show(); });
 templateBtn?.addEventListener('click', async () => { await loadTemplates(); templateModal?.show(); });
 
+// Template filter + sync listeners
+['templateSearchInput', 'templateStatusFilter', 'templateCategoryFilter'].forEach(id => {
+  $(id)?.addEventListener('input', renderApprovedTemplateRows);
+  $(id)?.addEventListener('change', renderApprovedTemplateRows);
+});
+
+$('templateSyncBtn')?.addEventListener('click', async () => {
+  const syncBtn = $('templateSyncBtn');
+  if (syncBtn) { syncBtn.disabled = true; syncBtn.innerHTML = '<i class="fas fa-rotate fa-spin"></i> <span>Syncing…</span>'; }
+  await loadTemplates(true);
+  refreshTemplateCategories();
+  renderApprovedTemplateRows();
+  if (syncBtn) { syncBtn.disabled = false; syncBtn.innerHTML = '<i class="fas fa-rotate"></i> <span>Sync</span>'; }
+});
 /* ── Send template ───────────────────────────────────────── */
 $('sendTemplateBtn')?.addEventListener('click', async () => {
   const tName = $('templateSelect')?.value;
