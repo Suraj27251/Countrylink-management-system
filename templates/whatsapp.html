@@ -2745,7 +2745,7 @@ const refreshTemplateCategories = () => {
 
 const setWorkspace = async (name = 'inbox') => {
   ['inbox', 'templates', 'campaigns', 'automation'].forEach(key => {
-    $(`#${key}Panel`)?.classList.toggle('active', key === name);
+    $(`${key}Panel`)?.classList.toggle('active', key === name);
   });
   $all('.workspace-link, .ws-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.workspace === name));
   if (name === 'templates') { await loadTemplates(); refreshTemplateCategories(); renderApprovedTemplateRows(); }
