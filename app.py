@@ -2593,14 +2593,18 @@ def api_whatsapp_logs():
         summary = cursor.fetchone()
 
         rows_query = f"""
-            SELECT customer_name, invoice_id, 
-                   COALESCE(invoice_id, 'N/A') AS invoice_number, 
-                   total AS total, status, sent_at
-            FROM whatsapp_logs
-            WHERE {date_clause}{status_clause}
-            ORDER BY sent_at DESC
-            LIMIT 200
-        """
+    SELECT
+        customer_name,
+        invoice_id,
+        COALESCE(invoice_number, invoice_id, 'N/A') AS invoice_number,
+        total_amount AS total,
+        status,
+        sent_at
+    FROM whatsapp_logs
+    WHERE {date_clause}{status_clause}
+    ORDER BY sent_at DESC
+    LIMIT 200
+"""
         cursor.execute(rows_query, tuple(params))
         rows = cursor.fetchall()
 
