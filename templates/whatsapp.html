@@ -979,17 +979,13 @@ main.container {
   flex-shrink: 0;
 }
 
-/* Quick chips - IMPROVED: Hidden by default, shown on focus */
+/* Quick chips - Always visible */
 .compose-chips {
-  display: none; /* Hidden until composer is focused */
+  display: flex;
   gap: 6px;
   padding: 10px 0 8px;
   overflow-x: auto;
   scrollbar-width: none;
-}
-
-.chat-compose:focus-within .compose-chips {
-  display: flex;
 }
 
 .compose-chips::-webkit-scrollbar { display: none; }
