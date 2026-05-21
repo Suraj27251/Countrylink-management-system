@@ -594,7 +594,8 @@ def process_incoming_message(message, metadata):
                         created_at,
                     ),
                 )
-                inserted_new_message = c.rowcount > 0
+
+                inserted_new_message = True
             else:
                 c.execute(
                     """
