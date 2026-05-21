@@ -2762,7 +2762,7 @@ def send_whatsapp():
                 (
                     conversation_id,
                     message_id,
-                    'agent',
+                    'human',
                     mobile,
                     message_text or '[media]',
                     message_type,
@@ -2799,7 +2799,6 @@ def send_whatsapp():
             "Failed to persist outbound WhatsApp message for %s",
             mobile
         )
-
         return jsonify({
             "error": f"Message sent, but failed to persist in inbox: {exc}"
         }), 500
