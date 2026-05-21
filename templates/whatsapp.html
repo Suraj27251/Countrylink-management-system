@@ -1485,6 +1485,131 @@ kbd {
 /* ── Utility ─────────────────────────────────────────────── */
 .hidden { display: none !important; }
 .relative { position: relative; }
+
+  /* ── AI Toggle Switch ────────────────────────────────────── */
+.ai-toggle-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+}
+.ai-toggle-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  min-width: 36px;
+  text-align: right;
+  user-select: none;
+}
+.switch {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 30px;
+  border: 4px solid rgba(58, 58, 58, 0.1);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5) inset;
+  height: 36px;
+  margin: 0;
+  position: relative;
+  width: 90px;
+  display: inline-block;
+  user-select: none;
+  flex-shrink: 0;
+}
+.switch-check {
+  position: absolute;
+  visibility: hidden;
+  user-select: none;
+}
+.switch-label {
+  cursor: pointer;
+  display: block;
+  height: 30px;
+  text-indent: -9999px;
+  width: 86px;
+  user-select: none;
+}
+.switch-label:before {
+  background: -webkit-radial-gradient(45%, circle, rgb(255, 58, 58) 0%, rgb(255, 113, 113) 100%);
+  border-radius: 10px;
+  border: 1px solid #742323;
+  box-shadow: 0 2px 5px rgba(255, 67, 48, 0.6), 0 0 5px rgba(255, 159, 109, 0.5) inset;
+  content: "";
+  display: block;
+  height: 9px;
+  left: -18%;
+  position: absolute;
+  top: 11px;
+  transition: all 0.2s;
+  width: 9px;
+  z-index: 12;
+  user-select: none;
+}
+.switch-label:after {
+  background: -moz-radial-gradient(45%, circle, rgba(60,60,60,0.6) 0%, rgba(151,151,151,0.6) 100%);
+  border-radius: 10px;
+  border: 1px solid #111;
+  box-shadow: 0 2px 5px rgba(20, 20, 20, 0.5);
+  content: "";
+  display: block;
+  height: 9px;
+  right: -18%;
+  position: absolute;
+  top: 11px;
+  transition: all 0.2s;
+  width: 9px;
+  z-index: 12;
+  user-select: none;
+}
+.switch-label span {
+  background: linear-gradient(#4f4f4f, #2b2b2b);
+  border-radius: 30px;
+  border: 1px solid #1a1a1a;
+  box-shadow: 0 0 4px rgba(0,0,0,0.5), 0 1px 1px rgba(255,255,255,0.1) inset, 0 -2px 0 rgba(0,0,0,0.2) inset;
+  display: block;
+  height: 28px;
+  left: 1px;
+  position: absolute;
+  top: 1px;
+  transition: all 0.2s linear;
+  width: 40px;
+  user-select: none;
+}
+.switch-label span:before {
+  background: linear-gradient(left, rgba(48,48,48,0.4), rgba(34,34,34,0.4));
+  border-radius: 30px 10px 10px 30px;
+  box-shadow: -2px 0 5px rgba(0,0,0,0.2) inset;
+  content: "";
+  display: block;
+  height: 24px;
+  left: 2px;
+  position: absolute;
+  top: 2px;
+  width: 16px;
+  user-select: none;
+}
+.switch-label span:after {
+  background: linear-gradient(right, rgba(48,48,48,0.4), rgba(34,34,34,0.4));
+  border-radius: 10px 30px 30px 10px;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.2) inset;
+  content: "";
+  display: block;
+  height: 24px;
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  width: 16px;
+  user-select: none;
+}
+.switch-check:checked + .switch-label span { left: 46px; }
+.switch-check:checked + .switch-label:before {
+  background: -webkit-radial-gradient(45%, circle, rgba(60,60,60,0.6) 0%, rgba(151,151,151,0.6) 100%);
+  border: 1px solid #111;
+  box-shadow: 0 2px 5px rgba(20,20,20,0.5);
+}
+.switch-check:checked + .switch-label:after {
+  background: -webkit-radial-gradient(45%, circle, lightgreen 0%, lightgreen 100%);
+  border: 1px solid #004562;
+  box-shadow: 0 2px 5px green, 0 0 5px green inset;
+}
 </style>
 {% endblock %}
 
@@ -1859,7 +1984,7 @@ kbd {
     <!-- Scroll to bottom -->
     <button class="scroll-btn" id="scrollBtn"><i class="fas fa-chevron-down"></i></button>
 
-  <!-- Compose -->
+ <!-- Compose -->
 <div class="chat-compose">
   <!-- Quick chips - IMPROVED: Hidden by default, shown on focus -->
   <div class="compose-chips">
@@ -1868,7 +1993,17 @@ kbd {
     <button class="compose-chip" data-insert="We're checking your connection status and will update you shortly.">📡 Status Update</button>
     <button class="compose-chip" data-insert="Thank you for contacting CountryLink Broadband. Have a great day!">✅ Thank You</button>
     <button class="compose-chip" id="cmdChip"><i class="fas fa-terminal" style="font-size:11px;"></i> Commands</button>
-    <button class="compose-chip" id="aiToggleBtn" data-phone="{{ active_mobile }}" data-human="{{ 1 if conversation and conversation.human_takeover else 0 }}"><i class="fas {{ 'fa-user' if conversation and conversation.human_takeover else 'fa-robot' }}" style="font-size:11px;"></i> <span id="aiToggleText">{{ 'Human Mode' if conversation and conversation.human_takeover else 'AI Mode' }}</span></button>
+    <div class="ai-toggle-wrap" title="{{ 'Human Mode' if conversation and conversation.human_takeover else 'AI Mode' }}">
+      <span class="ai-toggle-label" id="aiToggleText">{{ 'Human' if conversation and conversation.human_takeover else 'AI' }}</span>
+      <div class="switch">
+        <input class="switch-check" id="aiToggleBtn"
+               type="checkbox"
+               data-phone="{{ active_mobile }}"
+               data-human="{{ 1 if conversation and conversation.human_takeover else 0 }}"
+               {{ 'checked' if conversation and conversation.human_takeover else '' }}>
+        <label class="switch-label" for="aiToggleBtn">Toggle<span></span></label>
+      </div>
+    </div>
   </div>
       <div class="attach-preview" id="attachPreview">
         <i class="fas fa-paperclip"></i>
@@ -3109,71 +3244,51 @@ resizeInput();
 if (msgInput && !msgInput.disabled) msgInput.focus();
 scrollBottom();
 
-/* ── AI Toggle ───────────────────────────── */
-const aiBtn = document.getElementById('aiToggleBtn');
+/* ── AI Toggle ───────────────────────────────────────────── */
+const aiCheckbox = document.getElementById('aiToggleBtn');
+const aiLabel    = document.getElementById('aiToggleText');
 
-if (aiBtn) {
+if (aiCheckbox) {
+  aiCheckbox.addEventListener('change', async () => {
+    const phone    = aiCheckbox.dataset.phone;
+    const newHuman = aiCheckbox.checked ? 1 : 0;
 
-  aiBtn.addEventListener('click', async () => {
-
-    const phone = aiBtn.dataset.phone;
-    const currentHuman = parseInt(aiBtn.dataset.human || '0');
-    const newHuman = currentHuman ? 0 : 1;
+    // Optimistically update label
+    if (aiLabel) aiLabel.textContent = newHuman ? 'Human' : 'AI';
 
     try {
-
       const response = await fetch('/api/whatsapp/toggle-ai', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          phone: phone,
-          human_takeover: newHuman
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, human_takeover: newHuman })
       });
-
       const data = await response.json();
 
-      if (data.success) {
-
-        aiBtn.dataset.human = newHuman;
-
-        if (newHuman === 1) {
-
-          aiBtn.innerHTML =
-            '<i class="fas fa-user" style="font-size:11px;"></i> ' +
-            '<span id="aiToggleText">Human Mode</span>';
-
-        } else {
-
-          aiBtn.innerHTML =
-            '<i class="fas fa-robot" style="font-size:11px;"></i> ' +
-            '<span id="aiToggleText">AI Mode</span>';
-        }
-
+      if (!data.success) {
+        // Revert on failure
+        aiCheckbox.checked = !aiCheckbox.checked;
+        if (aiLabel) aiLabel.textContent = aiCheckbox.checked ? 'Human' : 'AI';
+      } else {
+        aiCheckbox.dataset.human = newHuman;
       }
-
     } catch (err) {
       console.error('AI toggle failed:', err);
+      // Revert on network error
+      aiCheckbox.checked = !aiCheckbox.checked;
+      if (aiLabel) aiLabel.textContent = aiCheckbox.checked ? 'Human' : 'AI';
     }
-
   });
-
 }
 
 ['templateSearchInput', 'templateStatusFilter', 'templateCategoryFilter'].forEach(id => {
   $(id)?.addEventListener('input', renderApprovedTemplateRows);
   $(id)?.addEventListener('change', renderApprovedTemplateRows);
 });
-
 $('templateSyncBtn')?.addEventListener('click', async () => {
   await loadTemplates(true);
   refreshTemplateCategories();
   renderApprovedTemplateRows();
 });
-
 })();
 </script>
-
 {% endblock %}
