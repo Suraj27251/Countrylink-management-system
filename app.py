@@ -749,9 +749,18 @@ def process_incoming_message(message, metadata):
             if inserted_new_message and ai_enabled == 1 and human_takeover == 0 and whatsapp_config_ready():
                 try:
                     ai_reply_text = generate_ai_whatsapp_reply(text_body, mobile, name)
+
                     if ai_reply_text:
-                        ai_response_payload = send_whatsapp_message(mobile, 'text', text=ai_reply_text)
-                        ai_message_id = (ai_response_payload.get('messages') or [{}])[0].get('id')
+                        ai_response_payload = send_whatsapp_message(
+                            mobile,
+                            'text',
+                            text=ai_reply_text
+                        )
+
+                        ai_message_id = (
+                            ai_response_payload.get('messages') or [{}]
+                        )[0].get('id')
+
                         mysql_cursor.execute(
                             """
                             INSERT INTO whatsapp_messages (
@@ -770,7 +779,7 @@ def process_incoming_message(message, metadata):
                             (
                                 conversation_id,
                                 ai_message_id,
-                                'agent',
+                                'ai',
                                 mobile,
                                 ai_reply_text,
                                 'text',
@@ -778,6 +787,7 @@ def process_incoming_message(message, metadata):
                                 'sent',
                             ),
                         )
+
                         mysql_cursor.execute(
                             """
                             UPDATE whatsapp_conversations
@@ -787,19 +797,40 @@ def process_incoming_message(message, metadata):
                                 updated_at = NOW()
                             WHERE id = %s
                             """,
-                            (ai_reply_text, conversation_id),
+                            (
+                                ai_reply_text,
+                                conversation_id,
+                            ),
                         )
+
                         mysql_conn.commit()
-                        app.logger.info("AI reply generated mobile=%s conversation_id=%s", mobile, conversation_id)
+
+                        app.logger.info(
+                            "AI reply generated mobile=%s conversation_id=%s",
+                            mobile,
+                            conversation_id
+                        )
+
                     else:
-                        app.logger.info("AI reply skipped mobile=%s conversation_id=%s reason=empty_reply", mobile, conversation_id)
+                        app.logger.info(
+                            "AI reply skipped mobile=%s conversation_id=%s reason=empty_reply",
+                            mobile,
+                            conversation_id
+                        )
+
                 except Exception:
                     app.logger.exception(
                         "AI auto-reply failed mobile=%s conversation_id=%s",
                         mobile,
                         conversation_id,
                     )
-                    app.logger.info("AI reply skipped mobile=%s conversation_id=%s reason=ai_error", mobile, conversation_id)
+
+                    app.logger.info(
+                        "AI reply skipped mobile=%s conversation_id=%s reason=ai_error",
+                        mobile,
+                        conversation_id
+                    )
+
             else:
                 app.logger.info(
                     "AI reply skipped mobile=%s conversation_id=%s ai_enabled=%s human_takeover=%s inserted_new_message=%s",
@@ -809,7 +840,6 @@ def process_incoming_message(message, metadata):
                     human_takeover,
                     inserted_new_message,
                 )
-
         except Exception:
             app.logger.exception(
                 "MySQL inbox sync failed for mobile=%s",
