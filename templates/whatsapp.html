@@ -2340,6 +2340,7 @@ themeToggle?.addEventListener('click', () => {
 /* ── Interaction unlock + audio pre-warm ─────────────────── */
 
 const NOTIFICATION_SOUND_URL = `${STATIC_BASE}audio/whatsapp_notification.wav`;
+const SOFT_SOUND_URL = `${STATIC_BASE}audio/soft_sound.mp3`;
 
 const notificationAudio = new Audio(NOTIFICATION_SOUND_URL);
 notificationAudio.preload = 'auto';
@@ -2374,15 +2375,17 @@ notificationAudio.addEventListener('canplaythrough', () => {
 /* ── Sound ───────────────────────────────────────────────── */
 const beep = (inboundMobile) => {
 
-  // Never beep for currently opened chat
-  if (inboundMobile && inboundMobile === ACTIVE_MOBILE) {
-    return;
-  }
-
   if (!soundEnabled || !hasInteracted) return;
 
   try {
-    const clip = new Audio(NOTIFICATION_SOUND_URL);
+
+    // Active opened chat → soft sound
+    const soundUrl =
+      inboundMobile && inboundMobile === ACTIVE_MOBILE
+        ? SOFT_SOUND_URL
+        : NOTIFICATION_SOUND_URL;
+
+    const clip = new Audio(soundUrl);
     clip.volume = 1.0;
 
     clip.play().catch(err => {
