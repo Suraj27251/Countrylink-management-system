@@ -2543,7 +2543,7 @@ def whatsapp_messages_api():
                 "longitude": None,
                 "delivery_status": msg.get("status"),
                 "error_reason": None,
-                "created_at": msg.get("created_at"),
+                "created_at": msg["created_at"].strftime('%Y-%m-%d %H:%M:%S') if isinstance(msg.get("created_at"), datetime) else str(msg.get("created_at") or ''),
             })
 
         mysql_cursor.execute("""
