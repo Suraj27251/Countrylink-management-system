@@ -2782,7 +2782,7 @@ const poll = async () => {
     let hasNew = false;
 data.messages.forEach(m => {
   const isNewMsg = upsertMsg(m);
-  if (isNewMsg && m.direction !== 'outbound') {
+  if (isNewMsg && m.direction !== 'outbound' && document.hasFocus()) {
     const rawTime = (m.created_at || '').replace(' ', 'T'); // fix Safari parsing
     const msgTime = rawTime ? new Date(rawTime).getTime() : 0;
     const isValidTime = msgTime > 0 && !isNaN(msgTime);
