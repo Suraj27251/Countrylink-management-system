@@ -2372,7 +2372,7 @@ notificationAudio.addEventListener('canplaythrough', () => {
 );
 
 /* ── Sound ───────────────────────────────────────────────── */
-const beep = (inboundMobile) => {
+const beep = () => {};
   // Always mark contact as having new message visually, regardless of sound
   if (inboundMobile && inboundMobile !== ACTIVE_MOBILE) {
     const contactEl = convList?.querySelector(`[data-mobile="${CSS.escape(inboundMobile)}"]`);
