@@ -2519,7 +2519,11 @@ convList.addEventListener('click', async e => {
 
   // Restart poll for new contact
   clearTimeout(pollTimer);
+
+  isLoadingConversation = true;
   await poll();
+  isLoadingConversation = false;
+
   scrollBottom();
   schedulePoll(POLL_BASE);
   msgInput?.focus();
