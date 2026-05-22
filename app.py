@@ -2492,6 +2492,41 @@ def whatsapp_messages_api():
     latest_row = mysql_cursor.fetchone()
     latest_inbox_id = latest_row["latest_id"] if latest_row else 0
 
+    # Fetch recent inbound messages from all conversations for inbox notification
+    # This ensures operators are notified about all new messages, including AI-responded ones
+    inbox_messages = []
+    if include_contacts and since_inbox_id_raw != '':
+        mysql_cursor.execute("""
+            SELECT
+                id,
+                whatsapp_message_id AS message_id,
+                phone AS mobile,
+                sender_type,
+                message_text AS text,
+                message_type,
+                media_url,
+                status,
+                created_at
+            FROM whatsapp_messages
+            WHERE sender_type = 'customer' AND id > %s
+            ORDER BY created_at ASC, id ASC
+            LIMIT 100
+        """, (since_inbox_id,))
+        db_inbox_messages = mysql_cursor.fetchall()
+
+        for msg in db_inbox_messages:
+            inbox_messages.append({
+                "id": msg["id"],
+                "message_id": msg.get("message_id"),
+                "mobile": normalize_mobile(msg["mobile"]),
+                "direction": "inbound",
+                "message_type": msg.get("message_type") or "text",
+                "text": msg.get("text") or "",
+                "media_url": msg.get("media_url"),
+                "delivery_status": msg.get("status"),
+                "created_at": msg.get("created_at"),
+            })
+
     if mobile:
 
         mysql_cursor.execute("""
@@ -2565,7 +2600,7 @@ def whatsapp_messages_api():
     response_payload = {
         "contacts": contacts if include_contacts else [],
         "messages": messages,
-        "inbox_messages": [],
+        "inbox_messages": inbox_messages if include_contacts else [],
         "active_mobile": mobile,
         "active_name": active_name,
         "last_message_id": last_message_id,

@@ -526,6 +526,26 @@ main.container {
   flex-shrink: 0;
 }
 
+/* Inactive 24h Meta chat window indicator */
+.conv-item.inactive-24h {
+  opacity: 0.65;
+}
+
+.conv-item.inactive-24h .conv-name {
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+.conv-item.inactive-24h .conv-preview {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.conv-item.inactive-24h .conv-time::after {
+  content: ' 🔒';
+  font-size: 11px;
+}
+
 /* Empty */
 .conv-empty {
   padding: 48px 20px;
@@ -2306,6 +2326,7 @@ let knownIds = new Set(
 let lastMsgId = Math.max(0, ...[...$all('#chatBody .msg-row[data-message-id]')].map(el => +el.dataset.messageId));
 let lastInboxId = Math.max(lastMsgId, INITIAL_LAST_INBOX_ID);
 let unreadByMobile = new Map();
+let lastSeenMessageIdByMobile = new Map(); // Track last processed message per mobile to prevent duplicate notifications
 let conversationOpenedAt = Date.now(); 
 const safeModal = id => {
   const el = $(id);
@@ -2404,6 +2425,20 @@ const fmtTime = ts => (ts && ts.includes(' ')) ? ts.split(' ')[1].slice(0,5) : (
 const nearBottom = () => chatBody && (chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight < 160);
 const scrollBottom = () => chatBody && requestAnimationFrame(() => { chatBody.scrollTop = chatBody.scrollHeight; });
 const showPageLoader = () => pageLoader?.classList.add('show');
+
+// Check if conversation is within 24-hour Meta chat window
+const isActiveChatWindow = createdAt => {
+  if (!createdAt) return true; // Default to active if no date
+  try {
+    const created = new Date(createdAt);
+    const now = new Date();
+    const ageMs = now - created;
+    const ageHours = ageMs / (1000 * 60 * 60);
+    return ageHours < 24;
+  } catch {
+    return true; // Default to active if date parsing fails
+  }
+};
 
 /* Connection indicator - IMPROVED: Subtle dot only */
 const setPoll = (live, label) => {
@@ -2512,6 +2547,11 @@ convList.addEventListener('click', async e => {
   // Update compose form mobile field
   const mobileInput = chatForm?.querySelector('input[name="mobile"]');
   if (mobileInput) mobileInput.value = mobile;
+
+  // Track that we've seen messages up to the latest for this mobile
+  if (data.last_message_id) {
+    lastSeenMessageIdByMobile.set(mobile, Math.max(lastSeenMessageIdByMobile.get(mobile) || 0, +data.last_message_id || 0));
+  }
 
   // Enable composer
   if (msgInput) msgInput.disabled = false;
@@ -2697,14 +2737,16 @@ const renderContacts = contacts => {
     const name = c.name || mobile || 'Unknown';
     const cls = avatarClasses[i % 3];
     const unreadCount = !isActive ? (unreadByMobile.get(mobile) || 0) : 0;
-    const hasNewMessage = !isActive && unreadCount > 0; // ← added
+    const hasNewMessage = !isActive && unreadCount > 0;
     const time = fmtTime(c.created_at);
     const preview = c.preview || 'No messages yet';
+    const isChatWindowActive = isActiveChatWindow(c.created_at);
     const existing = convList.querySelector(`[data-mobile="${CSS.escape(mobile)}"]`);
     if (existing) {
       // Patch only what changed — no full re-render, no flash
       existing.classList.toggle('active', isActive);
-      existing.classList.toggle('has-new', hasNewMessage); // ← added
+      existing.classList.toggle('has-new', hasNewMessage);
+      existing.classList.toggle('inactive-24h', !isChatWindowActive);
       const nameEl = existing.querySelector('.conv-name');
       if (nameEl && nameEl.textContent !== name) nameEl.textContent = name;
       const previewEl = existing.querySelector('.conv-preview');
@@ -2721,14 +2763,21 @@ const renderContacts = contacts => {
       } else if (unreadEl) {
         unreadEl.remove();
       }
+      
+      // Move to top if has new message
+      if (hasNewMessage && existing.parentElement === convList) {
+        convList.insertBefore(existing, convList.firstChild);
+      }
     } else {
       // Brand new contact — build and append
       const unreadHtml = unreadCount > 0 ? `<span class="conv-unread">${unreadCount}</span>` : '';
+      const inactiveClass = !isChatWindowActive ? 'inactive-24h' : '';
       const html = `
-        <a class="conv-item ${isActive ? 'active' : ''} ${hasNewMessage ? 'has-new' : ''}"
+        <a class="conv-item ${isActive ? 'active' : ''} ${hasNewMessage ? 'has-new' : ''} ${inactiveClass}"
            href="${PAGE_URL}?mobile=${encodeURIComponent(mobile)}"
            data-mobile="${esc(mobile)}"
-           data-name="${esc(name.toLowerCase())}">
+           data-name="${esc(name.toLowerCase())}"
+           title="${isChatWindowActive ? 'Active chat window' : 'Chat window closed (>24h old)'}">
           <div class="conv-avatar ${cls}">${(name[0]||'?').toUpperCase()}</div>
           <div class="conv-meta">
             <div class="conv-row1">
@@ -2739,7 +2788,7 @@ const renderContacts = contacts => {
           </div>
           ${unreadHtml}
         </a>`;
-      convList.insertAdjacentHTML('beforeend', html);
+      convList.insertAdjacentHTML('afterbegin', html);
     }
   });
 };
@@ -2762,12 +2811,20 @@ const poll = async () => {
       const isInbound = m.direction !== 'outbound';
       const isActiveChatMessage = ACTIVE_MOBILE && mobile === ACTIVE_MOBILE;
       if (isInbound && mobile) {
+        // Track this message so we don't notify twice
+        const lastSeenId = lastSeenMessageIdByMobile.get(mobile) || 0;
+        const currentMsgId = +m.id || 0;
+        lastSeenMessageIdByMobile.set(mobile, Math.max(lastSeenId, currentMsgId));
+        
         if (isActiveChatMessage) {
           unreadByMobile.delete(mobile);
           // beep disabled for currently open chat
         } else {
-          unreadByMobile.set(mobile, (unreadByMobile.get(mobile) || 0) + 1);
-          beep(); // sound for messages in other chats
+          // Only beep if this is newer than what we've seen before
+          if (currentMsgId > lastSeenId) {
+            unreadByMobile.set(mobile, (unreadByMobile.get(mobile) || 0) + 1);
+            beep(); // sound for messages in other chats
+          }
         }
       }
     });
@@ -2783,8 +2840,14 @@ const poll = async () => {
     data.messages.forEach(m => {
       const isNewMsg = upsertMsg(m);
 
+      // Only play sound if: (1) truly new message, (2) inbound, (3) document has focus, (4) not already notified about this mobile's messages
       if (isNewMsg && m.direction !== 'outbound' && document.hasFocus()) {
-        beep(m.mobile);
+        const lastSeenId = lastSeenMessageIdByMobile.get(m.mobile) || 0;
+        const currentMsgId = +m.id || 0;
+        if (currentMsgId > lastSeenId) {
+          lastSeenMessageIdByMobile.set(m.mobile, Math.max(lastSeenId, currentMsgId));
+          beep(m.mobile);
+        }
       }
 
       hasNew = isNewMsg || hasNew;
