@@ -2506,10 +2506,9 @@ def whatsapp_messages_api():
                 status,
                 created_at
             FROM whatsapp_messages
-            WHERE phone = %s
+            WHERE phone = %s AND id > %s
             ORDER BY created_at ASC, id ASC
-        """, (mobile,))
-
+        """, (mobile, since_id))
         db_messages = mysql_cursor.fetchall()
 
         for msg in db_messages:
