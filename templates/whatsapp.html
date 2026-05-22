@@ -426,13 +426,10 @@ main.container {
   transition: background .12s;
   position: relative;
 }
-
 .conv-item:hover { background: var(--surface-2); }
-
 .conv-item.active {
   background: var(--green-lt);
 }
-
 .conv-item.active::before {
   content: '';
   position: absolute;
@@ -440,6 +437,19 @@ main.container {
   width: 3px;
   background: var(--green);
   border-radius: 0 2px 2px 0;
+}
+.conv-item.has-new::after {
+  content: '';
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px rgba(37,211,102,.6);
+  flex-shrink: 0;
 }
 
 /* Avatar - SIMPLIFIED: 3 solid colors instead of 6 gradients */
@@ -2362,7 +2372,13 @@ notificationAudio.addEventListener('canplaythrough', () => {
 );
 
 /* ── Sound ───────────────────────────────────────────────── */
-const beep = () => {
+const beep = (inboundMobile) => {
+  // Always mark contact as having new message visually, regardless of sound
+  if (inboundMobile && inboundMobile !== ACTIVE_MOBILE) {
+    const contactEl = convList?.querySelector(`[data-mobile="${CSS.escape(inboundMobile)}"]`);
+    contactEl?.classList.add('has-new');
+  }
+
   if (!soundEnabled) return;
   if (!hasInteracted) {
     console.warn('Sound blocked — user has not interacted with page yet');
@@ -2668,18 +2684,15 @@ const upsertMsg = m => {
 const avatarClasses = ['', 'alt-1', 'alt-2'];
 const renderContacts = contacts => {
   if (!convList) return;
-
   if (!contacts.length) {
     if (!convList.querySelector('.conv-empty')) {
       convList.innerHTML = `<div class="conv-empty"><i class="fab fa-whatsapp"></i><h4>No conversations yet</h4><p>New WhatsApp messages will appear here in real time</p></div>`;
     }
     return;
   }
-
   // Remove empty state if present
   const emptyEl = convList.querySelector('.conv-empty');
   if (emptyEl) emptyEl.remove();
-
   contacts.forEach((c, i) => {
     const mobile = c.mobile || '';
     if (!mobile) return;
@@ -2688,24 +2701,20 @@ const renderContacts = contacts => {
     const name = c.name || mobile || 'Unknown';
     const cls = avatarClasses[i % 3];
     const unreadCount = !isActive ? (unreadByMobile.get(mobile) || 0) : 0;
+    const hasNewMessage = !isActive && unreadCount > 0; // ← added
     const time = fmtTime(c.created_at);
     const preview = c.preview || 'No messages yet';
-
     const existing = convList.querySelector(`[data-mobile="${CSS.escape(mobile)}"]`);
-
     if (existing) {
       // Patch only what changed — no full re-render, no flash
       existing.classList.toggle('active', isActive);
-
+      existing.classList.toggle('has-new', hasNewMessage); // ← added
       const nameEl = existing.querySelector('.conv-name');
       if (nameEl && nameEl.textContent !== name) nameEl.textContent = name;
-
       const previewEl = existing.querySelector('.conv-preview');
       if (previewEl && previewEl.textContent !== preview) previewEl.textContent = preview;
-
       const timeEl = existing.querySelector('.conv-time');
       if (timeEl && timeEl.textContent !== time) timeEl.textContent = time;
-
       let unreadEl = existing.querySelector('.conv-unread');
       if (unreadCount > 0) {
         if (!unreadEl) {
@@ -2720,7 +2729,7 @@ const renderContacts = contacts => {
       // Brand new contact — build and append
       const unreadHtml = unreadCount > 0 ? `<span class="conv-unread">${unreadCount}</span>` : '';
       const html = `
-        <a class="conv-item ${isActive ? 'active' : ''}"
+        <a class="conv-item ${isActive ? 'active' : ''} ${hasNewMessage ? 'has-new' : ''}"
            href="${PAGE_URL}?mobile=${encodeURIComponent(mobile)}"
            data-mobile="${esc(mobile)}"
            data-name="${esc(name.toLowerCase())}">
@@ -2738,6 +2747,7 @@ const renderContacts = contacts => {
     }
   });
 };
+  
 /* ── Poll ────────────────────────────────────────────────── */
 const poll = async () => {
   const params = new URLSearchParams({ include_contacts: '1', since_inbox_id: String(lastInboxId) });
@@ -2775,8 +2785,9 @@ data.messages.forEach(m => {
   if (isNewMsg && m.direction !== 'outbound') {
     const rawTime = (m.created_at || '').replace(' ', 'T'); // fix Safari parsing
     const msgTime = rawTime ? new Date(rawTime).getTime() : 0;
-    if (msgTime >= conversationOpenedAt) {
-      beep(); // only beep for messages that arrived after opening this chat
+    const isValidTime = msgTime > 0 && !isNaN(msgTime);
+    if (!isValidTime || msgTime >= conversationOpenedAt) {
+      beep(m.mobile); // ← pass mobile so green dot appears on contact
     }
   }
   hasNew = isNewMsg || hasNew;
