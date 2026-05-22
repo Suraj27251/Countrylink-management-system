@@ -2790,31 +2790,36 @@ const poll = async () => {
       hasNew = isNewMsg || hasNew;
     });
 
-  if (
-    isNewMsg &&
-    m.direction !== 'outbound' &&
-    document.hasFocus() &&
-    !isLoadingConversation
-  ) {
-    beep(m.mobile); // ← pass mobile so green dot appears on contact
+    if (data.last_message_id) {
+      lastMsgId = Math.max(lastMsgId, +data.last_message_id || 0);
+    }
+
+    if (hasNew || wasNearBottom) {
+      scrollBottom();
+    }
   }
 
-  hasNew = isNewMsg || hasNew;
-});
-    if (data.last_message_id) lastMsgId = Math.max(lastMsgId, +data.last_message_id||0);
-    if (hasNew || wasNearBottom) scrollBottom();
-  }
   pollFails = 0;
   setPoll(true, 'Connected');
 };
+
 const schedulePoll = (delay = POLL_BASE) => {
   clearTimeout(pollTimer);
+
   pollTimer = setTimeout(async () => {
-    try { await poll(); schedulePoll(POLL_BASE); }
-    catch(e) {
+    try {
+      await poll();
+      schedulePoll(POLL_BASE);
+
+    } catch(e) {
       pollFails++;
-      const backoff = Math.min(POLL_BASE * (2 ** pollFails), POLL_MAX);
-      setPoll(false, `Retry in ${Math.round(backoff/1000)}s`);
+
+      const backoff = Math.min(
+        POLL_BASE * (2 ** pollFails),
+        POLL_MAX
+      );
+
+      setPoll(false, `Retry in ${Math.round(backoff / 1000)}s`);
       schedulePoll(backoff);
     }
   }, delay);
