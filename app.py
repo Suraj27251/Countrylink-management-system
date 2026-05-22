@@ -3948,17 +3948,52 @@ def toggle_whatsapp_ai():
             SET
                 human_takeover = %s,
                 updated_at = NOW()
-            WHERE phone = %s
+            WHERE TRIM(phone) = TRIM(%s)
         """, (
             human_takeover,
-            phone
+            str(phone).strip()
         ))
 
         conn.commit()
 
+        app.logger.info(
+            "Human toggle updated phone=%s human_takeover=%s affected=%s",
+            phone,
+            human_takeover,
+            cursor.rowcount
+        )
+
         cursor.close()
         conn.close()
 
+        return jsonify({
+            'success': True,
+            'phone': phone,
+            'human_takeover': human_takeover,
+            'mode': 'human' if human_takeover else 'ai'
+        })
+
+    except Exception as e:
+        app.logger.exception("Failed to toggle WhatsApp AI mode")
+
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+        return jsonify({
+            'success': True,
+            'phone': phone,
+            'human_takeover': human_takeover,
+            'mode': 'human' if human_takeover else 'ai'
+        })
+
+    except Exception as e:
+        app.logger.exception("Failed to toggle WhatsApp AI mode")
+
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
         return jsonify({
             'success': True,
             'phone': phone,
