@@ -2517,16 +2517,16 @@ convList.addEventListener('click', async e => {
   const sendBtn = $('sendBtn');
   if (sendBtn) sendBtn.disabled = false;
 
-  // Restart poll for new contact
-  clearTimeout(pollTimer);
+// Restart poll for new contact
+clearTimeout(pollTimer);
 
-  isLoadingConversation = true;
-  await poll();
-  isLoadingConversation = false;
+isLoadingConversation = true;
+await poll();
+isLoadingConversation = false;
 
-  scrollBottom();
-  schedulePoll(POLL_BASE);
-  msgInput?.focus();
+scrollBottom();
+schedulePoll(POLL_BASE);
+msgInput?.focus();
 });
 /* ── Filter dropdown - IMPROVED ──────────────────────────── */
 $all('.dropdown-item[data-filter]').forEach(item => {
@@ -2778,14 +2778,23 @@ const poll = async () => {
     let hasNew = false;
 data.messages.forEach(m => {
   const isNewMsg = upsertMsg(m);
-  if (isNewMsg && m.direction !== 'outbound' && document.hasFocus()) {
-    const rawTime = (m.created_at || '').replace(' ', 'T'); // fix Safari parsing
-    const msgTime = rawTime ? new Date(rawTime).getTime() : 0;
-    const isValidTime = msgTime > 0 && !isNaN(msgTime);
-    if (!isValidTime || msgTime >= conversationOpenedAt) {
-      beep(m.mobile); // ← pass mobile so green dot appears on contact
-    }
+
+  console.log('MESSAGE DEBUG', {
+    id: m.id,
+    direction: m.direction,
+    text: m.text,
+    message_id: m.message_id
+  });
+
+  if (
+    isNewMsg &&
+    m.direction !== 'outbound' &&
+    document.hasFocus() &&
+    !isLoadingConversation
+  ) {
+    beep(m.mobile); // ← pass mobile so green dot appears on contact
   }
+
   hasNew = isNewMsg || hasNew;
 });
     if (data.last_message_id) lastMsgId = Math.max(lastMsgId, +data.last_message_id||0);
