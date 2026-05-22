@@ -2296,7 +2296,7 @@ let knownIds = new Set(
 let lastMsgId = Math.max(0, ...[...$all('#chatBody .msg-row[data-message-id]')].map(el => +el.dataset.messageId));
 let lastInboxId = Math.max(lastMsgId, INITIAL_LAST_INBOX_ID);
 let unreadByMobile = new Map();
-
+let conversationOpenedAt = Date.now(); 
 const safeModal = id => {
   const el = $(id);
   if (!el || !window.bootstrap?.Modal) return null;
@@ -2482,6 +2482,7 @@ convList.addEventListener('click', async e => {
   ACTIVE_MOBILE = mobile;
   lastMsgId = 0;
   knownIds.clear();
+  conversationOpenedAt = Date.now();
 
   if (chatBody) {
     chatBody.innerHTML = `
@@ -2769,13 +2770,17 @@ const poll = async () => {
   if (data.messages?.length) {
     const wasNearBottom = nearBottom();
     let hasNew = false;
-    data.messages.forEach(m => {
-      const isNewMsg = upsertMsg(m);
-      if (isNewMsg && m.direction !== 'outbound') {
-        beep(); // sound for new inbound messages in active chat
-      }
-      hasNew = isNewMsg || hasNew;
-    });
+data.messages.forEach(m => {
+  const isNewMsg = upsertMsg(m);
+  if (isNewMsg && m.direction !== 'outbound') {
+    const rawTime = (m.created_at || '').replace(' ', 'T'); // fix Safari parsing
+    const msgTime = rawTime ? new Date(rawTime).getTime() : 0;
+    if (msgTime >= conversationOpenedAt) {
+      beep(); // only beep for messages that arrived after opening this chat
+    }
+  }
+  hasNew = isNewMsg || hasNew;
+});
     if (data.last_message_id) lastMsgId = Math.max(lastMsgId, +data.last_message_id||0);
     if (hasNew || wasNearBottom) scrollBottom();
   }
