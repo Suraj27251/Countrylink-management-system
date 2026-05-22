@@ -2500,11 +2500,12 @@ convList.addEventListener('click', async e => {
         <p>Please wait</p>
       </div>`;
   }
-
+  
   // Update header name and mobile
   const contactName = link.querySelector('.conv-name')?.textContent || mobile;
   const headerName = document.querySelector('.chat-header-info h3');
   const headerSub  = document.querySelector('.chat-header-info p span[style*="monospace"]');
+
   if (headerName) headerName.textContent = contactName;
   if (headerSub)  headerSub.textContent  = mobile;
 
@@ -2514,20 +2515,19 @@ convList.addEventListener('click', async e => {
 
   // Enable composer
   if (msgInput) msgInput.disabled = false;
+
   const sendBtn = $('sendBtn');
   if (sendBtn) sendBtn.disabled = false;
 
-// Restart poll for new contact
-clearTimeout(pollTimer);
+  // Restart poll for new contact
+  clearTimeout(pollTimer);
+  await poll();
+  scrollBottom();
+  schedulePoll(POLL_BASE);
 
-isLoadingConversation = true;
-await poll();
-isLoadingConversation = false;
-
-scrollBottom();
-schedulePoll(POLL_BASE);
-msgInput?.focus();
+  msgInput?.focus();
 });
+  
 /* ── Filter dropdown - IMPROVED ──────────────────────────── */
 $all('.dropdown-item[data-filter]').forEach(item => {
   item.addEventListener('click', () => {
@@ -2772,19 +2772,23 @@ const poll = async () => {
       }
     });
   }
-  if (data.last_inbox_message_id) lastInboxId = Math.max(lastInboxId, +data.last_inbox_message_id||0);
+   if (data.last_inbox_message_id) {
+    lastInboxId = Math.max(lastInboxId, +data.last_inbox_message_id || 0);
+  }
+
   if (data.messages?.length) {
     const wasNearBottom = nearBottom();
     let hasNew = false;
-data.messages.forEach(m => {
-  const isNewMsg = upsertMsg(m);
 
-  console.log('MESSAGE DEBUG', {
-    id: m.id,
-    direction: m.direction,
-    text: m.text,
-    message_id: m.message_id
-  });
+    data.messages.forEach(m => {
+      const isNewMsg = upsertMsg(m);
+
+      if (isNewMsg && m.direction !== 'outbound' && document.hasFocus()) {
+        beep(m.mobile);
+      }
+
+      hasNew = isNewMsg || hasNew;
+    });
 
   if (
     isNewMsg &&
