@@ -2768,7 +2768,7 @@ const poll = async () => {
       if (isInbound && mobile) {
         if (isActiveChatMessage) {
           unreadByMobile.delete(mobile);
-          beep(); // sound for messages in the currently open chat
+          // beep disabled for currently open chat
         } else {
           unreadByMobile.set(mobile, (unreadByMobile.get(mobile) || 0) + 1);
           beep(); // sound for messages in other chats
