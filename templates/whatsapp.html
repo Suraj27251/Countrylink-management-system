@@ -1050,6 +1050,51 @@ main.container {
 .scroll-btn.show { display: flex; }
 .scroll-btn:hover { background: var(--green); color: #fff; border-color: var(--green); }
 
+/* ── Chat Loading Overlay ───────────────────────────────── */
+.chat-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
+  z-index: 5;
+  animation: fadeIn .12s ease-out;
+}
+
+.chat-loading-overlay.show {
+  display: flex;
+}
+
+.chat-loading-overlay.hide {
+  animation: fadeOut .15s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.chat-loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid color-mix(in srgb, var(--green) 22%, var(--border));
+  border-top-color: var(--green-dk);
+  border-radius: 50%;
+  animation: spinSmooth .65s linear infinite;
+}
+
+@keyframes spinSmooth {
+  to { transform: rotate(360deg); }
+}
+
 /* ── Compose Bar ─────────────────────────────────────────── */
 .chat-compose {
   background: var(--surface);
@@ -2375,6 +2420,7 @@ let currentHeartbeatMs = HEARTBEAT_ACTIVE_MS;
 let lastOperatorActivityAt = Date.now();
 let sidebarPollController = null;
 let messagesPollController = null;
+let activeMessageRequestToken = 0;
 let hasInteracted = false;
 let soundEnabled = localStorage.getItem('wa_sound') !== '0';
 let knownIds = new Set(
@@ -2776,18 +2822,23 @@ convList.addEventListener('click', async e => {
   history.pushState({}, '', `${PAGE_URL}?mobile=${encodeURIComponent(mobile)}`);
 
   // Reset chat for new contact
+  const oldMobile = ACTIVE_MOBILE;
   ACTIVE_MOBILE = mobile;
   knownIds = knownIdsByMobile.get(mobile) || new Set();
   knownIdsByMobile.set(mobile, knownIds);
   conversationOpenedAt = Date.now();
 
-  if (chatBody) {
-    chatBody.innerHTML = `
-      <div class="chat-empty" id="chatEmptyHint">
-        <div class="chat-empty-icon"><i class="fab fa-whatsapp"></i></div>
-        <h3>Loading messages…</h3>
-        <p>Please wait</p>
-      </div>`;
+  // Only abort if switching to a different mobile (prevents unnecessary cancellation during heartbeat)
+  if (oldMobile && oldMobile !== mobile) {
+    messagesPollController?.abort();
+    messagesPollController = null;
+  }
+
+  // Show lightweight loading overlay — preserve existing messages
+  const loadingOverlay = chatBody?.querySelector('.chat-loading-overlay');
+  if (loadingOverlay) {
+    loadingOverlay.classList.remove('hide');
+    loadingOverlay.classList.add('show');
   }
   
   // Update header name and mobile
@@ -3191,46 +3242,85 @@ const pollSidebar = async () => {
 const pollMessages = async () => {
   const requestMobile = ACTIVE_MOBILE;
   if (!requestMobile) return;
-  messagesPollController?.abort();
-  messagesPollController = new AbortController();
-  const sinceId = lastMessageIdByMobile.get(requestMobile) || 0;
-  const params = new URLSearchParams({ mobile: requestMobile, since_id: String(sinceId) });
-  const res = await fetch(`${API_URL}?${params}`, {
-    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-    signal: messagesPollController.signal
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  if (requestMobile !== ACTIVE_MOBILE) return;
+  
+  // Increment token for this request
+  const currentToken = ++activeMessageRequestToken;
+  
+  try {
+    const sinceId = lastMessageIdByMobile.get(requestMobile) || 0;
+    const params = new URLSearchParams({ mobile: requestMobile, since_id: String(sinceId) });
+    
+    // Create new controller only if needed
+    if (!messagesPollController) {
+      messagesPollController = new AbortController();
+    }
+    
+    const res = await fetch(`${API_URL}?${params}`, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      signal: messagesPollController.signal
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    
+    // Verify: still on the same chat + this is the latest request
+    if (requestMobile !== ACTIVE_MOBILE || currentToken !== activeMessageRequestToken) return;
 
-  if (data.messages?.length) {
-    const wasNearBottom = nearBottom();
-    let hasNew = false;
-    let maxRenderedId = sinceId;
-
-    if (data.last_message_id) {
-      const newLastId = Math.max(lastSeenMessageIdByMobile.get(requestMobile) || 0, +data.last_message_id || 0);
-      lastSeenMessageIdByMobile.set(requestMobile, newLastId);
+    // Hide loading overlay after response received
+    const loadingOverlay = chatBody?.querySelector('.chat-loading-overlay');
+    if (loadingOverlay?.classList.contains('show')) {
+      loadingOverlay.classList.remove('show');
+      loadingOverlay.classList.add('hide');
+      setTimeout(() => {
+        if (loadingOverlay.classList.contains('hide')) {
+          loadingOverlay.classList.remove('hide');
+        }
+      }, 200);
     }
 
-    data.messages.forEach(m => {
-      try {
-        const isNewMsg = upsertMsg(m);
-        hasNew = isNewMsg || hasNew;
-        maxRenderedId = Math.max(maxRenderedId, +m.id || 0);
-      } catch (err) {
-        console.error('Message render failed:', m, err);
+    if (data.messages?.length) {
+      const wasNearBottom = nearBottom();
+      let hasNew = false;
+      let maxRenderedId = sinceId;
+
+      if (data.last_message_id) {
+        const newLastId = Math.max(lastSeenMessageIdByMobile.get(requestMobile) || 0, +data.last_message_id || 0);
+        lastSeenMessageIdByMobile.set(requestMobile, newLastId);
       }
-    });
 
-    // Advance cursor only after attempting to render this batch.
-    if (data.last_message_id) maxRenderedId = Math.max(maxRenderedId, +data.last_message_id || 0);
-    if (maxRenderedId > sinceId) lastMessageIdByMobile.set(requestMobile, maxRenderedId);
+      data.messages.forEach(m => {
+        try {
+          const isNewMsg = upsertMsg(m);
+          hasNew = isNewMsg || hasNew;
+          maxRenderedId = Math.max(maxRenderedId, +m.id || 0);
+        } catch (err) {
+          console.error('Message render failed:', m, err);
+        }
+      });
 
-    if (hasNew || wasNearBottom) scrollBottom();
+      // Advance cursor only after attempting to render this batch.
+      if (data.last_message_id) maxRenderedId = Math.max(maxRenderedId, +data.last_message_id || 0);
+      if (maxRenderedId > sinceId) lastMessageIdByMobile.set(requestMobile, maxRenderedId);
+
+      if (hasNew || wasNearBottom) scrollBottom();
+    }
+
+    setPoll(true, 'Connected');
+  } catch (err) {
+    // On error, also hide the loading overlay
+    if (err?.name !== 'AbortError') {
+      const loadingOverlay = chatBody?.querySelector('.chat-loading-overlay');
+      if (loadingOverlay?.classList.contains('show')) {
+        loadingOverlay.classList.remove('show');
+        loadingOverlay.classList.add('hide');
+        setTimeout(() => {
+          if (loadingOverlay.classList.contains('hide')) {
+            loadingOverlay.classList.remove('hide');
+          }
+        }, 200);
+      }
+    }
+    throw err;
   }
-
-  setPoll(true, 'Connected');
 };
 
 const heartbeatTick = async () => {
