@@ -666,14 +666,12 @@ def process_incoming_message(message, metadata):
                         last_message,
                         last_message_at,
                         unread_count,
-                        last_customer_message_at,
-                        ai_replied,
                         ai_enabled,
                         human_takeover,
                         created_at,
                         updated_at
                     )
-                    VALUES (%s, %s, %s, NOW(), 0, NOW(), 0, 1, 0, NOW(), NOW())
+                    VALUES (%s, %s, %s, NOW(), 1, 1, 0, NOW(), NOW())
                 """, (
                     mobile,
                     name,
@@ -718,8 +716,6 @@ def process_incoming_message(message, metadata):
                     last_message = %s,
                     last_message_at = NOW(),
                     unread_count = unread_count + 1,
-                    last_customer_message_at = NOW(),
-                    ai_replied = 0,
                     updated_at = NOW()
                 WHERE id = %s
             """, (
@@ -821,7 +817,6 @@ def process_incoming_message(message, metadata):
                                 SET
                                     last_message = %s,
                                     last_message_at = NOW(),
-                                    ai_replied = 1,
                                     updated_at = NOW()
                                 WHERE id = %s
                                 """,
@@ -2492,13 +2487,9 @@ def whatsapp_messages_api():
                 phone AS mobile,
                 customer_name AS name,
                 last_message AS text,
-                last_message_at AS created_at,
-                COALESCE(unread_count, 0) AS unread_count,
-                last_customer_message_at,
-                last_human_opened_at,
-                COALESCE(ai_replied, 0) AS ai_replied
+                last_message_at AS created_at
             FROM whatsapp_conversations
-            ORDER BY last_message_at DESC, updated_at DESC, id DESC
+            ORDER BY updated_at DESC
         """)
 
         raw_contacts = mysql_cursor.fetchall()
@@ -2511,12 +2502,7 @@ def whatsapp_messages_api():
                 "name": row.get("name") or row.get("mobile"),
                 "mobile": normalize_mobile(row.get("mobile")),
                 "text": row.get("text") or "",
-                "preview": row.get("text") or "",
                 "created_at": row.get("created_at"),
-                "unread_count": int(row.get("unread_count") or 0),
-                "last_customer_message_at": row.get("last_customer_message_at"),
-                "last_human_opened_at": row.get("last_human_opened_at"),
-                "ai_replied": int(row.get("ai_replied") or 0),
                 "message_type": "text",
                 "direction": "inbound",
             })
@@ -2646,54 +2632,6 @@ def whatsapp_messages_api():
     }
 
     return jsonify(response_payload)
-
-
-@app.route('/api/whatsapp/mark-read', methods=['POST'])
-@login_required
-def mark_whatsapp_conversation_read():
-    data = request.get_json(silent=True) or {}
-    mobile = normalize_mobile(data.get('mobile', ''))
-
-    if not mobile:
-        return jsonify({"success": False, "error": "Mobile is required"}), 400
-
-    mysql_conn = None
-    mysql_cursor = None
-    try:
-        mysql_conn = mysql.connector.connect(
-            host=MYSQL_DB_HOST,
-            database=MYSQL_DB_NAME,
-            user=MYSQL_DB_USER,
-            password=MYSQL_DB_PASSWORD,
-        )
-        mysql_cursor = mysql_conn.cursor()
-        mysql_cursor.execute(
-            """
-            UPDATE whatsapp_conversations
-            SET
-                unread_count = 0,
-                last_human_opened_at = NOW(),
-                updated_at = NOW()
-            WHERE TRIM(phone) = TRIM(%s)
-            """,
-            (mobile,),
-        )
-        mysql_conn.commit()
-        return jsonify({
-            "success": True,
-            "mobile": mobile,
-            "affected": mysql_cursor.rowcount,
-        })
-    except Exception as exc:
-        app.logger.exception("Failed to mark WhatsApp conversation read mobile=%s", mobile)
-        return jsonify({"success": False, "error": str(exc)}), 500
-    finally:
-        if mysql_cursor:
-            mysql_cursor.close()
-        if mysql_conn and mysql_conn.is_connected():
-            mysql_conn.close()
-
-
 @app.route('/api/whatsapp/logs')
 @login_required
 def api_whatsapp_logs():
