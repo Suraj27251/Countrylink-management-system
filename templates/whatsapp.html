@@ -2270,7 +2270,6 @@ kbd {
 /* ── Config ──────────────────────────────────────────────── */
 let ACTIVE_MOBILE     = '{{ active_mobile or "" }}';
 const API_URL         = '{{ url_for("whatsapp_messages_api") }}';
-const MARK_READ_URL   = '{{ url_for("mark_whatsapp_conversation_read") }}';
 const PAGE_URL        = '{{ url_for("whatsapp_complaints") }}';
 const SEND_URL        = '{{ url_for("send_whatsapp") }}';
 const TEMPLATE_URL    = '{{ url_for("whatsapp_templates_api") }}';
@@ -2343,45 +2342,6 @@ const debouncedRenderContacts = (contacts) => {
     }
   }, 300);
 }; 
-
-const updateUnreadBadge = (mobile, count) => {
-  if (!convList || !mobile) return;
-  const link = convList.querySelector(`[data-mobile="${CSS.escape(mobile)}"]`);
-  if (!link) return;
-
-  const unreadCount = Math.max(0, Number(count) || 0);
-  link.classList.toggle('has-new', unreadCount > 0);
-
-  let unreadEl = link.querySelector('.conv-unread');
-  if (unreadCount > 0) {
-    if (!unreadEl) {
-      link.insertAdjacentHTML('beforeend', `<span class="conv-unread">${unreadCount}</span>`);
-    } else if (unreadEl.textContent !== String(unreadCount)) {
-      unreadEl.textContent = unreadCount;
-    }
-  } else if (unreadEl) {
-    unreadEl.remove();
-  }
-};
-
-const markConversationRead = async mobile => {
-  if (!mobile) return false;
-
-  const res = await fetch(MARK_READ_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest'
-    },
-    body: JSON.stringify({ mobile })
-  });
-
-  if (!res.ok) return false;
-
-  unreadByMobile.set(mobile, 0);
-  updateUnreadBadge(mobile, 0);
-  return true;
-};
 const safeModal = id => {
   const el = $(id);
   if (!el || !window.bootstrap?.Modal) return null;
@@ -2610,8 +2570,15 @@ convList.addEventListener('click', async e => {
   // Restart poll for new contact - this fetches messages and sets lastSeenMessageIdByMobile correctly
   clearTimeout(pollTimer);
   try {
-    await markConversationRead(mobile);
     await poll(); // This will set lastSeenMessageIdByMobile.get(mobile) to latest message ID
+    // Now that human has opened the chat and poll loaded messages, clear unread badge
+    unreadByMobile.delete(mobile);
+    // Refresh the conversation list to update unread badge visually
+    const activeLink = convList.querySelector(`[data-mobile="${CSS.escape(mobile)}"]`);
+    if (activeLink) {
+      const unreadEl = activeLink.querySelector('.conv-unread');
+      if (unreadEl) unreadEl.remove();
+    }
   } catch (err) {
     console.error('Error loading chat:', err);
   }
@@ -2786,14 +2753,12 @@ const renderContacts = contacts => {
     const mobile = c.mobile || '';
     if (!mobile) return;
     const isActive = mobile === ACTIVE_MOBILE;
+    // Don't delete unread badge when chat becomes active - keep it visible until marked as read
+    // if (isActive) unreadByMobile.delete(mobile);
     const name = c.name || mobile || 'Unknown';
     const cls = avatarClasses[i % 3];
-    const serverUnread = Number(c.unread_count);
-    const unreadCount = Number.isFinite(serverUnread)
-      ? Math.max(0, serverUnread)
-      : (unreadByMobile.get(mobile) || 0);
-    unreadByMobile.set(mobile, unreadCount);
-    const hasNewMessage = unreadCount > 0;
+    const unreadCount = !isActive ? (unreadByMobile.get(mobile) || 0) : 0;
+    const hasNewMessage = !isActive && unreadCount > 0;
     const time = fmtTime(c.created_at);
     const preview = c.preview || 'No messages yet';
     const isChatWindowActive = isActiveChatWindow(c.created_at);
@@ -2819,6 +2784,17 @@ const renderContacts = contacts => {
       } else if (unreadEl) {
         unreadEl.remove();
       }
+      
+      // Only move to top if has new message AND conversation has not been recently sorted
+      // This prevents excessive re-ordering on every poll
+      if (hasNewMessage && existing.parentElement === convList && existing !== convList.firstChild) {
+        // Add a small delay to prevent thrashing
+        setTimeout(() => {
+          if (existing.parentElement === convList && hasNewMessage) {
+            convList.insertBefore(existing, convList.firstChild);
+          }
+        }, 100);
+      }
     } else {
       // Brand new contact — build and append
       const unreadHtml = unreadCount > 0 ? `<span class="conv-unread">${unreadCount}</span>` : '';
@@ -2842,14 +2818,6 @@ const renderContacts = contacts => {
       convList.insertAdjacentHTML('afterbegin', html);
     }
   });
-  contacts.slice().reverse().forEach(c => {
-    const mobile = c.mobile || '';
-    if (!mobile) return;
-    const item = convList.querySelector(`[data-mobile="${CSS.escape(mobile)}"]`);
-    if (item && item.parentElement === convList) {
-      convList.insertBefore(item, convList.firstChild);
-    }
-  });
 };
   
 /* ── Poll ────────────────────────────────────────────────── */
@@ -2861,7 +2829,6 @@ const poll = async () => {
   const data = await res.json();
   if (data.contacts?.length) debouncedRenderContacts(data.contacts);
   if (data.inbox_messages?.length) {
-    let activeConversationSawInbound = false;
     data.inbox_messages.forEach(m => {
       const idStr = String(m.id);
       if (knownIds.has(idStr)) return;
@@ -2877,9 +2844,8 @@ const poll = async () => {
         lastSeenMessageIdByMobile.set(mobile, Math.max(lastSeenId, currentMsgId));
         
         if (isActiveChatMessage) {
-          activeConversationSawInbound = true;
-          unreadByMobile.set(mobile, 0);
-          updateUnreadBadge(mobile, 0);
+          unreadByMobile.delete(mobile);
+          // beep disabled for currently open chat
         } else {
           // Only beep if this is newer than what we've seen before
           if (currentMsgId > lastSeenId) {
@@ -2889,9 +2855,6 @@ const poll = async () => {
         }
       }
     });
-    if (activeConversationSawInbound && ACTIVE_MOBILE) {
-      markConversationRead(ACTIVE_MOBILE).catch(err => console.error('Error marking active chat read:', err));
-    }
   }
    if (data.last_inbox_message_id) {
     lastInboxId = Math.max(lastInboxId, +data.last_inbox_message_id || 0);
@@ -3383,13 +3346,7 @@ $all('.cmd-item').forEach(item => {
 });
 
 /* ── Init ────────────────────────────────────────────────── */
-if (ACTIVE_MOBILE) {
-  markConversationRead(ACTIVE_MOBILE)
-    .catch(err => console.error('Error marking initial chat read:', err))
-    .finally(() => schedulePoll(0));
-} else {
-  schedulePoll(0); // start silently — dot only appears on failure
-}
+schedulePoll(0); // start silently — dot only appears on failure
 if ($('quickTemplateMobile') && ACTIVE_MOBILE) $('quickTemplateMobile').value = ACTIVE_MOBILE;
 setWorkspace('inbox');
 resizeInput();
