@@ -2278,8 +2278,8 @@ const SEND_INT_URL    = '{{ url_for("send_whatsapp_interactive_api") }}';
 const FLOWS_URL       = '{{ url_for("whatsapp_flows_api") }}';
 const SYNC_FLOWS_URL  = '{{ url_for("sync_whatsapp_flows_api") }}';
 const STATIC_BASE     = '{{ url_for("static", filename="") }}';
-const POLL_BASE       = 5000;
-const POLL_MAX        = 30000;
+const POLL_BASE       = 15000; // Increased from 5000ms for cPanel performance
+const POLL_MAX        = 60000;  // Increased max backoff for shared hosting
 const INITIAL_LAST_INBOX_ID = Number('{{ last_inbox_message_id or 0 }}') || 0;
 
 /* ── DOM ─────────────────────────────────────────────────── */
@@ -2327,7 +2327,21 @@ let lastMsgId = Math.max(0, ...[...$all('#chatBody .msg-row[data-message-id]')].
 let lastInboxId = Math.max(lastMsgId, INITIAL_LAST_INBOX_ID);
 let unreadByMobile = new Map();
 let lastSeenMessageIdByMobile = new Map(); // Track last processed message per mobile to prevent duplicate notifications
-let conversationOpenedAt = Date.now(); 
+let conversationOpenedAt = Date.now();
+let renderContactsTimeout = null;
+let pendingRenderContacts = null;
+
+// Debounce renderContacts to prevent excessive DOM updates and re-sorting
+const debouncedRenderContacts = (contacts) => {
+  clearTimeout(renderContactsTimeout);
+  pendingRenderContacts = contacts;
+  renderContactsTimeout = setTimeout(() => {
+    if (pendingRenderContacts) {
+      renderContacts(pendingRenderContacts);
+      pendingRenderContacts = null;
+    }
+  }, 300);
+}; 
 const safeModal = id => {
   const el = $(id);
   if (!el || !window.bootstrap?.Modal) return null;
@@ -2399,14 +2413,13 @@ const beep = (inboundMobile) => {
   if (!soundEnabled || !hasInteracted) return;
 
   try {
+    // Don't play any sound for messages in the currently active chat
+    // The soft sound was causing issues - just disable it entirely for active chat
+    if (inboundMobile && inboundMobile === ACTIVE_MOBILE) {
+      return; // No sound for active chat
+    }
 
-    // Active opened chat → soft sound
-    const soundUrl =
-      inboundMobile && inboundMobile === ACTIVE_MOBILE
-        ? SOFT_SOUND_URL
-        : NOTIFICATION_SOUND_URL;
-
-    const clip = new Audio(soundUrl);
+    const clip = new Audio(NOTIFICATION_SOUND_URL);
     clip.volume = 1.0;
 
     clip.play().catch(err => {
@@ -2548,20 +2561,27 @@ convList.addEventListener('click', async e => {
   const mobileInput = chatForm?.querySelector('input[name="mobile"]');
   if (mobileInput) mobileInput.value = mobile;
 
-  // Track that we've seen messages up to the latest for this mobile
-  if (data.last_message_id) {
-    lastSeenMessageIdByMobile.set(mobile, Math.max(lastSeenMessageIdByMobile.get(mobile) || 0, +data.last_message_id || 0));
-  }
-
   // Enable composer
   if (msgInput) msgInput.disabled = false;
 
   const sendBtn = $('sendBtn');
   if (sendBtn) sendBtn.disabled = false;
 
-  // Restart poll for new contact
+  // Restart poll for new contact - this fetches messages and sets lastSeenMessageIdByMobile correctly
   clearTimeout(pollTimer);
-  await poll();
+  try {
+    await poll(); // This will set lastSeenMessageIdByMobile.get(mobile) to latest message ID
+    // Now that human has opened the chat and poll loaded messages, clear unread badge
+    unreadByMobile.delete(mobile);
+    // Refresh the conversation list to update unread badge visually
+    const activeLink = convList.querySelector(`[data-mobile="${CSS.escape(mobile)}"]`);
+    if (activeLink) {
+      const unreadEl = activeLink.querySelector('.conv-unread');
+      if (unreadEl) unreadEl.remove();
+    }
+  } catch (err) {
+    console.error('Error loading chat:', err);
+  }
   scrollBottom();
   schedulePoll(POLL_BASE);
 
@@ -2733,7 +2753,8 @@ const renderContacts = contacts => {
     const mobile = c.mobile || '';
     if (!mobile) return;
     const isActive = mobile === ACTIVE_MOBILE;
-    if (isActive) unreadByMobile.delete(mobile);
+    // Don't delete unread badge when chat becomes active - keep it visible until marked as read
+    // if (isActive) unreadByMobile.delete(mobile);
     const name = c.name || mobile || 'Unknown';
     const cls = avatarClasses[i % 3];
     const unreadCount = !isActive ? (unreadByMobile.get(mobile) || 0) : 0;
@@ -2764,9 +2785,15 @@ const renderContacts = contacts => {
         unreadEl.remove();
       }
       
-      // Move to top if has new message
-      if (hasNewMessage && existing.parentElement === convList) {
-        convList.insertBefore(existing, convList.firstChild);
+      // Only move to top if has new message AND conversation has not been recently sorted
+      // This prevents excessive re-ordering on every poll
+      if (hasNewMessage && existing.parentElement === convList && existing !== convList.firstChild) {
+        // Add a small delay to prevent thrashing
+        setTimeout(() => {
+          if (existing.parentElement === convList && hasNewMessage) {
+            convList.insertBefore(existing, convList.firstChild);
+          }
+        }, 100);
       }
     } else {
       // Brand new contact — build and append
@@ -2800,7 +2827,7 @@ const poll = async () => {
   const res = await fetch(`${API_URL}?${params}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
-  if (data.contacts?.length) renderContacts(data.contacts);
+  if (data.contacts?.length) debouncedRenderContacts(data.contacts);
   if (data.inbox_messages?.length) {
     data.inbox_messages.forEach(m => {
       const idStr = String(m.id);
@@ -2837,11 +2864,16 @@ const poll = async () => {
     const wasNearBottom = nearBottom();
     let hasNew = false;
 
+    // Initialize lastSeenMessageIdByMobile for ACTIVE_MOBILE to prevent beeping old messages
+    if (ACTIVE_MOBILE && data.last_message_id) {
+      lastSeenMessageIdByMobile.set(ACTIVE_MOBILE, Math.max(lastSeenMessageIdByMobile.get(ACTIVE_MOBILE) || 0, +data.last_message_id || 0));
+    }
+
     data.messages.forEach(m => {
       const isNewMsg = upsertMsg(m);
 
-      // Only play sound if: (1) truly new message, (2) inbound, (3) document has focus, (4) not already notified about this mobile's messages
-      if (isNewMsg && m.direction !== 'outbound' && document.hasFocus()) {
+      // Only play sound if: (1) truly new message, (2) inbound, (3) document has focus, (4) not the active chat, (5) newer than what we've seen
+      if (isNewMsg && m.direction !== 'outbound' && document.hasFocus() && m.mobile !== ACTIVE_MOBILE) {
         const lastSeenId = lastSeenMessageIdByMobile.get(m.mobile) || 0;
         const currentMsgId = +m.id || 0;
         if (currentMsgId > lastSeenId) {
