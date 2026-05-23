@@ -747,89 +747,112 @@ def process_incoming_message(message, metadata):
             human_takeover = int(convo_flags.get("human_takeover", 0) or 0)
 
             if inserted_new_message and ai_enabled == 1 and human_takeover == 0 and whatsapp_config_ready():
-                try:
-                    ai_reply_text = generate_ai_whatsapp_reply(text_body, mobile, name)
-
-                    if ai_reply_text:
-                        ai_response_payload = send_whatsapp_message(
-                            mobile,
-                            'text',
-                            text=ai_reply_text
-                        )
-
-                        ai_message_id = (
-                            ai_response_payload.get('messages') or [{}]
-                        )[0].get('id')
-
-                        mysql_cursor.execute(
-                            """
-                            INSERT INTO whatsapp_messages (
-                                conversation_id,
-                                whatsapp_message_id,
-                                sender_type,
-                                phone,
-                                message_text,
-                                message_type,
-                                media_url,
-                                status,
-                                created_at
-                            )
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
-                            """,
-                            (
-                                conversation_id,
-                                ai_message_id,
-                                'ai',
-                                mobile,
-                                ai_reply_text,
-                                'text',
-                                None,
-                                'sent',
-                            ),
-                        )
-
-                        mysql_cursor.execute(
-                            """
-                            UPDATE whatsapp_conversations
-                            SET
-                                last_message = %s,
-                                last_message_at = NOW(),
-                                updated_at = NOW()
-                            WHERE id = %s
-                            """,
-                            (
-                                ai_reply_text,
-                                conversation_id,
-                            ),
-                        )
-
-                        mysql_conn.commit()
-
-                        app.logger.info(
-                            "AI reply generated mobile=%s conversation_id=%s",
-                            mobile,
-                            conversation_id
-                        )
-
-                    else:
-                        app.logger.info(
-                            "AI reply skipped mobile=%s conversation_id=%s reason=empty_reply",
-                            mobile,
-                            conversation_id
-                        )
-
-                except Exception:
-                    app.logger.exception(
-                        "AI auto-reply failed mobile=%s conversation_id=%s",
-                        mobile,
-                        conversation_id,
-                    )
-
+                # Check if an AI response already exists for this customer message (idempotency)
+                # This prevents duplicate backup messages if the webhook is called multiple times
+                mysql_cursor.execute(
+                    """
+                    SELECT id
+                    FROM whatsapp_messages
+                    WHERE conversation_id = %s
+                      AND sender_type = 'ai'
+                      AND phone = %s
+                      AND created_at > DATE_SUB(NOW(), INTERVAL 2 MINUTE)
+                    LIMIT 1
+                    """,
+                    (conversation_id, mobile),
+                )
+                existing_response = mysql_cursor.fetchone()
+                
+                if existing_response:
                     app.logger.info(
-                        "AI reply skipped mobile=%s conversation_id=%s reason=ai_error",
+                        "AI response already exists for mobile=%s conversation_id=%s (idempotency check)",
                         mobile,
                         conversation_id
                     )
+                else:
+                    try:
+                        ai_reply_text = generate_ai_whatsapp_reply(text_body, mobile, name)
+
+                        if ai_reply_text:
+                            ai_response_payload = send_whatsapp_message(
+                                mobile,
+                                'text',
+                                text=ai_reply_text
+                            )
+
+                            ai_message_id = (
+                                ai_response_payload.get('messages') or [{}]
+                            )[0].get('id')
+
+                            mysql_cursor.execute(
+                                """
+                                INSERT INTO whatsapp_messages (
+                                    conversation_id,
+                                    whatsapp_message_id,
+                                    sender_type,
+                                    phone,
+                                    message_text,
+                                    message_type,
+                                    media_url,
+                                    status,
+                                    created_at
+                                )
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                                """,
+                                (
+                                    conversation_id,
+                                    ai_message_id,
+                                    'ai',
+                                    mobile,
+                                    ai_reply_text,
+                                    'text',
+                                    None,
+                                    'sent',
+                                ),
+                            )
+
+                            mysql_cursor.execute(
+                                """
+                                UPDATE whatsapp_conversations
+                                SET
+                                    last_message = %s,
+                                    last_message_at = NOW(),
+                                    updated_at = NOW()
+                                WHERE id = %s
+                                """,
+                                (
+                                    ai_reply_text,
+                                    conversation_id,
+                                ),
+                            )
+
+                            mysql_conn.commit()
+
+                            app.logger.info(
+                                "AI reply generated mobile=%s conversation_id=%s",
+                                mobile,
+                                conversation_id
+                            )
+
+                        else:
+                            app.logger.info(
+                                "AI reply skipped mobile=%s conversation_id=%s reason=empty_reply",
+                                mobile,
+                                conversation_id
+                            )
+
+                    except Exception:
+                        app.logger.exception(
+                            "AI auto-reply failed mobile=%s conversation_id=%s",
+                            mobile,
+                            conversation_id,
+                        )
+
+                        app.logger.info(
+                            "AI reply skipped mobile=%s conversation_id=%s reason=ai_error",
+                            mobile,
+                            conversation_id
+                        )
 
             else:
                 app.logger.info(
