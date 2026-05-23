@@ -2896,20 +2896,20 @@ const renderMsg = m => {
 
 /* ── Upsert message ──────────────────────────────────────── */
 const upsertMsg = m => {
-  const existing = chatBody?.querySelector(`[data-message-id="${m.id}"]`);
-  if (!existing) {
+  const idStr = String(m.id);
+  const domNode = chatBody?.querySelector(`[data-message-id="${CSS.escape(idStr)}"]`);
+
+  // DOM is the source of truth; knownIds is only a best-effort cache.
+  if (!domNode) {
     const emptyHint = $('chatEmptyHint');
     emptyHint?.remove();
     chatBody.appendChild(renderMsg(m));
-    const idStr = String(m.id);
-    const isNew = !knownIds.has(idStr);
     knownIds.add(idStr);
-    if (isNew) {
-      lastMsgId = Math.max(lastMsgId, +m.id || 0);
-      lastInboxId = Math.max(lastInboxId, +m.id || 0);
-    }
+    lastInboxId = Math.max(lastInboxId, +m.id || 0);
     return true;
   }
+
+  const existing = domNode;
 
   // Patch status only
   const patchStatus = (selector, html) => {
@@ -3152,6 +3152,7 @@ const pollMessages = async () => {
   if (data.messages?.length) {
     const wasNearBottom = nearBottom();
     let hasNew = false;
+    let maxRenderedId = lastMsgId;
 
     if (ACTIVE_MOBILE && data.last_message_id) {
       const newLastId = Math.max(lastSeenMessageIdByMobile.get(ACTIVE_MOBILE) || 0, +data.last_message_id || 0);
@@ -3159,10 +3160,19 @@ const pollMessages = async () => {
     }
 
     data.messages.forEach(m => {
-      const isNewMsg = upsertMsg(m);
-      hasNew = isNewMsg || hasNew;
+      try {
+        const isNewMsg = upsertMsg(m);
+        hasNew = isNewMsg || hasNew;
+        maxRenderedId = Math.max(maxRenderedId, +m.id || 0);
+      } catch (err) {
+        console.error('Message render failed:', m, err);
+      }
     });
 
+    // Advance cursor only after attempting to render this batch.
+    if (maxRenderedId > lastMsgId) {
+      lastMsgId = maxRenderedId;
+    }
     if (data.last_message_id) {
       lastMsgId = Math.max(lastMsgId, +data.last_message_id || 0);
     }
