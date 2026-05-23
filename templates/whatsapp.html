@@ -307,6 +307,19 @@ main.container {
   color: var(--text-1);
   letter-spacing: -.3px;
 }
+.sb-title-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.sb-live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #16a34a;
+  box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.45);
+  transition: background-color .2s ease, box-shadow .2s ease;
+}
 
 .sb-actions {
   display: flex;
@@ -687,32 +700,29 @@ main.container {
 .hdr-btn.primary:hover { background: var(--green-dk); border-color: var(--green-dk); }
 .hdr-btn i { font-size: 13px; }
 
-/* Connection indicator - IMPROVED: Subtle dot instead of badge */
-.connection-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--green);
-  display: none; /* Hidden when connected */
-  margin-left: 8px;
-  transition: background 0.3s;
-  flex-shrink: 0;
+/* LIVE indicator */
+.sb-live-dot.live {
+  background: #16a34a;
+  animation: livePulse 1.6s ease-out infinite;
 }
-
-.connection-dot.disconnected {
-  display: inline-block;
+.sb-live-dot.degraded {
   background: var(--amber);
-  animation: pulse 2s infinite;
+  animation: warnPulse 1.6s ease-out infinite;
 }
-
-.connection-dot.error {
-  display: inline-block;
-  background: var(--red);
+.sb-live-dot.offline {
+  background: #6b7280;
+  animation: none;
+  box-shadow: none;
 }
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+@keyframes livePulse {
+  0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.45); }
+  70% { box-shadow: 0 0 0 8px rgba(22, 163, 74, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+}
+@keyframes warnPulse {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.45); }
+  70% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
 }
 
 /* ── Messages Area ───────────────────────────────────────── */
@@ -1766,7 +1776,10 @@ kbd {
     <!-- Header -->
     <div class="sb-header">
       <div class="sb-header-row">
-        <span class="sb-title">Inbox</span>
+        <span class="sb-title-wrap">
+          <span class="sb-live-dot live" id="connectionDot" title="LIVE"></span>
+          <span class="sb-title">Inbox</span>
+        </span>
         <div class="sb-actions">
           <button class="sb-icon-btn" id="notifBellBtn" title="Notifications">
             <i class="fas fa-bell"></i>
@@ -1933,8 +1946,6 @@ kbd {
           </ul>
         </div>
         
-        <!-- Subtle connection indicator (hidden when connected) -->
-        <span class="connection-dot" id="connectionDot" title="Connection status"></span>
       </div>
     </header>
 
@@ -2318,8 +2329,10 @@ const OPEN_CONV_URL   = '/api/whatsapp/conversations/open';
 const FLOWS_URL       = '{{ url_for("whatsapp_flows_api") }}';
 const SYNC_FLOWS_URL  = '{{ url_for("sync_whatsapp_flows_api") }}';
 const STATIC_BASE     = '{{ url_for("static", filename="") }}';
-const MESSAGE_POLL_MS = 2000;
-const SIDEBAR_POLL_MS = 3000;
+const HEARTBEAT_ACTIVE_MS = 1000;
+const HEARTBEAT_BACKGROUND_MS = 5000;
+const HEARTBEAT_IDLE_MS = 10000;
+const HEARTBEAT_IDLE_AFTER_MS = 5 * 60 * 1000;
 const INITIAL_LAST_INBOX_ID = Number('{{ last_inbox_message_id or 0 }}') || 0;
 
 /* ── DOM ─────────────────────────────────────────────────── */
@@ -2356,8 +2369,12 @@ let templates = [];
 let selectedQuickTemplate = null;
 let flows = [];
 let iType = 'button';
-let messagePollTimer = null;
-let sidebarPollTimer = null;
+let heartbeatTimer = null;
+let isHeartbeatTickRunning = false;
+let currentHeartbeatMs = HEARTBEAT_ACTIVE_MS;
+let lastOperatorActivityAt = Date.now();
+let sidebarPollController = null;
+let messagesPollController = null;
 let hasInteracted = false;
 let soundEnabled = localStorage.getItem('wa_sound') !== '0';
 let knownIds = new Set(
@@ -2508,6 +2525,12 @@ setTimeout(async () => {
   }, { once: true })
 );
 
+['pointerdown', 'keydown', 'touchstart', 'click', 'mousemove'].forEach(ev => {
+  window.addEventListener(ev, () => {
+    lastOperatorActivityAt = Date.now();
+  }, { passive: true });
+});
+
 /* ── Sound ───────────────────────────────────────────────── */
 const beep = (inboundMobile, isNewConversation = false) => {
 
@@ -2617,19 +2640,20 @@ const isActiveChatWindow = createdAt => {
   }
 };
 
-/* Connection indicator - IMPROVED: Subtle dot only */
+/* Connection indicator */
 const setPoll = (live, label) => {
   const dot = connectionDot;
   if (!dot) return;
-  
-  if (live) {
-    dot.className = 'connection-dot'; // Hidden when connected
-    dot.style.display = 'none';
-  } else {
-    dot.className = 'connection-dot disconnected';
-    dot.title = label || 'Reconnecting...';
-    dot.style.display = 'inline-block';
-  }
+
+  dot.classList.remove('live', 'degraded', 'offline');
+  dot.classList.add(live ? 'live' : 'offline');
+  dot.title = live ? 'LIVE' : (label || 'Reconnecting...');
+};
+
+const getHeartbeatMs = () => {
+  if (document.hidden) return HEARTBEAT_BACKGROUND_MS;
+  if (Date.now() - lastOperatorActivityAt > HEARTBEAT_IDLE_AFTER_MS) return HEARTBEAT_IDLE_MS;
+  return HEARTBEAT_ACTIVE_MS;
 };
 
 /* ── Auto-resize textarea ────────────────────────────────── */
@@ -2781,9 +2805,7 @@ convList.addEventListener('click', async e => {
   // Enable composer
   applyComposerWindowPolicy();
 
-  // Restart poll for new contact - this fetches messages and sets lastSeenMessageIdByMobile correctly
-  clearTimeout(messagePollTimer);
-  clearTimeout(sidebarPollTimer);
+  // Load for new contact - heartbeat loop continues in background
   try {
     await fetch(OPEN_CONV_URL, {
       method: 'POST',
@@ -2804,8 +2826,6 @@ convList.addEventListener('click', async e => {
     console.error('Error loading chat:', err);
   }
   scrollBottom();
-scheduleMessagePoll(MESSAGE_POLL_MS);
-  scheduleSidebarPoll(SIDEBAR_POLL_MS);
 
   msgInput?.focus();
 });
@@ -3093,8 +3113,13 @@ const renderContacts = contacts => {
   
 /* ── Poll ────────────────────────────────────────────────── */
 const pollSidebar = async () => {
+  sidebarPollController?.abort();
+  sidebarPollController = new AbortController();
   const params = new URLSearchParams({ include_contacts: '1', since_inbox_id: String(lastInboxId) });
-  const res = await fetch(`${API_URL}?${params}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+  const res = await fetch(`${API_URL}?${params}`, {
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    signal: sidebarPollController.signal
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
 
@@ -3166,9 +3191,14 @@ const pollSidebar = async () => {
 const pollMessages = async () => {
   const requestMobile = ACTIVE_MOBILE;
   if (!requestMobile) return;
+  messagesPollController?.abort();
+  messagesPollController = new AbortController();
   const sinceId = lastMessageIdByMobile.get(requestMobile) || 0;
   const params = new URLSearchParams({ mobile: requestMobile, since_id: String(sinceId) });
-  const res = await fetch(`${API_URL}?${params}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+  const res = await fetch(`${API_URL}?${params}`, {
+    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    signal: messagesPollController.signal
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   if (requestMobile !== ACTIVE_MOBILE) return;
@@ -3203,30 +3233,28 @@ const pollMessages = async () => {
   setPoll(true, 'Connected');
 };
 
-const scheduleMessagePoll = (delay = MESSAGE_POLL_MS) => {
-  clearTimeout(messagePollTimer);
-  messagePollTimer = setTimeout(async () => {
-    try {
-      await pollMessages();
-      scheduleMessagePoll(MESSAGE_POLL_MS);
-    } catch (e) {
-      setPoll(false, 'Reconnecting...');
-      scheduleMessagePoll(MESSAGE_POLL_MS);
-    }
-  }, delay);
+const heartbeatTick = async () => {
+  if (isHeartbeatTickRunning) return;
+  isHeartbeatTickRunning = true;
+  try {
+    await pollSidebar();
+    if (ACTIVE_MOBILE) await pollMessages();
+    setPoll(true, 'LIVE');
+  } catch (e) {
+    if (e?.name === 'AbortError') return;
+    console.warn('Heartbeat poll failed:', e);
+    setPoll(false, 'Reconnecting...');
+  } finally {
+    isHeartbeatTickRunning = false;
+  }
 };
 
-const scheduleSidebarPoll = (delay = SIDEBAR_POLL_MS) => {
-  clearTimeout(sidebarPollTimer);
-  sidebarPollTimer = setTimeout(async () => {
-    try {
-      await pollSidebar();
-      scheduleSidebarPoll(SIDEBAR_POLL_MS);
-    } catch (e) {
-      setPoll(false, 'Reconnecting...');
-      scheduleSidebarPoll(SIDEBAR_POLL_MS);
-    }
-  }, delay);
+const startHeartbeat = () => {
+  const nextMs = getHeartbeatMs();
+  if (heartbeatTimer && currentHeartbeatMs === nextMs) return;
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  currentHeartbeatMs = nextMs;
+  heartbeatTimer = setInterval(heartbeatTick, currentHeartbeatMs);
 };
 
 /* ── Send message ────────────────────────────────────────── */
@@ -3664,7 +3692,7 @@ console.log('🚀 WhatsApp Inbox System Initializing');
 console.log('═══════════════════════════════════════════════════');
 console.log(`📍 Active mobile: ${ACTIVE_MOBILE || 'None'}`);
 console.log(`🔊 Sound enabled: ${soundEnabled}`);
-console.log(`📨 Polling: Messages every ${MESSAGE_POLL_MS}ms, Sidebar every ${SIDEBAR_POLL_MS}ms`);
+console.log(`📨 Polling: Unified heartbeat (active ${HEARTBEAT_ACTIVE_MS}ms / background ${HEARTBEAT_BACKGROUND_MS}ms / idle ${HEARTBEAT_IDLE_MS}ms)`);
 
 // Initialize lastSeenMessageIdByMobile from existing conversations on the page
 $all('.conv-item[data-mobile]').forEach(item => {
@@ -3678,8 +3706,7 @@ $all('.conv-item[data-mobile]').forEach(item => {
 
 console.log(`📋 Initialized ${lastSeenMessageIdByMobile.size} contacts`);
 
-pollMessages().catch(()=>setPoll(false,'Reconnecting...'));
-pollSidebar().catch(()=>setPoll(false,'Reconnecting...'));
+heartbeatTick();
 
 // Initialize lastSeenMessageIdByMobile after first poll to prevent old message notifications
 setTimeout(() => {
@@ -3690,8 +3717,9 @@ setTimeout(() => {
   }
 }, 500);
 
-scheduleMessagePoll(MESSAGE_POLL_MS);
-scheduleSidebarPoll(SIDEBAR_POLL_MS);
+startHeartbeat();
+document.addEventListener('visibilitychange', startHeartbeat);
+setInterval(startHeartbeat, 15000);
 
 // Log all features ready
 setTimeout(() => {
