@@ -2363,8 +2363,10 @@ let soundEnabled = localStorage.getItem('wa_sound') !== '0';
 let knownIds = new Set(
   $all('#chatBody .msg-row[data-message-id]').map(el => el.dataset.messageId)
 );
+const knownIdsByMobile = new Map();
 let seenInboxIds = new Set();
 let lastMsgId = Math.max(0, ...[...$all('#chatBody .msg-row[data-message-id]')].map(el => +el.dataset.messageId));
+const lastMessageIdByMobile = new Map();
 let lastInboxId = Math.max(lastMsgId, INITIAL_LAST_INBOX_ID);
 let unreadByMobile = new Map();
 let chatWindowStatusByMobile = new Map();
@@ -2372,6 +2374,13 @@ let lastSeenMessageIdByMobile = new Map(); // Track last processed message per m
 let conversationOpenedAt = Date.now();
 let renderContactsTimeout = null;
 let pendingRenderContacts = null;
+
+if (ACTIVE_MOBILE && lastMsgId > 0) {
+  lastMessageIdByMobile.set(ACTIVE_MOBILE, lastMsgId);
+}
+if (ACTIVE_MOBILE) {
+  knownIdsByMobile.set(ACTIVE_MOBILE, knownIds);
+}
 
 // Debounce renderContacts to prevent excessive DOM updates and re-sorting
 const debouncedRenderContacts = (contacts, immediate = false) => {
@@ -2390,6 +2399,17 @@ const debouncedRenderContacts = (contacts, immediate = false) => {
     }, 300);
   }
 }; 
+const prunePerChatState = contacts => {
+  const activeMobile = ACTIVE_MOBILE || '';
+  const knownMobiles = new Set((contacts || []).map(c => c?.mobile).filter(Boolean));
+  if (activeMobile) knownMobiles.add(activeMobile);
+
+  [lastMessageIdByMobile, lastSeenMessageIdByMobile, unreadByMobile, knownIdsByMobile].forEach(stateMap => {
+    for (const mobile of stateMap.keys()) {
+      if (!knownMobiles.has(mobile)) stateMap.delete(mobile);
+    }
+  });
+};
 const safeModal = id => {
   const el = $(id);
   if (!el || !window.bootstrap?.Modal) return null;
@@ -2733,8 +2753,8 @@ convList.addEventListener('click', async e => {
 
   // Reset chat for new contact
   ACTIVE_MOBILE = mobile;
-  lastMsgId = 0;
-  knownIds.clear();
+  knownIds = knownIdsByMobile.get(mobile) || new Set();
+  knownIdsByMobile.set(mobile, knownIds);
   conversationOpenedAt = Date.now();
 
   if (chatBody) {
@@ -2942,6 +2962,7 @@ const upsertMsg = m => {
 const avatarClasses = ['', 'alt-1', 'alt-2'];
 const renderContacts = contacts => {
   if (!convList) return;
+  prunePerChatState(contacts);
   if (!contacts.length) {
     if (!convList.querySelector('.conv-empty')) {
       convList.innerHTML = `<div class="conv-empty"><i class="fab fa-whatsapp"></i><h4>No conversations yet</h4><p>New WhatsApp messages will appear here in real time</p></div>`;
@@ -3143,20 +3164,23 @@ const pollSidebar = async () => {
 };
 
 const pollMessages = async () => {
-  if (!ACTIVE_MOBILE) return;
-  const params = new URLSearchParams({ mobile: ACTIVE_MOBILE, since_id: String(lastMsgId) });
+  const requestMobile = ACTIVE_MOBILE;
+  if (!requestMobile) return;
+  const sinceId = lastMessageIdByMobile.get(requestMobile) || 0;
+  const params = new URLSearchParams({ mobile: requestMobile, since_id: String(sinceId) });
   const res = await fetch(`${API_URL}?${params}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
+  if (requestMobile !== ACTIVE_MOBILE) return;
 
   if (data.messages?.length) {
     const wasNearBottom = nearBottom();
     let hasNew = false;
-    let maxRenderedId = lastMsgId;
+    let maxRenderedId = sinceId;
 
-    if (ACTIVE_MOBILE && data.last_message_id) {
-      const newLastId = Math.max(lastSeenMessageIdByMobile.get(ACTIVE_MOBILE) || 0, +data.last_message_id || 0);
-      lastSeenMessageIdByMobile.set(ACTIVE_MOBILE, newLastId);
+    if (data.last_message_id) {
+      const newLastId = Math.max(lastSeenMessageIdByMobile.get(requestMobile) || 0, +data.last_message_id || 0);
+      lastSeenMessageIdByMobile.set(requestMobile, newLastId);
     }
 
     data.messages.forEach(m => {
@@ -3170,12 +3194,8 @@ const pollMessages = async () => {
     });
 
     // Advance cursor only after attempting to render this batch.
-    if (maxRenderedId > lastMsgId) {
-      lastMsgId = maxRenderedId;
-    }
-    if (data.last_message_id) {
-      lastMsgId = Math.max(lastMsgId, +data.last_message_id || 0);
-    }
+    if (data.last_message_id) maxRenderedId = Math.max(maxRenderedId, +data.last_message_id || 0);
+    if (maxRenderedId > sinceId) lastMessageIdByMobile.set(requestMobile, maxRenderedId);
 
     if (hasNew || wasNearBottom) scrollBottom();
   }
@@ -3663,9 +3683,10 @@ pollSidebar().catch(()=>setPoll(false,'Reconnecting...'));
 
 // Initialize lastSeenMessageIdByMobile after first poll to prevent old message notifications
 setTimeout(() => {
-  if (!lastSeenMessageIdByMobile.has(ACTIVE_MOBILE) && lastMsgId > 0) {
-    lastSeenMessageIdByMobile.set(ACTIVE_MOBILE, lastMsgId);
-    console.log(`✅ Active chat messages initialized: ${lastMsgId}`);
+  const activeLastMsgId = lastMessageIdByMobile.get(ACTIVE_MOBILE) || lastMsgId;
+  if (!lastSeenMessageIdByMobile.has(ACTIVE_MOBILE) && activeLastMsgId > 0) {
+    lastSeenMessageIdByMobile.set(ACTIVE_MOBILE, activeLastMsgId);
+    console.log(`✅ Active chat messages initialized: ${activeLastMsgId}`);
   }
 }, 500);
 
