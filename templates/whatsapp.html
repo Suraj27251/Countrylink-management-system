@@ -2384,45 +2384,65 @@ themeToggle?.addEventListener('click', () => {
 const NOTIFICATION_SOUND_URL = `${STATIC_BASE}audio/whatsapp_notification.wav`;
 const SOFT_SOUND_URL = `${STATIC_BASE}audio/soft_sound.mp3`;
 
-// Pre-load both audio files
-const notificationAudio = new Audio(NOTIFICATION_SOUND_URL);
-notificationAudio.preload = 'auto';
-notificationAudio.volume = 1.0;
+// Create audio elements with better error handling
+const createAudioElement = (url, volume = 1.0) => {
+  const audio = new Audio();
+  audio.preload = 'auto';
+  audio.volume = volume;
+  audio.crossOrigin = 'anonymous';
+  
+  audio.addEventListener('error', (e) => {
+    console.error(`❌ Audio failed to load: ${url}`, e.error || e.message);
+  });
+  
+  audio.addEventListener('canplaythrough', () => {
+    console.log(`✅ Audio ready: ${url}`);
+  });
+  
+  // Load the audio source
+  audio.src = url;
+  return audio;
+};
 
-const softAudio = new Audio(SOFT_SOUND_URL);
-softAudio.preload = 'auto';
-softAudio.volume = 0.5;
+const notificationAudio = createAudioElement(NOTIFICATION_SOUND_URL, 1.0);
+const softAudio = createAudioElement(SOFT_SOUND_URL, 0.5);
 
-// Debug: confirm files load correctly
-notificationAudio.addEventListener('error', () => {
-  console.warn('⚠️ Notification sound failed to load from:', NOTIFICATION_SOUND_URL);
-});
+// Verify audio files exist by checking HEAD request
+const verifyAudioFile = async (url) => {
+  try {
+    const response = await fetch(url, { method: 'HEAD' });
+    const exists = response.ok;
+    console.log(`[Audio Check] ${url}: ${exists ? '✅ Found' : '❌ Not Found'} (${response.status})`);
+    return exists;
+  } catch (err) {
+    console.warn(`[Audio Check] ${url}: ❌ Error - ${err.message}`);
+    return false;
+  }
+};
 
-notificationAudio.addEventListener('canplaythrough', () => {
-  console.log('✅ Notification sound loaded:', NOTIFICATION_SOUND_URL);
-});
-
-softAudio.addEventListener('error', () => {
-  console.warn('⚠️ Soft sound failed to load from:', SOFT_SOUND_URL);
-});
-
-softAudio.addEventListener('canplaythrough', () => {
-  console.log('✅ Soft sound loaded:', SOFT_SOUND_URL);
-});
+// Check audio files on page load
+setTimeout(async () => {
+  await verifyAudioFile(NOTIFICATION_SOUND_URL);
+  await verifyAudioFile(SOFT_SOUND_URL);
+}, 100);
 
 /* Unlock audio after first user interaction */
-['pointerdown', 'keydown', 'touchstart'].forEach(ev =>
+['pointerdown', 'keydown', 'touchstart', 'click'].forEach(ev =>
   window.addEventListener(ev, async () => {
+    if (hasInteracted) return;
     hasInteracted = true;
 
     try {
-    // await notificationAudio.play();
-    // notificationAudio.pause();
-    // notificationAudio.currentTime = 0;
-
-      console.log('🔓 Audio unlocked');
+      // Try to play and pause immediately to unlock audio context
+      const testAudio = new Audio(NOTIFICATION_SOUND_URL);
+      testAudio.volume = 0;
+      await testAudio.play();
+      testAudio.pause();
+      testAudio.currentTime = 0;
+      
+      console.log('🔓 Audio context unlocked successfully');
     } catch (err) {
-      console.warn('Audio unlock failed:', err.message);
+      console.warn('⚠️ Audio context unlock attempted (may fail in some browsers):', err.message);
     }
   }, { once: true })
 );
@@ -2430,26 +2450,41 @@ softAudio.addEventListener('canplaythrough', () => {
 /* ── Sound ───────────────────────────────────────────────── */
 const beep = (inboundMobile, isNewConversation = false) => {
 
-  if (!soundEnabled || !hasInteracted) return;
+  if (!soundEnabled || !hasInteracted) {
+    console.log(`[Sound] Skipped - soundEnabled: ${soundEnabled}, hasInteracted: ${hasInteracted}`);
+    return;
+  }
 
   try {
     // Don't play any sound for messages in the currently active chat
     if (inboundMobile && inboundMobile === ACTIVE_MOBILE) {
-      return; // No sound for active chat
+      console.log(`[Sound] Skipped - message is in active chat (${inboundMobile})`);
+      return;
     }
 
-    // Use appropriate audio based on message type
-    const audioToPlay = isNewConversation ? notificationAudio : notificationAudio;
+    // Use notification sound for all messages
+    const audioToPlay = notificationAudio;
     
-    // Reset and play
+    // Reset and play with better error handling
     audioToPlay.currentTime = 0;
     
-    audioToPlay.play().catch(err => {
-      console.warn('Sound play failed:', err.message);
-    });
+    const playPromise = audioToPlay.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          console.log('✅ Sound played successfully');
+        })
+        .catch(err => {
+          console.warn('⚠️ Sound play rejected:', err.name, err.message);
+          // If blocked, it's usually due to browser policy - this is expected
+          if (err.name === 'NotAllowedError') {
+            console.log('(Browser prevented autoplay - this is normal)');
+          }
+        });
+    }
 
   } catch (e) {
-    console.warn('Beep error:', e);
+    console.warn('💥 Beep error:', e.message);
   }
 };
   
@@ -2460,6 +2495,39 @@ const fmtTime = ts => (ts && ts.includes(' ')) ? ts.split(' ')[1].slice(0,5) : (
 const nearBottom = () => chatBody && (chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight < 160);
 const scrollBottom = () => chatBody && requestAnimationFrame(() => { chatBody.scrollTop = chatBody.scrollHeight; });
 const showPageLoader = () => pageLoader?.classList.add('show');
+
+// Update green dot for a specific contact
+const updateContactGreenDot = (mobile) => {
+  if (!convList) return;
+  const contactEl = convList.querySelector(`[data-mobile="${CSS.escape(mobile)}"]`);
+  if (!contactEl) return;
+  
+  const isActive = mobile === ACTIVE_MOBILE;
+  const unreadCount = !isActive ? (unreadByMobile.get(mobile) || 0) : 0;
+  const hasNewMessage = !isActive && unreadCount > 0;
+  
+  contactEl.classList.toggle('has-new', hasNewMessage);
+  
+  // Update unread badge
+  let unreadEl = contactEl.querySelector('.conv-unread');
+  if (unreadCount > 0) {
+    if (!unreadEl) {
+      contactEl.insertAdjacentHTML('beforeend', `<span class="conv-unread">${unreadCount}</span>`);
+    } else if (unreadEl.textContent !== String(unreadCount)) {
+      unreadEl.textContent = unreadCount;
+    }
+  } else if (unreadEl) {
+    unreadEl.remove();
+  }
+  
+  // Move to top if has new message
+  if (hasNewMessage && contactEl.parentElement === convList && contactEl !== convList.firstChild) {
+    console.log(`[Green Dot] Moving ${contactEl.dataset.name} (${mobile}) to top`);
+    convList.insertBefore(contactEl, convList.firstChild);
+  }
+  
+  console.log(`[Green Dot] Updated for ${mobile}: hasNewMessage=${hasNewMessage}, unreadCount=${unreadCount}`);
+};
 
 // Check if conversation is within 24-hour Meta chat window
 const isActiveChatWindow = createdAt => {
@@ -2539,21 +2607,52 @@ const updateNotifIcon = () => {
   if (soundEnabled) {
     notifIcon.className = 'fas fa-bell';
     notifIcon.style.color = 'var(--text-2)';
+    notifIcon.title = '🔔 Sounds ON - Click to test/disable';
   } else {
     notifIcon.className = 'fas fa-bell-slash';
     notifIcon.style.color = 'var(--text-3)';
+    notifIcon.title = '🔇 Sounds OFF - Click to enable';
   }
 };
 
-notifBtn?.addEventListener('click', () => {
+notifBtn?.addEventListener('click', async () => {
   soundEnabled = !soundEnabled;
   localStorage.setItem('wa_sound', soundEnabled ? '1' : '0');
   updateNotifIcon();
-  console.log('Sound notifications:', soundEnabled ? 'enabled' : 'disabled');
+  console.log(`[Sound] Notifications: ${soundEnabled ? '✅ ENABLED' : '❌ DISABLED'}`);
+  
+  // If enabling, test the sound
+  if (soundEnabled) {
+    try {
+      console.log('[Sound Test] Playing test notification sound...');
+      const testAudio = new Audio(NOTIFICATION_SOUND_URL);
+      testAudio.volume = 0.8;
+      testAudio.preload = 'auto';
+      
+      const playPromise = testAudio.play();
+      if (playPromise !== undefined) {
+        await playPromise;
+        console.log('[Sound Test] ✅ Test sound played successfully!');
+      }
+    } catch (err) {
+      console.warn('[Sound Test] ⚠️ Test failed:', err.name, err.message);
+      console.log('[Sound] This is often normal due to browser autoplay policies.');
+      console.log('[Sound] Actual notification sounds may still work when messages arrive.');
+    }
+  }
 });
 
 // Initialize icon on page load
 updateNotifIcon();
+
+// Monitor audio state for debugging
+setInterval(() => {
+  if (soundEnabled && notificationAudio) {
+    if (notificationAudio.readyState === 0) {
+      console.warn('[Audio Monitor] Notification audio not ready - may have loading issues');
+    }
+  }
+}, 30000); // Check every 30 seconds
 
 /* ── Search ──────────────────────────────────────────────── */
 searchInput?.addEventListener('input', () => {
@@ -2796,12 +2895,11 @@ const renderContacts = contacts => {
   // Remove empty state if present
   const emptyEl = convList.querySelector('.conv-empty');
   if (emptyEl) emptyEl.remove();
+  
   contacts.forEach((c, i) => {
     const mobile = c.mobile || '';
     if (!mobile) return;
     const isActive = mobile === ACTIVE_MOBILE;
-    // Don't delete unread badge when chat becomes active - keep it visible until marked as read
-    // if (isActive) unreadByMobile.delete(mobile);
     const name = c.name || mobile || 'Unknown';
     const cls = avatarClasses[i % 3];
     const unreadCount = !isActive ? (unreadByMobile.get(mobile) || 0) : 0;
@@ -2810,17 +2908,20 @@ const renderContacts = contacts => {
     const preview = c.preview || 'No messages yet';
     const isChatWindowActive = isActiveChatWindow(c.created_at);
     const existing = convList.querySelector(`[data-mobile="${CSS.escape(mobile)}"]`);
+    
     if (existing) {
       // Patch only what changed — no full re-render, no flash
       existing.classList.toggle('active', isActive);
       existing.classList.toggle('has-new', hasNewMessage);
       existing.classList.toggle('inactive-24h', !isChatWindowActive);
+      
       const nameEl = existing.querySelector('.conv-name');
       if (nameEl && nameEl.textContent !== name) nameEl.textContent = name;
       const previewEl = existing.querySelector('.conv-preview');
       if (previewEl && previewEl.textContent !== preview) previewEl.textContent = preview;
       const timeEl = existing.querySelector('.conv-time');
       if (timeEl && timeEl.textContent !== time) timeEl.textContent = time;
+      
       let unreadEl = existing.querySelector('.conv-unread');
       if (unreadCount > 0) {
         if (!unreadEl) {
@@ -2834,6 +2935,7 @@ const renderContacts = contacts => {
       
       // IMMEDIATELY move to top if has new message
       if (hasNewMessage && existing.parentElement === convList && existing !== convList.firstChild) {
+        console.log(`[Chat Sort] Moving ${name} (${mobile}) to top - has new message`);
         convList.insertBefore(existing, convList.firstChild);
       }
     } else {
@@ -2857,6 +2959,7 @@ const renderContacts = contacts => {
           ${unreadHtml}
         </a>`;
       convList.insertAdjacentHTML('afterbegin', html);
+      console.log(`[Chat List] Added new contact ${name} (${mobile})${hasNewMessage ? ' - with green dot' : ''}`);
     }
   });
 };
@@ -2868,9 +2971,16 @@ const pollSidebar = async () => {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
 
-  if (data.contacts?.length) debouncedRenderContacts(data.contacts, true); // immediate = true for immediate re-sort
+  if (data.contacts?.length) {
+    console.log(`[Poll Sidebar] Got ${data.contacts.length} contacts, rendering immediately`);
+    debouncedRenderContacts(data.contacts, true); // immediate = true for instant green dot
+  }
 
   if (data.inbox_messages?.length) {
+    let newMessagesCount = 0;
+    const soundsToPlay = [];
+    const contactsToUpdate = new Set();
+    
     data.inbox_messages.forEach(m => {
       const inboxId = String(m.id || '');
       if (seenInboxIds.has(inboxId)) return;
@@ -2887,21 +2997,36 @@ const pollSidebar = async () => {
         
         // Only trigger notification if this message is newer than what we've already notified about
         if (currentMsgId > lastSeenId) {
+          newMessagesCount++;
           lastSeenMessageIdByMobile.set(mobile, currentMsgId);
 
           if (isActiveChatMessage) {
+            console.log(`[New Message] Received in active chat from ${mobile} - no sound/badge`);
             unreadByMobile.delete(mobile);
           } else {
             // New message in inactive chat
-            unreadByMobile.set(mobile, (unreadByMobile.get(mobile) || 0) + 1);
-            beep(mobile, false);
+            const newUnreadCount = (unreadByMobile.get(mobile) || 0) + 1;
+            unreadByMobile.set(mobile, newUnreadCount);
+            soundsToPlay.push(mobile);
+            contactsToUpdate.add(mobile);
+            console.log(`[New Message] Received in inactive chat from ${mobile} - unread count: ${newUnreadCount}`);
           }
         } else {
-          // This is an old message (currentMsgId <= lastSeenId), just update tracking without notification
+          // This is an old message, just update tracking without notification
           lastSeenMessageIdByMobile.set(mobile, Math.max(lastSeenId, currentMsgId));
         }
       }
     });
+    
+    // Update green dots immediately for each contact with new messages
+    contactsToUpdate.forEach(mobile => updateContactGreenDot(mobile));
+    
+    // Play sounds for each new message's sender
+    soundsToPlay.forEach(mobile => beep(mobile, false));
+    
+    if (newMessagesCount > 0) {
+      console.log(`[Poll Sidebar] ${newMessagesCount} new message(s) received, green dots updated`);
+    }
   }
 
   if (data.last_inbox_message_id) {
@@ -3397,6 +3522,14 @@ $all('.cmd-item').forEach(item => {
 });
 
 /* ── Init ────────────────────────────────────────────────── */
+// Log system initialization
+console.log('═══════════════════════════════════════════════════');
+console.log('🚀 WhatsApp Inbox System Initializing');
+console.log('═══════════════════════════════════════════════════');
+console.log(`📍 Active mobile: ${ACTIVE_MOBILE || 'None'}`);
+console.log(`🔊 Sound enabled: ${soundEnabled}`);
+console.log(`📨 Polling: Messages every ${MESSAGE_POLL_MS}ms, Sidebar every ${SIDEBAR_POLL_MS}ms`);
+
 // Initialize lastSeenMessageIdByMobile from existing conversations on the page
 $all('.conv-item[data-mobile]').forEach(item => {
   const mobile = item.dataset.mobile;
@@ -3407,6 +3540,8 @@ $all('.conv-item[data-mobile]').forEach(item => {
   }
 });
 
+console.log(`📋 Initialized ${lastSeenMessageIdByMobile.size} contacts`);
+
 pollMessages().catch(()=>setPoll(false,'Reconnecting...'));
 pollSidebar().catch(()=>setPoll(false,'Reconnecting...'));
 
@@ -3414,11 +3549,26 @@ pollSidebar().catch(()=>setPoll(false,'Reconnecting...'));
 setTimeout(() => {
   if (!lastSeenMessageIdByMobile.has(ACTIVE_MOBILE) && lastMsgId > 0) {
     lastSeenMessageIdByMobile.set(ACTIVE_MOBILE, lastMsgId);
+    console.log(`✅ Active chat messages initialized: ${lastMsgId}`);
   }
 }, 500);
 
 scheduleMessagePoll(MESSAGE_POLL_MS);
 scheduleSidebarPoll(SIDEBAR_POLL_MS);
+
+// Log all features ready
+setTimeout(() => {
+  console.log('═══════════════════════════════════════════════════');
+  console.log('✅ WhatsApp Inbox Ready');
+  console.log('═══════════════════════════════════════════════════');
+  console.log('Features:');
+  console.log('  • Real-time message sync ✓');
+  console.log('  • Green dots for new messages ✓');
+  console.log('  • Notification sounds (toggle with 🔔) ✓');
+  console.log('  • Auto-sort recent chats ✓');
+  console.log('═══════════════════════════════════════════════════');
+}, 1000);
+
 if ($('quickTemplateMobile') && ACTIVE_MOBILE) $('quickTemplateMobile').value = ACTIVE_MOBILE;
 setWorkspace('inbox');
 resizeInput();
