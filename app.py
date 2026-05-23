@@ -665,13 +665,15 @@ def process_incoming_message(message, metadata):
                         customer_name,
                         last_message,
                         last_message_at,
+                        last_customer_message_at,
                         unread_count,
+                        ai_replied,
                         ai_enabled,
                         human_takeover,
                         created_at,
                         updated_at
                     )
-                    VALUES (%s, %s, %s, NOW(), 1, 1, 0, NOW(), NOW())
+                    VALUES (%s, %s, %s, NOW(), NOW(), 1, 0, 1, 0, NOW(), NOW())
                 """, (
                     mobile,
                     name,
@@ -715,13 +717,40 @@ def process_incoming_message(message, metadata):
                 SET
                     last_message = %s,
                     last_message_at = NOW(),
+                    last_customer_message_at = NOW(),
                     unread_count = unread_count + 1,
+                    ai_replied = 0,
                     updated_at = NOW()
                 WHERE id = %s
             """, (
                 text_body,
                 conversation_id
             ))
+            # Basic needs-human heuristics on inbound customer messages
+            lower_text = (text_body or '').lower()
+            escalation_keywords = ['refund', 'payment', 'complaint', 'angry', 'fraud', 'scam', 'legal', 'cancel']
+            has_escalation_keyword = any(k in lower_text for k in escalation_keywords)
+            mysql_cursor.execute(
+                """
+                SELECT COUNT(*) AS recent_count
+                FROM whatsapp_messages
+                WHERE conversation_id = %s
+                  AND sender_type = 'customer'
+                  AND created_at >= DATE_SUB(NOW(), INTERVAL 10 MINUTE)
+                """,
+                (conversation_id,),
+            )
+            recent_row = mysql_cursor.fetchone() or {}
+            repeated_messages = int(recent_row.get("recent_count") or 0) >= 3
+            if has_escalation_keyword or repeated_messages:
+                mysql_cursor.execute(
+                    """
+                    UPDATE whatsapp_conversations
+                    SET needs_human = 1, updated_at = NOW()
+                    WHERE id = %s
+                    """,
+                    (conversation_id,),
+                )
 
             mysql_conn.commit()
 
@@ -746,7 +775,23 @@ def process_incoming_message(message, metadata):
             ai_enabled = int(convo_flags.get("ai_enabled", 1) or 0)
             human_takeover = int(convo_flags.get("human_takeover", 0) or 0)
 
-            if inserted_new_message and ai_enabled == 1 and human_takeover == 0 and whatsapp_config_ready():
+            mysql_cursor.execute(
+                """
+                SELECT CASE
+                    WHEN last_customer_message_at IS NULL THEN 0
+                    WHEN TIMESTAMPDIFF(HOUR, last_customer_message_at, NOW()) <= 24 THEN 1
+                    ELSE 0
+                END AS within_24h_window
+                FROM whatsapp_conversations
+                WHERE id = %s
+                LIMIT 1
+                """,
+                (conversation_id,),
+            )
+            last_customer_row = mysql_cursor.fetchone() or {}
+            within_24h_window = int(last_customer_row.get("within_24h_window") or 0) == 1
+
+            if inserted_new_message and ai_enabled == 1 and human_takeover == 0 and whatsapp_config_ready() and within_24h_window:
                 # Check if an AI response already exists for this customer message (idempotency)
                 # This prevents duplicate backup messages if the webhook is called multiple times
                 mysql_cursor.execute(
@@ -815,13 +860,11 @@ def process_incoming_message(message, metadata):
                                 """
                                 UPDATE whatsapp_conversations
                                 SET
-                                    last_message = %s,
-                                    last_message_at = NOW(),
+                                    ai_replied = 1,
                                     updated_at = NOW()
                                 WHERE id = %s
                                 """,
                                 (
-                                    ai_reply_text,
                                     conversation_id,
                                 ),
                             )
@@ -853,6 +896,15 @@ def process_incoming_message(message, metadata):
                             mobile,
                             conversation_id
                         )
+                        mysql_cursor.execute(
+                            """
+                            UPDATE whatsapp_conversations
+                            SET needs_human = 1, updated_at = NOW()
+                            WHERE id = %s
+                            """,
+                            (conversation_id,),
+                        )
+                        mysql_conn.commit()
 
             else:
                 app.logger.info(
@@ -2487,9 +2539,19 @@ def whatsapp_messages_api():
                 phone AS mobile,
                 customer_name AS name,
                 last_message AS text,
-                last_message_at AS created_at
+                last_message_at AS created_at,
+                unread_count,
+                ai_replied,
+                last_customer_message_at,
+                COALESCE(needs_human, 0) AS needs_human,
+                CASE
+                    WHEN last_customer_message_at IS NULL THEN 'active'
+                    WHEN TIMESTAMPDIFF(HOUR, last_customer_message_at, NOW()) < 22 THEN 'active'
+                    WHEN TIMESTAMPDIFF(HOUR, last_customer_message_at, NOW()) < 24 THEN 'expiring'
+                    ELSE 'inactive'
+                END AS chat_window_status
             FROM whatsapp_conversations
-            ORDER BY updated_at DESC
+            ORDER BY COALESCE(needs_human, 0) DESC, unread_count DESC, last_customer_message_at DESC, updated_at DESC
         """)
 
         raw_contacts = mysql_cursor.fetchall()
@@ -2503,6 +2565,11 @@ def whatsapp_messages_api():
                 "mobile": normalize_mobile(row.get("mobile")),
                 "text": row.get("text") or "",
                 "created_at": row.get("created_at"),
+                "unread_count": int(row.get("unread_count") or 0),
+                "ai_replied": int(row.get("ai_replied") or 0),
+                "last_customer_message_at": row.get("last_customer_message_at"),
+                "needs_human": int(row.get("needs_human") or 0),
+                "chat_window_status": row.get("chat_window_status") or "active",
                 "message_type": "text",
                 "direction": "inbound",
             })
@@ -2795,6 +2862,24 @@ def send_whatsapp():
 
         if conversation:
             conversation_id = conversation["id"]
+            mysql_cursor.execute(
+                """
+                SELECT CASE
+                    WHEN last_customer_message_at IS NULL THEN 1
+                    WHEN TIMESTAMPDIFF(HOUR, last_customer_message_at, NOW()) > 24 THEN 1
+                    ELSE 0
+                END AS expired_24h
+                FROM whatsapp_conversations
+                WHERE id = %s
+                LIMIT 1
+                """,
+                (conversation_id,),
+            )
+            convo_state = mysql_cursor.fetchone() or {}
+            if int(convo_state.get("expired_24h") or 0) == 1:
+                return jsonify({
+                    "error": "24-hour session expired. Send an approved template message first."
+                }), 403
         else:
             mysql_cursor.execute(
                 """
@@ -2865,6 +2950,7 @@ def send_whatsapp():
             SET
                 last_message = %s,
                 last_message_at = NOW(),
+                needs_human = 0,
                 updated_at = NOW()
             WHERE id = %s
             """,
@@ -2902,6 +2988,49 @@ def send_whatsapp():
         "status": "sent",
         "message_id": message_id
     }), 200
+
+
+@app.route('/api/whatsapp/conversations/open', methods=['POST'])
+@login_required
+def mark_whatsapp_conversation_open():
+    payload = request.get_json(silent=True) or {}
+    mobile = normalize_mobile((payload.get('mobile') or '').strip())
+    if not mobile:
+        return jsonify({"error": "Mobile number is required."}), 400
+
+    mysql_conn = None
+    mysql_cursor = None
+    try:
+        mysql_conn = mysql.connector.connect(
+            host=MYSQL_DB_HOST,
+            database=MYSQL_DB_NAME,
+            user=MYSQL_DB_USER,
+            password=MYSQL_DB_PASSWORD,
+        )
+        mysql_cursor = mysql_conn.cursor()
+        mysql_cursor.execute(
+            """
+            UPDATE whatsapp_conversations
+            SET
+                unread_count = 0,
+                ai_replied = 0,
+                needs_human = 0,
+                last_human_opened_at = NOW(),
+                updated_at = NOW()
+            WHERE phone = %s
+            """,
+            (mobile,),
+        )
+        mysql_conn.commit()
+        return jsonify({"status": "ok"}), 200
+    except Exception:
+        app.logger.exception("Failed to mark conversation open for mobile=%s", mobile)
+        return jsonify({"error": "Failed to update conversation state."}), 500
+    finally:
+        if mysql_cursor:
+            mysql_cursor.close()
+        if mysql_conn and mysql_conn.is_connected():
+            mysql_conn.close()
 @app.route('/api/whatsapp/templates')
 @login_required
 def whatsapp_templates_api():
