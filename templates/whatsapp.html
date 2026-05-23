@@ -2333,15 +2333,21 @@ let renderContactsTimeout = null;
 let pendingRenderContacts = null;
 
 // Debounce renderContacts to prevent excessive DOM updates and re-sorting
-const debouncedRenderContacts = (contacts) => {
+const debouncedRenderContacts = (contacts, immediate = false) => {
   clearTimeout(renderContactsTimeout);
   pendingRenderContacts = contacts;
-  renderContactsTimeout = setTimeout(() => {
-    if (pendingRenderContacts) {
-      renderContacts(pendingRenderContacts);
-      pendingRenderContacts = null;
-    }
-  }, 300);
+  if (immediate) {
+    // Render immediately if needed (e.g., new message arrived)
+    renderContacts(pendingRenderContacts);
+    pendingRenderContacts = null;
+  } else {
+    renderContactsTimeout = setTimeout(() => {
+      if (pendingRenderContacts) {
+        renderContacts(pendingRenderContacts);
+        pendingRenderContacts = null;
+      }
+    }, 300);
+  }
 }; 
 const safeModal = id => {
   const el = $(id);
@@ -2378,17 +2384,30 @@ themeToggle?.addEventListener('click', () => {
 const NOTIFICATION_SOUND_URL = `${STATIC_BASE}audio/whatsapp_notification.wav`;
 const SOFT_SOUND_URL = `${STATIC_BASE}audio/soft_sound.mp3`;
 
+// Pre-load both audio files
 const notificationAudio = new Audio(NOTIFICATION_SOUND_URL);
 notificationAudio.preload = 'auto';
 notificationAudio.volume = 1.0;
 
-// Debug: confirm file loads correctly
+const softAudio = new Audio(SOFT_SOUND_URL);
+softAudio.preload = 'auto';
+softAudio.volume = 0.5;
+
+// Debug: confirm files load correctly
 notificationAudio.addEventListener('error', () => {
   console.warn('⚠️ Notification sound failed to load from:', NOTIFICATION_SOUND_URL);
 });
 
 notificationAudio.addEventListener('canplaythrough', () => {
   console.log('✅ Notification sound loaded:', NOTIFICATION_SOUND_URL);
+});
+
+softAudio.addEventListener('error', () => {
+  console.warn('⚠️ Soft sound failed to load from:', SOFT_SOUND_URL);
+});
+
+softAudio.addEventListener('canplaythrough', () => {
+  console.log('✅ Soft sound loaded:', SOFT_SOUND_URL);
 });
 
 /* Unlock audio after first user interaction */
@@ -2409,21 +2428,23 @@ notificationAudio.addEventListener('canplaythrough', () => {
 );
 
 /* ── Sound ───────────────────────────────────────────────── */
-const beep = (inboundMobile) => {
+const beep = (inboundMobile, isNewConversation = false) => {
 
   if (!soundEnabled || !hasInteracted) return;
 
   try {
     // Don't play any sound for messages in the currently active chat
-    // The soft sound was causing issues - just disable it entirely for active chat
     if (inboundMobile && inboundMobile === ACTIVE_MOBILE) {
       return; // No sound for active chat
     }
 
-    const clip = new Audio(NOTIFICATION_SOUND_URL);
-    clip.volume = 1.0;
-
-    clip.play().catch(err => {
+    // Use appropriate audio based on message type
+    const audioToPlay = isNewConversation ? notificationAudio : notificationAudio;
+    
+    // Reset and play
+    audioToPlay.currentTime = 0;
+    
+    audioToPlay.play().catch(err => {
       console.warn('Sound play failed:', err.message);
     });
 
@@ -2511,6 +2532,28 @@ emojiBtn?.addEventListener('click', () => {
   msgInput.focus();
   resizeInput();
 });
+
+/* ── Sound toggle ────────────────────────────────────────── */
+const updateNotifIcon = () => {
+  if (!notifIcon) return;
+  if (soundEnabled) {
+    notifIcon.className = 'fas fa-bell';
+    notifIcon.style.color = 'var(--text-2)';
+  } else {
+    notifIcon.className = 'fas fa-bell-slash';
+    notifIcon.style.color = 'var(--text-3)';
+  }
+};
+
+notifBtn?.addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  localStorage.setItem('wa_sound', soundEnabled ? '1' : '0');
+  updateNotifIcon();
+  console.log('Sound notifications:', soundEnabled ? 'enabled' : 'disabled');
+});
+
+// Initialize icon on page load
+updateNotifIcon();
 
 /* ── Search ──────────────────────────────────────────────── */
 searchInput?.addEventListener('input', () => {
@@ -2789,15 +2832,9 @@ const renderContacts = contacts => {
         unreadEl.remove();
       }
       
-      // Only move to top if has new message AND conversation has not been recently sorted
-      // This prevents excessive re-ordering on every poll
+      // IMMEDIATELY move to top if has new message
       if (hasNewMessage && existing.parentElement === convList && existing !== convList.firstChild) {
-        // Add a small delay to prevent thrashing
-        setTimeout(() => {
-          if (existing.parentElement === convList && hasNewMessage) {
-            convList.insertBefore(existing, convList.firstChild);
-          }
-        }, 100);
+        convList.insertBefore(existing, convList.firstChild);
       }
     } else {
       // Brand new contact — build and append
@@ -2831,7 +2868,7 @@ const pollSidebar = async () => {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
 
-  if (data.contacts?.length) debouncedRenderContacts(data.contacts);
+  if (data.contacts?.length) debouncedRenderContacts(data.contacts, true); // immediate = true for immediate re-sort
 
   if (data.inbox_messages?.length) {
     data.inbox_messages.forEach(m => {
@@ -2847,13 +2884,21 @@ const pollSidebar = async () => {
       if (isInbound && mobile) {
         const lastSeenId = lastSeenMessageIdByMobile.get(mobile) || 0;
         const currentMsgId = +m.id || 0;
-        lastSeenMessageIdByMobile.set(mobile, Math.max(lastSeenId, currentMsgId));
+        
+        // Only trigger notification if this message is newer than what we've already notified about
+        if (currentMsgId > lastSeenId) {
+          lastSeenMessageIdByMobile.set(mobile, currentMsgId);
 
-        if (isActiveChatMessage) {
-          unreadByMobile.delete(mobile);
-        } else if (currentMsgId > lastSeenId) {
-          unreadByMobile.set(mobile, (unreadByMobile.get(mobile) || 0) + 1);
-          beep();
+          if (isActiveChatMessage) {
+            unreadByMobile.delete(mobile);
+          } else {
+            // New message in inactive chat
+            unreadByMobile.set(mobile, (unreadByMobile.get(mobile) || 0) + 1);
+            beep(mobile, false);
+          }
+        } else {
+          // This is an old message (currentMsgId <= lastSeenId), just update tracking without notification
+          lastSeenMessageIdByMobile.set(mobile, Math.max(lastSeenId, currentMsgId));
         }
       }
     });
@@ -2878,7 +2923,8 @@ const pollMessages = async () => {
     let hasNew = false;
 
     if (ACTIVE_MOBILE && data.last_message_id) {
-      lastSeenMessageIdByMobile.set(ACTIVE_MOBILE, Math.max(lastSeenMessageIdByMobile.get(ACTIVE_MOBILE) || 0, +data.last_message_id || 0));
+      const newLastId = Math.max(lastSeenMessageIdByMobile.get(ACTIVE_MOBILE) || 0, +data.last_message_id || 0);
+      lastSeenMessageIdByMobile.set(ACTIVE_MOBILE, newLastId);
     }
 
     data.messages.forEach(m => {
@@ -3351,8 +3397,26 @@ $all('.cmd-item').forEach(item => {
 });
 
 /* ── Init ────────────────────────────────────────────────── */
+// Initialize lastSeenMessageIdByMobile from existing conversations on the page
+$all('.conv-item[data-mobile]').forEach(item => {
+  const mobile = item.dataset.mobile;
+  if (mobile) {
+    // Mark this contact's last shown message ID as "seen"
+    // This prevents old messages from triggering notifications
+    lastSeenMessageIdByMobile.set(mobile, lastInboxId);
+  }
+});
+
 pollMessages().catch(()=>setPoll(false,'Reconnecting...'));
 pollSidebar().catch(()=>setPoll(false,'Reconnecting...'));
+
+// Initialize lastSeenMessageIdByMobile after first poll to prevent old message notifications
+setTimeout(() => {
+  if (!lastSeenMessageIdByMobile.has(ACTIVE_MOBILE) && lastMsgId > 0) {
+    lastSeenMessageIdByMobile.set(ACTIVE_MOBILE, lastMsgId);
+  }
+}, 500);
+
 scheduleMessagePoll(MESSAGE_POLL_MS);
 scheduleSidebarPoll(SIDEBAR_POLL_MS);
 if ($('quickTemplateMobile') && ACTIVE_MOBILE) $('quickTemplateMobile').value = ACTIVE_MOBILE;
