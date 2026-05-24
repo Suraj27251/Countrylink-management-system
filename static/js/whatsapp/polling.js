@@ -40,6 +40,19 @@
   const POLL_BASE = 2000;
   const POLL_MAX  = 30000;
 
+  /* ── Recovery / cooldown state ────────────────────────── */
+  let lastRecoveryTime = 0;
+  const MIN_RECOVERY_INTERVAL_MS = 3000;  // min ms between forced recoveries
+  let isRecovering = false;
+
+  /* ── Render burst protection ──────────────────────────── */
+  let lastRenderTimestamp = 0;
+  const RENDER_THROTTLE_MS = 50;
+
+  /* ── Mobile-safe timing ────────────────────────────────── */
+  const MOBILE_HEARTBEAT_MULTIPLIER = 1.5; // slower heartbeat on mobile
+  const MOBILE_RECOVERY_DELAY_MS = 2000;    // delay recovery on mobile
+
   /* ── DOM references (set during init) ──────────────────── */
   let connectionDot = null;
   let chatBody      = null;
@@ -109,13 +122,16 @@
         params.set('mobile', window.inboxState.activeMobile);
         params.set('since_id', String(window.inboxState.cursors.globalLastMessageId));
       }
-
+      const pollStart = performance.now();
       const res = await fetch(`${API_URL}?${params}`, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      const fetchDuration = performance.now() - pollStart;
+      window.debugMetrics.polling.lastFetchMs = Math.round(fetchDuration);
       console.debug('[POLLING] poll() response received — contacts:', data.contacts?.length, 'messages:', data.messages?.length, 'inbox_messages:', data.inbox_messages?.length);
+      console.debug('[PERF] poll fetch:', Math.round(fetchDuration), 'ms');
 
       // ── Contacts / Sidebar ──
       if (data.contacts?.length) {
@@ -251,7 +267,7 @@
   const pollMessages = async () => {
     const requestMobile = window.inboxState.activeMobile;
     if (!requestMobile) return;
-
+    const pollMsgStart = performance.now();
     const currentToken = ++activeMessageRequestToken;
     console.debug('[POLLING] pollMessages() started — mobile:', requestMobile, 'token:', currentToken);
     window.inboxState.logToken('messages', currentToken);
@@ -260,8 +276,11 @@
       const sinceId = window.inboxState.lastMessageIdByMobile.get(requestMobile) || 0;
       const params = new URLSearchParams({ mobile: requestMobile, since_id: String(sinceId) });
 
-      messagesPollController?.abort();
+      window.abortControllerSafe(messagesPollController);
       messagesPollController = new AbortController();
+      if (window.inboxState.activeAbortControllers) {
+        window.inboxState.activeAbortControllers.push(messagesPollController);
+      }
 
       const res = await fetch(`${API_URL}?${params}`, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -326,6 +345,9 @@
           refreshActiveChat();
         }
       }
+
+      const pollMsgDuration = performance.now() - pollMsgStart;
+      console.debug('[PERF] pollMessages:', Math.round(pollMsgDuration), 'ms — mobile:', requestMobile);
 
       window.inboxState.resetPollFails();
       setPoll(true, 'Connected');
@@ -432,6 +454,92 @@
     }
   };
 
+  /* ── Visibility change handler ──────────────────────────── */
+  /**
+   * Handle tab visibility changes to stabilize polling after idle/reconnect.
+   * On returning to the tab: force a full poll + sidebar refresh.
+   * Prevents stale active chat after long inactivity.
+   *
+   * Recovery cooldown: prevents overlapping recovery storms.
+   * Mobile-safe: adds extra delay on mobile to avoid timer drift.
+   */
+  const handleVisibilityChange = () => {
+    if (!document.hidden) {
+      // ── Mobile timer drift check ─────────────────────────
+      const driftDetected = detectTimerDrift();
+
+      // ── Recovery cooldown guard ──────────────────────────
+      const now = Date.now();
+      if (now - lastRecoveryTime < MIN_RECOVERY_INTERVAL_MS) {
+        console.debug('[RECOVERY] Suppressed — cooldown active (', Math.round(now - lastRecoveryTime), 'ms since last)',
+          driftDetected ? '(timer drift detected)' : '');
+        window.inboxState.stress.stalePollDrops++;
+        return;
+      }
+      if (isRecovering) {
+        console.debug('[RECOVERY] Suppressed — recovery already in progress',
+          driftDetected ? '(timer drift detected)' : '');
+        window.inboxState.stress.stalePollDrops++;
+        return;
+      }
+      isRecovering = true;
+      lastRecoveryTime = now;
+      window.inboxState.stress.recoveryCount++;
+
+      // ── Mobile-safe delay ────────────────────────────────
+      const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+      const recoveryDelay = isMobile ? MOBILE_RECOVERY_DELAY_MS : 0;
+
+      const mobileLog = driftDetected ? ' (timer drift detected + mobile-safe delay: ' + MOBILE_RECOVERY_DELAY_MS + 'ms)'
+        : isMobile ? ' (mobile-safe delay: ' + MOBILE_RECOVERY_DELAY_MS + 'ms)' : '';
+      console.debug('[RECOVERY] Tab became visible — forcing poll + sidebar refresh', mobileLog);
+      window.debugMetrics.sync.lastTabRestore = now;
+
+      setTimeout(() => {
+        // Force a full poll cycle to catch up
+        poll().then(() => {
+          if (refreshSidebar) {
+            refreshSidebar();
+            console.debug('[RECOVERY] Sidebar refreshed after tab restore');
+          }
+          if (refreshActiveChat && window.inboxState.activeMobile) {
+            refreshActiveChat();
+            console.debug('[RECOVERY] Active chat refreshed after tab restore');
+          }
+        }).catch(err => {
+          console.warn('[RECOVERY] Post-restore poll failed:', err);
+        }).finally(() => {
+          isRecovering = false;
+        });
+
+        // Restart heartbeat with current timing
+        startHeartbeat();
+      }, recoveryDelay);
+    } else {
+      console.debug('[RECOVERY] Tab hidden — heartbeat will adapt',
+        isMobileAgent ? '(mobile timer drift expected)' : '');
+      window.inboxState.ui.isWindowFocused = false;
+    }
+  };
+
+  /**
+   * Detection of mobile timer drift.
+   * Mobile browsers aggressively throttle timers in background tabs.
+   * On return, we skip stale heartbeat ticks and force resync.
+   * Called from handleVisibilityChange before initiating recovery.
+   */
+  const isMobileAgent = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+  const detectTimerDrift = () => {
+    if (!isMobileAgent) return false;
+    const expectedTick = currentHeartbeatMs;
+    const actualGap = Date.now() - lastRecoveryTime;
+    if (expectedTick > 0 && actualGap > expectedTick * 3) {
+      console.debug('[RECOVERY] Mobile timer drift detected — gap:', actualGap, 'ms (expected ~', expectedTick, 'ms)');
+      return true;
+    }
+    return false;
+  };
+
   /* ── Lightweight sidebar-only poll (used after send actions) ─ */
   const pollSidebar = async () => {
     console.debug('[POLLING] pollSidebar() started');
@@ -500,6 +608,13 @@
     connectionDot           = config.connectionDotEl || null;
     chatBody                = config.chatBodyEl || null;
 
+    // Wire render burst throttle guard
+    lastRenderTimestamp = 0;
+
+    // Register visibility change handler for recovery
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    console.debug('[LIFECYCLE] visibilitychange recovery handler registered');
+
     // Wire up render function deps from the HTML IIFE
     if (config.renderFns) {
       debouncedRenderContacts = config.renderFns.debouncedRenderContacts || null;
@@ -517,6 +632,12 @@
     console.debug('[POLLING] Engine initialized — API:', API_URL,
       'heartbeat:', HEARTBEAT_ACTIVE_MS, '/', HEARTBEAT_BACKGROUND_MS, '/', HEARTBEAT_IDLE_MS);
     console.debug('[MODULE]', 'polling.js loaded — engine initialized');
+
+    /* ── TODO(websocket): Replace visibilitychange handler with
+       WS reconnect lifecycle event when migrating to WebSocket transport.
+       The current polling-based visibilitychange recovery forces a full
+       poll cycle. In a WS architecture, reconnect would trigger a
+       resync from the last known cursor instead. */
   };
 
   /* ═══════════════════════════════════════════════════════════
@@ -574,6 +695,7 @@
       this.abortMessagesPoll();
       this.abortSidebarPoll();
       this.clearPollTimer();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.__pollingEngineInitialized = false;
       console.debug('[POLLING] Engine destroyed');
     }

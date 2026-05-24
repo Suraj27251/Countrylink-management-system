@@ -91,6 +91,49 @@
   let nearBottom             = null;
   let applyComposerWindowPolicy = null;
 
+  /* ── Listener count tracker ────────────────────────────── */
+  let _listenerCount = 0;
+
+  /* ── DOM/Memory warning thresholds ─────────────────────── */
+  const DOM_WARN_THRESHOLDS = {
+    totalNodes: 10000,       // warn if document.querySelectorAll('*').length > 10k
+    messageNodes: 2000,      // warn if messageNodeMap.size > 2k
+    listeners: 100,          // warn if listener count > 100
+    sidebarContacts: 150,    // warn if sidebar contact count > 150
+  };
+
+  /* ── Mobile timer drift detection ─────────────────────── */
+  const _isMobileAgent = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+  let _lastInteractionTs = Date.now();
+  const MOBILE_DRIFT_THRESHOLD_MS = 5000; // warn if >5s gap between interactions
+
+  /**
+   * Track addEventListener calls for memory leak monitoring.
+   * Increments the listener count and returns the standard removeEventListener.
+   */
+  const trackAddListener = (target, event, handler, options) => {
+    if (target && target.addEventListener) {
+      target.addEventListener(event, handler, options);
+      _listenerCount++;
+      if (window.inboxState) window.inboxState.listenerCount = _listenerCount;
+      // Log every 10 listeners for healthy awareness
+      if (_listenerCount % 10 === 0) {
+        console.debug('[MEMORY] Active listeners count:', _listenerCount);
+      }
+    }
+  };
+
+  /**
+   * Track removeEventListener calls.
+   */
+  const trackRemoveListener = (target, event, handler, options) => {
+    if (target && target.removeEventListener) {
+      target.removeEventListener(event, handler, options);
+      _listenerCount = Math.max(0, _listenerCount - 1);
+      if (window.inboxState) window.inboxState.listenerCount = _listenerCount;
+    }
+  };
+
   /* ═══════════════════════════════════════════════════════════
      INITIALIZATION
      ═══════════════════════════════════════════════════════════ */
@@ -172,6 +215,15 @@
 
     console.debug('[EVENT] Engine initialized with', Object.keys(config).length, 'config groups');
     console.debug('[EVENT_BIND] Config loaded — API URLs:', Object.keys(api).length, 'DOM refs:', Object.keys(config.dom||{}).length, 'Modals:', Object.keys(config.modals||{}).length);
+    console.debug('[MEMORY] Initial listener count:', _listenerCount);
+
+    /* ── TODO(websocket): When migrating to WebSocket transport,
+       the events engine will need a reconnect lifecycle hook:
+       - eventsEngine.onReconnect() to re-bind modal listeners
+         that may have been attached to stale DOM.
+       - eventsEngine.onDisconnect() to show connection UI.
+       The current polling-based architecture reuses listeners
+       across chat switches because DOM nodes are stable. */
   };
 
   /* ═══════════════════════════════════════════════════════════
@@ -185,7 +237,7 @@
       dom.themeIcon.className = currentTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
     }
 
-    dom.themeToggle?.addEventListener('click', () => {
+    trackAddListener(dom.themeToggle, 'click', () => {
       const current = document.documentElement.getAttribute('data-theme') || 'light';
       const newTheme = current === 'dark' ? 'light' : 'dark';
 
@@ -198,8 +250,14 @@
     });
 
     console.debug('[EVENT_BIND] Theme listener registered');
+    console.debug('[LIFECYCLE] Theme initialized:', currentTheme);
     console.debug('[EVENT] Theme initialized:', currentTheme);
   };
+
+  /* ── TODO(websocket): Replace initInteractionUnlock with
+     a single 'user-activity' custom event that the WS reconnect
+     handler can also dispatch. Currently uses 5 separate DOM
+     events (pointerdown, keydown, touchstart, click, mousemove). */
 
   /* ═══════════════════════════════════════════════════════════
      2. AUDIO INITIALIZATION
@@ -219,6 +277,7 @@
     });
 
     console.debug('[AUDIO] Notification audio created:', NOTIFICATION_SOUND_URL);
+    console.debug('[LIFECYCLE] Audio initialized');
     console.debug('[EVENT] Audio initialized');
   };
 
@@ -243,6 +302,7 @@
     });
 
     console.debug('[EVENT_BIND] Interaction unlock + activity tracking listeners registered');
+    console.debug('[LIFECYCLE] Interaction unlock + activity tracking initialized');
     console.debug('[EVENT] Interaction unlock + activity tracking initialized');
   };
 
@@ -335,6 +395,7 @@
     }, 30000);
 
     console.debug('[AUDIO] Sound toggle listener registered, monitor interval set');
+    console.debug('[LIFECYCLE] Sound toggle initialized');
     console.debug('[EVENT] Sound toggle initialized');
   };
 
@@ -425,6 +486,7 @@
     });
 
     console.debug('[EVENT_BIND] Search input listener registered');
+    console.debug('[LIFECYCLE] Search initialized');
     console.debug('[EVENT] Search initialized');
   };
 
@@ -510,6 +572,7 @@
     });
 
     console.debug('[EVENT_BIND] Conversation click delegate listener registered on convList');
+    console.debug('[LIFECYCLE] Conversation click initialized');
     console.debug('[EVENT] Conversation click initialized');
   };
 
@@ -526,6 +589,7 @@
     });
 
     console.debug('[EVENT_BIND] Filter dropdown listeners registered:', $all('.dropdown-item[data-filter]').length);
+    console.debug('[LIFECYCLE] Filter dropdown initialized');
     console.debug('[EVENT] Filter dropdown initialized');
   };
 
@@ -566,6 +630,7 @@
     });
 
     console.debug('[MODAL] Media viewer listener registered on chatBody delegation');
+    console.debug('[LIFECYCLE] Media viewer initialized');
     console.debug('[EVENT] Media viewer initialized');
   };
 
@@ -597,6 +662,7 @@
     });
 
     console.debug('[COMPOSER] Send message submit listener registered');
+    console.debug('[LIFECYCLE] Send message initialized');
     console.debug('[EVENT] Send message initialized');
   };
 
@@ -840,6 +906,7 @@
     });
 
     console.debug('[EVENT_BIND] Template system listeners registered (select, filter, sync, send)');
+    console.debug('[LIFECYCLE] Template system initialized');
     console.debug('[EVENT] Template system initialized');
   };
 
@@ -873,6 +940,7 @@
     });
 
     console.debug('[EVENT_BIND] Workspace switching listeners registered');
+    console.debug('[LIFECYCLE] Workspace switching initialized');
     console.debug('[EVENT] Workspace switching initialized');
   };
 
@@ -901,6 +969,7 @@
     });
 
     console.debug('[EVENT_BIND] New conversation start listener registered');
+    console.debug('[LIFECYCLE] New conversation initialized');
     console.debug('[EVENT] New conversation initialized');
   };
 
@@ -1057,6 +1126,7 @@
     });
 
     console.debug('[MODAL] Interactive modal listeners registered (tabs, buttons, sections, flows, send)');
+    console.debug('[LIFECYCLE] Interactive message initialized');
     console.debug('[EVENT] Interactive message initialized');
   };
 
@@ -1104,6 +1174,7 @@
     });
 
     console.debug('[COMMAND] Command palette listeners registered (overlay click, kb shortcut, cmd items)');
+    console.debug('[LIFECYCLE] Command palette initialized');
     console.debug('[EVENT] Command palette initialized');
   };
 
@@ -1148,6 +1219,7 @@
     }
 
     console.debug('[EVENT_BIND] AI toggle change listener registered');
+    console.debug('[LIFECYCLE] AI toggle initialized');
     console.debug('[EVENT] AI toggle initialized');
   };
 
@@ -1178,8 +1250,135 @@
     initCommandPalette();
     initAiToggle();
 
-    console.debug('[EVENT_BIND] All 19 event subsystems registered');
+    // ── Stress hardening: DOM pressure + mobile drift ──
+    startDomPressureMonitoring();
+    patchMobileTracking();
+
+    console.debug('[EVENT_BIND] All 19 event subsystems + stress protections registered');
     console.debug('[MODULE]', 'events.js loaded');
+  };
+
+  /* ═══════════════════════════════════════════════════════════
+     22. DOM PRESSURE WARNING INTERVAL
+     ═══════════════════════════════════════════════════════════ */
+
+  let _domPressureInterval = null;
+
+  /**
+   * Start periodic DOM pressure monitoring.
+   * Logs warnings when thresholds are exceeded.
+   * Safe to call multiple times — prevents duplicate intervals.
+   */
+  const startDomPressureMonitoring = () => {
+    if (_domPressureInterval) {
+      console.debug('[DOM_WARN] Monitoring already started — skipping');
+      return;
+    }
+
+    console.debug('[DOM_WARN] Starting DOM pressure monitoring (60s interval)');
+
+    _domPressureInterval = setInterval(() => {
+      // Track interval in inboxState for cleanup
+      if (window.inboxState && window.inboxState.activeTimerIds) {
+        if (window.inboxState.activeTimerIds.indexOf(_domPressureInterval) === -1) {
+          window.inboxState.activeTimerIds.push(_domPressureInterval);
+        }
+      }
+      const st = window.inboxState;
+      if (!st) return;
+
+      const totalNodes = document.querySelectorAll('*').length;
+      const rend = window.renderEngine;
+      const msgMapSize = rend?.messageNodeMap?.size || 0;
+      const activeListeners = _listenerCount;
+      const sidebarCount = dom.convList?.querySelectorAll('.conv-item').length || 0;
+
+      // Track in debugMetrics
+      window.debugMetrics.memory.domNodeCount = totalNodes;
+      window.debugMetrics.memory.messageNodeMapSize = msgMapSize;
+      window.debugMetrics.memory.listenerEstimate = activeListeners;
+      window.debugMetrics.memory.sidebarContactCount = sidebarCount;
+
+      // ── Warning thresholds ──
+      if (totalNodes > DOM_WARN_THRESHOLDS.totalNodes) {
+        console.warn('[DOM_WARN] Excessive DOM nodes:', totalNodes, '(threshold:', DOM_WARN_THRESHOLDS.totalNodes, ')');
+      }
+      if (msgMapSize > DOM_WARN_THRESHOLDS.messageNodes) {
+        console.warn('[DOM_WARN] Large messageNodeMap:', msgMapSize, '(threshold:', DOM_WARN_THRESHOLDS.messageNodes, ')');
+      }
+      if (activeListeners > DOM_WARN_THRESHOLDS.listeners) {
+        console.warn('[DOM_WARN] High listener count:', activeListeners, '(threshold:', DOM_WARN_THRESHOLDS.listeners, ')');
+      }
+      if (sidebarCount > DOM_WARN_THRESHOLDS.sidebarContacts) {
+        console.warn('[DOM_WARN] Large sidebar:', sidebarCount, 'contacts (threshold:', DOM_WARN_THRESHOLDS.sidebarContacts, ')');
+      }
+
+      // ── Long-session memory protection: periodic pruning ──
+      const knownIds = st.globalKnownMessageIds?.size || 0;
+      if (knownIds > 5000) {
+        if (st.pruneKnownIdsSafe) st.pruneKnownIdsSafe(5000);
+      }
+      if (msgMapSize > 2000) {
+        if (st.pruneMessageNodeMapSafe) st.pruneMessageNodeMapSafe(2000);
+      }
+
+      // ── Detect detached / orphaned nodes ──
+      if (msgMapSize > 500) {
+        const rendEngine = window.renderEngine;
+        if (rendEngine?.messageNodeMap && rendEngine.messageNodeMap.size > 0) {
+          const chatBodyEl = dom.chatBody;
+          // Only prune message nodes if the DOM is non-empty
+          // We'll trigger cleanupDetachedNodesSafe from the health snapshot instead
+        }
+      }
+
+      console.debug('[MEMORY] DOM pressure check:', { totalNodes, msgMapSize, activeListeners, sidebarCount, knownIds });
+    }, 60000);
+  };
+
+  /**
+   * Stop DOM pressure monitoring.
+   */
+  const stopDomPressureMonitoring = () => {
+    if (_domPressureInterval) {
+      clearInterval(_domPressureInterval);
+      _domPressureInterval = null;
+      console.debug('[DOM_WARN] Monitoring stopped');
+    }
+  };
+
+  /* ═══════════════════════════════════════════════════════════
+     23. MOBILE TIMER DRIFT DETECTION
+     ═══════════════════════════════════════════════════════════ */
+
+  /**
+   * Track interaction timestamps to detect mobile timer drift.
+   * Call on each user interaction (keyboard, click, touch).
+   * If gap between interactions exceeds threshold on mobile,
+   * the browser likely throttled timers (common in hidden tabs).
+   */
+  const trackMobileInteraction = () => {
+    if (!_isMobileAgent) return;
+    const now = Date.now();
+    const gap = now - _lastInteractionTs;
+    _lastInteractionTs = now;
+
+    if (gap > MOBILE_DRIFT_THRESHOLD_MS && gap > 2000) {
+      console.debug('[RECOVERY] Mobile interaction gap detected:', Math.round(gap / 1000), 's — possible timer drift');
+      // The polling visibilitychange handler will force resync
+    }
+  };
+
+  /**
+   * Patch initInteractionUnlock to also track mobile interactions.
+   * The activity tracker already listens for user events — we augment it.
+   */
+  const patchMobileTracking = () => {
+    if (!_isMobileAgent) return;
+    ['pointerdown', 'keydown', 'touchstart', 'click'].forEach(ev => {
+      window.addEventListener(ev, trackMobileInteraction, { passive: true });
+    });
+    console.debug('[MEMORY] Mobile timer drift detection registered');
   };
 
   /* ═══════════════════════════════════════════════════════════

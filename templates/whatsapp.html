@@ -642,6 +642,48 @@
 (() => {
 'use strict';
 
+/* ── Error boundary ─────────────────────────────────────── */
+window.addEventListener('error', (ev) => {
+  console.error('[ERROR] Uncaught:', ev.message, 'at', ev.filename, ':', ev.lineno);
+  if (window.debugMetrics) {
+    window.debugMetrics.sync.lastError = { message: ev.message, time: Date.now() };
+  }
+});
+
+window.addEventListener('unhandledrejection', (ev) => {
+  console.warn('[ERROR] Unhandled promise rejection:', ev.reason?.message || ev.reason);
+  if (window.debugMetrics) {
+    window.debugMetrics.sync.lastRejection = { message: String(ev.reason || ''), time: Date.now() };
+  }
+});
+
+/* ── Health snapshot interval (every 60s) ─────────────── */
+setInterval(() => {
+  const snap = window.debugHealthSnapshot ? window.debugHealthSnapshot() : null;
+  if (snap) {
+    // Populate memory metrics
+    if (window.debugMetrics) {
+      window.debugMetrics.memory.domNodeCount = document.querySelectorAll('*').length;
+      window.debugMetrics.memory.sidebarContactCount = $all('.conv-item[data-mobile]', convList).length;
+      window.debugMetrics.memory.listenerEstimate = window.inboxState?.listenerCount || 0;
+      window.debugMetrics.memory.messageNodeMapSize = window.renderEngine?.messageNodeMap?.size || 0;
+    }
+    const mem = snap.memory;
+    const thresholdWarn = (label, val, limit) => {
+      if (val > limit) console.warn('[PERF_WARN]', label, val, '>', limit);
+    };
+    thresholdWarn('knownIdsSize', mem.knownIdsSize, 5000);
+    thresholdWarn('messageNodeMapSize', snap.render.messageNodeMapSize, 2000);
+    thresholdWarn('activeAbortControllers', mem.activeAbortControllers, 10);
+    thresholdWarn('activeTimers', mem.activeTimers, 15);
+    console.debug('[PERF] Health snapshot:', JSON.stringify(snap));
+    console.debug('[MEMORY] DOM nodes:', window.debugMetrics.memory.domNodeCount,
+      'sidebar contacts:', window.debugMetrics.memory.sidebarContactCount,
+      'listeners:', window.debugMetrics.memory.listenerEstimate);
+  }
+}, 60000);
+
+/* ── Config ──────────────────────────────────────────────── */
 /* ── Config ──────────────────────────────────────────────── */
 window.inboxState.activeMobile = '{{ active_mobile or "" }}';
 const API_URL         = '{{ url_for("whatsapp_messages_api") }}';
@@ -830,6 +872,66 @@ window.eventsEngine.bindAll();
 window.openCommandPalette = window.eventsEngine.openCommandPalette;
 window.closeCommandPalette = window.eventsEngine.closeCommandPalette;
 
+/* ── Stuck render/polling detection & self-healing ───── */
+let _stuckCheckInterval = null;
+const startStuckDetection = () => {
+  if (_stuckCheckInterval) return;
+  let lastPollActivity = Date.now();
+
+  _stuckCheckInterval = setInterval(() => {
+    const now = Date.now();
+    const st = window.inboxState;
+    if (!st) return;
+
+    // ── Render stuck detection (monitors internal render activity via exposed API) ──
+    const rend = window.renderEngine;
+    if (rend && rend.isRenderInProgress) {
+      const staleMs = rend.renderStaleMs || 0;
+      if (staleMs > 10000) {
+        console.warn('[SELF_HEAL] Render stuck for', Math.round(staleMs / 1000), 's — force-resetting render guard');
+        rend.forceResetRenderGuard();
+        st.stress.staleRenderDrops++;
+        // Trigger a fresh render cycle
+        refreshSidebar();
+        if (st.activeMobile) refreshActiveChat();
+      }
+    }
+
+    // ── Polling stuck detection ──
+    const pollElapsed = now - lastPollActivity;
+    if (pollElapsed > 15000 && st.pollTimer) {
+      console.warn('[SELF_HEAL] Polling appears stuck — last activity', Math.round(pollElapsed / 1000), 's ago — restarting poll');
+      st.resetPollFails();
+      window.pollingEngine.clearPollTimer();
+      window.pollingEngine.schedulePoll(0);
+      lastPollActivity = now;
+      st.stress.stalePollDrops++;
+    }
+
+    // ── Track last poll activity ──
+    if (st.pollTimer) lastPollActivity = now;
+
+    // ── DOM pressure threshold warning + pruning ──
+    const totalNodes = document.querySelectorAll('*').length;
+    if (totalNodes > 10000) {
+      console.warn('[DOM_WARN] DOM node count:', totalNodes, '— possible memory pressure');
+    }
+    if (st.cleanupDetachedNodesSafe && totalNodes > 8000) {
+      st.cleanupDetachedNodesSafe();
+    }
+
+    // ── Memory leak pruning (long-running sessions) ──
+    if (st.pruneKnownIdsSafe) st.pruneKnownIdsSafe(5000);
+    if (st.pruneMessageNodeMapSafe) st.pruneMessageNodeMapSafe(2000);
+
+  }, 15000);
+
+  console.debug('[SELF_HEAL] Stuck render/polling detection started (15s interval)');
+};
+
+startStuckDetection();
+
+// ── End of health check ──
 window.pollingEngine.schedulePoll(0); // start silently — dot only appears on failure
 if ($('quickTemplateMobile') && window.inboxState.activeMobile) $('quickTemplateMobile').value = window.inboxState.activeMobile;
 window.eventsEngine.setWorkspace('inbox');

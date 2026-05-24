@@ -46,6 +46,21 @@
   /* ── Render queue protection ──────────────────────────── */
   let isRenderInProgress = false;
   let pendingRenderFrame = false;
+  const RENDER_THROTTLE_MS = 50;
+  const RENDER_QUEUE_MAX = 3;          // max queued refreshes before coalescing
+  let queuedSidebarCount = 0;          // # of queued sidebar refreshes (for coalescing)
+  let queuedActiveChatCount = 0;       // # of queued active chat refreshes
+  const STALE_RENDER_TIMEOUT_MS = 5000; // max ms a render can run before stuck detection
+  let lastSidebarRenderTime = 0;
+  let lastActiveChatRenderTime = 0;
+
+  /* ── Render activity tracking (for external stuck detection) ─ */
+  let _lastRenderActivityAt = Date.now();
+  const _markRenderActive = () => { _lastRenderActivityAt = Date.now(); };
+  const _getRenderStaleMs = () => {
+    if (!isRenderInProgress) return 0;
+    return Date.now() - _lastRenderActivityAt;
+  };
 
   /* ═══════════════════════════════════════════════════════════
      INJECTED DEPENDENCIES (set by init())
@@ -476,6 +491,7 @@
   const renderContacts = contacts => {
     const el = dom.convList;
     if (!el) return;
+    const renderStart = performance.now();
     prunePerChatState(contacts);
     if (!contacts.length) {
       if (!el.querySelector('.conv-empty')) {
@@ -536,6 +552,9 @@
 
     sortContactsByPriority(orderedBySection);
     applyComposerWindowPolicy();
+    const renderDuration = performance.now() - renderStart;
+    window.debugMetrics.render.lastSidebarMs = Math.round(renderDuration);
+    console.debug('[PERF] renderContacts:', Math.round(renderDuration), 'ms —', contacts.length, 'contacts');
     console.debug('[SIDEBAR] renderContacts complete —', contacts.length, 'contacts');
   };
 
@@ -563,24 +582,61 @@
    */
   const refreshSidebar = () => {
     if (isRenderInProgress) {
-      console.debug('[RENDER_QUEUE] Sidebar refresh queued — render already in progress');
+      // ── Queue ceiling: coalesce excessive queuing ─────
+      queuedSidebarCount++;
+      if (queuedSidebarCount >= RENDER_QUEUE_MAX) {
+        console.debug('[RENDER_QUEUE] Sidebar refresh coalesced — dropped', queuedSidebarCount, 'queued calls');
+        window.inboxState.stress.queueCoalesceCount++;
+        queuedSidebarCount = 0; // reset after coalescing
+      }
       pendingRenderFrame = true;
+      console.debug('[RENDER_QUEUE] Sidebar refresh queued (count:', queuedSidebarCount, ')');
       return;
     }
+
+    // Render burst throttle: skip if called within RENDER_THROTTLE_MS of last render
+    const now = performance.now();
+    if (now - lastSidebarRenderTime < RENDER_THROTTLE_MS) {
+      console.debug('[PERF] refreshSidebar throttled — burst suppressed');
+      window.inboxState.stress.staleRenderDrops++;
+      return;
+    }
+    lastSidebarRenderTime = now;
+    queuedSidebarCount = 0; // reset coalesce counter
+
     isRenderInProgress = true;
+    _markRenderActive();
     console.debug('[SIDEBAR] refreshSidebar triggered');
 
+    // ── Stuck render detection ─────────────────────────
+    const stuckTimer = setTimeout(() => {
+      console.warn('[DOM_WARN] refreshSidebar stuck for', STALE_RENDER_TIMEOUT_MS, 'ms — force-resetting render guard');
+      isRenderInProgress = false;
+      pendingRenderFrame = false;
+    }, STALE_RENDER_TIMEOUT_MS);
+
+    // ── Large sidebar warning ──────────────────────────
+    const contacts = window.inboxState.contacts;
+    if (contacts && Array.isArray(contacts) && contacts.length > 150) {
+      const sidebarContacts = dom.convList?.querySelectorAll('.conv-item').length || 0;
+      console.debug('[DOM_WARN] Large sidebar detected —', contacts.length, 'contacts in state,', sidebarContacts, 'in DOM');
+      window.debugMetrics.memory.sidebarContactCount = contacts.length;
+    }
+
+    const sidebarRefreshStart = performance.now();
     const el = dom.convList;
     if (!el) {
       console.debug('[SIDEBAR] refreshSidebar skipped — no convList DOM ref');
+      clearTimeout(stuckTimer);
       isRenderInProgress = false;
       return;
     }
 
-    const contacts = window.inboxState.contacts;
     if (contacts && Array.isArray(contacts) && contacts.length > 0) {
       renderContacts(contacts);
-      console.debug('[SIDEBAR] refreshSidebar complete — re-rendered', contacts.length, 'contacts');
+      window.debugMetrics.render.lastSidebarRefreshMs = Math.round(performance.now() - sidebarRefreshStart);
+    console.debug('[PERF] refreshSidebar:', Math.round(performance.now() - sidebarRefreshStart), 'ms');
+    console.debug('[SYNC] refreshSidebar complete —', contacts.length, 'contacts');
     } else {
       // Green dot fallback for visible contacts when no cached data
       const items = el.querySelectorAll('.conv-item[data-mobile]');
@@ -591,7 +647,16 @@
       console.debug('[SIDEBAR] refreshSidebar complete — green dots only, no contacts cache');
     }
 
+    clearTimeout(stuckTimer);
     applyComposerWindowPolicy();
+
+    // Track max sidebar render duration
+    const sidebarDuration = performance.now() - sidebarRefreshStart;
+    window.inboxState.stress.maxSidebarRenderMs = Math.max(
+      window.inboxState.stress.maxSidebarRenderMs,
+      Math.round(sidebarDuration)
+    );
+
     isRenderInProgress = false;
 
     // If another refresh was queued during this render, run it once
@@ -610,12 +675,40 @@
    */
   const refreshActiveChat = () => {
     if (isRenderInProgress) {
-      console.debug('[RENDER_QUEUE] Active chat refresh queued — render already in progress');
+      // ── Queue ceiling: coalesce excessive queuing ─────
+      queuedActiveChatCount++;
+      if (queuedActiveChatCount >= RENDER_QUEUE_MAX) {
+        console.debug('[RENDER_QUEUE] Active chat refresh coalesced — dropped', queuedActiveChatCount, 'queued calls');
+        window.inboxState.stress.queueCoalesceCount++;
+        queuedActiveChatCount = 0;
+      }
       pendingRenderFrame = true;
+      console.debug('[RENDER_QUEUE] Active chat refresh queued (count:', queuedActiveChatCount, ')');
       return;
     }
+
+    // Throttle: skip if called within RENDER_THROTTLE_MS of last active chat refresh
+    const now = performance.now();
+    if (now - lastActiveChatRenderTime < RENDER_THROTTLE_MS) {
+      console.debug('[PERF] refreshActiveChat throttled — burst suppressed');
+      window.inboxState.stress.staleRenderDrops++;
+      return;
+    }
+    lastActiveChatRenderTime = now;
+    queuedActiveChatCount = 0;
+
     isRenderInProgress = true;
+    _markRenderActive();
     console.debug('[ACTIVE_CHAT] refreshActiveChat triggered');
+
+    // ── Stuck render detection ─────────────────────────
+    const stuckTimer = setTimeout(() => {
+      console.warn('[DOM_WARN] refreshActiveChat stuck for', STALE_RENDER_TIMEOUT_MS, 'ms — force-resetting render guard');
+      isRenderInProgress = false;
+      pendingRenderFrame = false;
+    }, STALE_RENDER_TIMEOUT_MS);
+
+    const activeChatRefreshStart = performance.now();
 
     applyComposerWindowPolicy();
 
@@ -625,6 +718,17 @@
       sendBtn.disabled = false;
     }
 
+    window.debugMetrics.render.lastActiveChatRefreshMs = Math.round(performance.now() - activeChatRefreshStart);
+
+    // Track max active chat render duration
+    const activeChatDuration = performance.now() - activeChatRefreshStart;
+    window.inboxState.stress.maxActiveChatRenderMs = Math.max(
+      window.inboxState.stress.maxActiveChatRenderMs,
+      Math.round(activeChatDuration)
+    );
+
+    clearTimeout(stuckTimer);
+    console.debug('[PERF] refreshActiveChat:', Math.round(activeChatDuration), 'ms');
     console.debug('[ACTIVE_CHAT] refreshActiveChat complete');
     isRenderInProgress = false;
 
@@ -662,6 +766,15 @@
     get messageNodeMap()           { return messageNodeMap; },
     get isRenderInProgress()        { return isRenderInProgress; },
     get pendingRenderFrame()        { return pendingRenderFrame; },
+    get renderStaleMs()            { return _getRenderStaleMs(); },
+
+    /** Force-reset render guards (for self-healing) */
+    forceResetRenderGuard() {
+      isRenderInProgress = false;
+      pendingRenderFrame = false;
+      _lastRenderActivityAt = Date.now();
+      console.warn('[RENDER] Render guard force-reset by self-healing');
+    },
 
     /** Clear the message node registry (e.g., on chat switch) */
     clearMessageNodeMap() {
