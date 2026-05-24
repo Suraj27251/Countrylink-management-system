@@ -641,6 +641,7 @@
 <script>
 (() => {
 'use strict';
+try {
 
 /* ── Error boundary ─────────────────────────────────────── */
 window.addEventListener('error', (ev) => {
@@ -751,6 +752,12 @@ const prunePerChatState = window.renderEngine.prunePerChatState;
 const refreshSidebar = window.renderEngine.refreshSidebar;
 const refreshActiveChat = window.renderEngine.refreshActiveChat;
 
+/* ── Bootstrap helpers (MUST be before any engine init) ── */
+const esc = v => String(v||'').replace(/[&<>'"]/g,
+  m => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));
+const showPageLoader = () => pageLoader?.classList.add('show');
+console.debug('[BOOT] Helpers initialized (esc, showPageLoader)');
+
 /* ── Initialize Render Engine with cached DOM refs ──────── */
 window.renderEngine.init({
   staticBase: STATIC_BASE,
@@ -766,6 +773,7 @@ window.renderEngine.init({
     applyComposerWindowPolicy
   }
 });
+console.debug('[BOOT] Render engine initialized');
 
 /* ── State ───────────────────────────────────────────────── */
 window.inboxState.templates = [];
@@ -804,14 +812,7 @@ const templateQuickSendModal = safeModal('templateQuickSendModal');
 const mediaModal       = new bootstrap.Modal($('mediaModal'));
 
 
-
-/* ── Helpers ─────────────────────────────────────────────── */
-const esc = v => String(v||'').replace(/[&<>'"]/g,
-  m => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));const showPageLoader = () => pageLoader?.classList.add('show');
-
-/* ── Init ────────────────────────────────────────────────── */
-console.debug('[MODULE]', 'HTML IIFE started — initializing poll');
-window.inboxState.log('[STATE] Inbox initialized, starting poll');
+console.debug('[BOOT] State hydrated, modals ready');
 
 // Initialize polling engine with all deps
 window.pollingEngine.init({
@@ -833,6 +834,7 @@ window.pollingEngine.init({
     refreshActiveChat
   }
 });
+console.debug('[BOOT] Polling engine initialized');
 
 /* ── Initialize events engine ──────────────────────────── */
 window.eventsEngine.init({
@@ -865,8 +867,10 @@ window.eventsEngine.init({
     applyComposerWindowPolicy,
   }
 });
+console.debug('[BOOT] Events engine initialized');
 
 window.eventsEngine.bindAll();
+console.debug('[BOOT] Events bound — all listeners registered');
 
 /* ── Window-level aliases for inline onclick handlers ──── */
 window.openCommandPalette = window.eventsEngine.openCommandPalette;
@@ -939,6 +943,10 @@ window.eventsEngine.resizeInput();
 if (msgInput && !msgInput.disabled) msgInput.focus();
 scrollBottom();
 
+} catch (bootErr) {
+  console.error('[BOOT] Bootstrap FAILED:', bootErr && bootErr.message ? bootErr.message : bootErr);
+  if (bootErr && bootErr.stack) console.error('[BOOT] Stack:', bootErr.stack);
+}
 })();
 </script>
 {% endblock %}
