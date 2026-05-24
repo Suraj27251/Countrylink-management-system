@@ -636,6 +636,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/state.js') }}"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/render.js') }}"></script>
 <script>
 (() => {
 'use strict';
@@ -644,6 +645,7 @@
 window.inboxState.activeMobile = '{{ active_mobile or "" }}';
 const API_URL         = '{{ url_for("whatsapp_messages_api") }}';
 const PAGE_URL        = '{{ url_for("whatsapp_complaints") }}';
+window.PAGE_URL = PAGE_URL;
 const SEND_URL        = '{{ url_for("send_whatsapp") }}';
 const TEMPLATE_URL    = '{{ url_for("whatsapp_templates_api") }}';
 const SEND_TPL_URL    = '{{ url_for("send_whatsapp_template_api") }}';
@@ -652,6 +654,7 @@ const OPEN_CONV_URL   = '/api/whatsapp/conversations/open';
 const FLOWS_URL       = '{{ url_for("whatsapp_flows_api") }}';
 const SYNC_FLOWS_URL  = '{{ url_for("sync_whatsapp_flows_api") }}';
 const STATIC_BASE     = '{{ url_for("static", filename="") }}';
+window.STATIC_BASE = STATIC_BASE;
 const HEARTBEAT_ACTIVE_MS = 1000;
 const HEARTBEAT_BACKGROUND_MS = 5000;
 const HEARTBEAT_IDLE_MS = 10000;
@@ -686,6 +689,38 @@ const templateBtn    = $('templateBtn');
 const interactiveBtn = $('interactiveBtn');
 const cmdChip        = $('cmdChip');
 const pageLoader     = $('pageLoader');
+/* ── Render Engine ──────────────────────────────────── */
+const renderMsg = window.renderEngine.renderMsg;
+const upsertMsg = window.renderEngine.upsertMsg;
+const renderContacts = window.renderEngine.renderContacts;
+const debouncedRenderContacts = window.renderEngine.debouncedRenderContacts;
+const nearBottom = window.renderEngine.nearBottom;
+const scrollBottom = window.renderEngine.scrollBottom;
+const updateContactGreenDot = window.renderEngine.updateContactGreenDot;
+const applyComposerWindowPolicy = window.renderEngine.applyComposerWindowPolicy;
+const isActiveChatWindow = window.renderEngine.isActiveChatWindow;
+const inferMediaKind = window.renderEngine.inferMediaKind;
+const formatUnreadBadge = window.renderEngine.formatUnreadBadge;
+const fmtTime = window.renderEngine.fmtTime;
+const prunePerChatState = window.renderEngine.prunePerChatState;
+const refreshSidebar = window.renderEngine.refreshSidebar;
+const refreshActiveChat = window.renderEngine.refreshActiveChat;
+
+/* ── Initialize Render Engine with cached DOM refs ──────── */
+window.renderEngine.init({
+  staticBase: STATIC_BASE,
+  pageUrl: PAGE_URL,
+  dom: {
+    chatBody,
+    convList,
+    scrollBtn
+  },
+  helpers: {
+    esc,
+    fmtTime,
+    applyComposerWindowPolicy
+  }
+});
 
 /* ── State ───────────────────────────────────────────────── */
 window.inboxState.templates = [];
@@ -696,6 +731,13 @@ window.inboxState.iType = 'button';
 /* pollFails in window.inboxState */
 /* hasInteracted in window.inboxState.ui */
 /* window.inboxState.ui.soundEnabled in window.inboxState.ui */
+/* ── Centralized contact ownership ────────────────────── */
+window.inboxState.contacts = $all('.conv-item[data-mobile]').map(el => ({
+  mobile: el.dataset.mobile,
+  name: el.querySelector('.conv-name')?.textContent || '',
+  preview: el.querySelector('.conv-preview')?.textContent || '',
+}));
+
 window.inboxState.globalKnownMessageIds = new Set(
   $all('#chatBody .msg-row[data-message-id]').map(el => el.dataset.messageId)
 );
@@ -704,28 +746,7 @@ window.inboxState.cursors.globalLastInboxId = Math.max(window.inboxState.cursors
 /* unreadByMobile, lastSeenMessageIdByMobile, window.inboxState.ui.conversationOpenedAt in window.inboxState */
 /* window.inboxState.renderContactsTimeout, window.inboxState.pendingRenderContacts in window.inboxState */
 
-// Debounce renderContacts to prevent excessive DOM updates and re-sorting
-const debouncedRenderContacts = (contacts) => {
-  clearTimeout(window.inboxState.renderContactsTimeout);
-  window.inboxState.pendingRenderContacts = contacts;
-  window.inboxState.renderContactsTimeout = setTimeout(() => {
-    if (window.inboxState.pendingRenderContacts) {
-      renderContacts(window.inboxState.pendingRenderContacts);
-      window.inboxState.pendingRenderContacts = null;
-    }
-  }, 300);
-}; 
-const prunePerChatState = contacts => {
-  const activeMobile = window.inboxState.activeMobile || '';
-  const knownMobiles = new Set((contacts || []).map(c => c?.mobile).filter(Boolean));
-  if (activeMobile) knownMobiles.add(activeMobile);
 
-  [window.inboxState.lastMessageIdByMobile, window.inboxState.lastSeenMessageIdByMobile, window.inboxState.unreadByMobile].forEach(stateMap => {
-    for (const mobile of stateMap.keys()) {
-      if (!knownMobiles.has(mobile)) stateMap.delete(mobile);
-    }
-  });
-};
 const safeModal = id => {
   const el = $(id);
   if (!el || !window.bootstrap?.Modal) return null;
@@ -834,70 +855,9 @@ const beep = (inboundMobile) => {
 /* ── Helpers ─────────────────────────────────────────────── */
 const esc = v => String(v||'').replace(/[&<>'"]/g,
   m => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));
-const fmtTime = ts => (ts && ts.includes(' ')) ? ts.split(' ')[1].slice(0,5) : (ts||'').slice(0,5);
-const nearBottom = () => chatBody && (chatBody.scrollHeight - chatBody.scrollTop - chatBody.clientHeight < 160);
-const scrollBottom = () => chatBody && requestAnimationFrame(() => { chatBody.scrollTop = chatBody.scrollHeight; });
 const showPageLoader = () => pageLoader?.classList.add('show');
-const formatUnreadBadge = (count) => (count > 99 ? '99+' : String(count));
-const applyComposerWindowPolicy = () => {
-  const status = window.inboxState.chatWindowStatusByMobile.get(window.inboxState.activeMobile) || 'active';
-  const isInactive = status === 'inactive';
-  if (msgInput) {
-    msgInput.disabled = isInactive;
-    if (isInactive) msgInput.placeholder = '24h window expired. Send a template to reopen chat.';
-    else msgInput.placeholder = 'Write a message…';
-  }
-  const sendBtn = $('sendBtn');
-  if (sendBtn) sendBtn.disabled = isInactive;
-};
 
-// Update green dot for a specific contact
-const updateContactGreenDot = (mobile) => {
-  if (!convList) return;
-  const contactEl = convList.querySelector(`[data-mobile="${CSS.escape(mobile)}"]`);
-  if (!contactEl) return;
-  
-  const isActive = mobile === window.inboxState.activeMobile;
-  const serverUnreadCount = Number(contactEl.dataset.unreadCount || 0);
-  const unreadCount = !isActive ? serverUnreadCount : 0;
-  const hasNewMessage = !isActive && unreadCount > 0;
-  
-  contactEl.classList.toggle('has-new', hasNewMessage);
-  
-  // Update unread badge
-  let unreadEl = contactEl.querySelector('.conv-unread');
-  if (unreadCount > 0) {
-    if (!unreadEl) {
-      contactEl.insertAdjacentHTML('beforeend', `<span class="conv-unread">${formatUnreadBadge(unreadCount)}</span>`);
-    } else if (unreadEl.textContent !== formatUnreadBadge(unreadCount)) {
-      unreadEl.textContent = formatUnreadBadge(unreadCount);
-    }
-  } else if (unreadEl) {
-    unreadEl.remove();
-  }
-  
-  // Move to top if has new message
-  if (hasNewMessage && contactEl.parentElement === convList && contactEl !== convList.firstChild) {
-    console.log(`[Green Dot] Moving ${contactEl.dataset.name} (${mobile}) to top`);
-    convList.insertBefore(contactEl, convList.firstChild);
-  }
-  
-  console.log(`[Green Dot] Updated for ${mobile}: hasNewMessage=${hasNewMessage}, unreadCount=${unreadCount}`);
-};
 
-// Check if conversation is within 24-hour Meta chat window
-const isActiveChatWindow = createdAt => {
-  if (!createdAt) return true; // Default to active if no date
-  try {
-    const created = new Date(createdAt);
-    const now = new Date();
-    const ageMs = now - created;
-    const ageHours = ageMs / (1000 * 60 * 60);
-    return ageHours < 24;
-  } catch {
-    return true; // Default to active if date parsing fails
-  }
-};
 
 /* Connection indicator — setPoll, getHeartbeatMs in polling.js */
 
@@ -1024,6 +984,7 @@ convList.addEventListener('click', async e => {
   window.inboxState.setActiveMobile(mobile);
   window.inboxState.cursors.globalLastMessageId = 0;
   window.inboxState.globalKnownMessageIds.clear();
+  window.renderEngine.clearMessageNodeMap();
   window.inboxState.ui.conversationOpenedAt = Date.now();
 
   // Only abort if switching to a different mobile (prevents unnecessary cancellation during heartbeat)
@@ -1109,264 +1070,11 @@ chatBody?.addEventListener('click', e => {
   mediaModal.show();
 });
 
-const inferMediaKind = (m = {}) => {
-  const type = (m.message_type || '').toLowerCase();
-  if (['image', 'sticker'].includes(type)) return 'image';
-  if (type === 'video' || type === 'gif') return 'video';
-  if (type === 'audio') return 'audio';
-
-  const candidate = `${m.file_name || ''} ${m.media_url || ''}`.toLowerCase();
-  if (/\.(webp|png|jpe?g|bmp|svg)(\?|$)/.test(candidate)) return 'image';
-  if (/\.(gif|mp4|mov|webm|mkv|3gp)(\?|$)/.test(candidate)) return 'video';
-  if (/\.(mp3|ogg|wav|m4a|aac|opus)(\?|$)/.test(candidate)) return 'audio';
-  return 'document';
-};
 
 /* ── Render message ──────────────────────────────────────── */
-const renderMsg = m => {
-  const row = document.createElement('div');
-  row.className = `msg-row ${m.direction === 'outbound' ? 'outbound' : 'incoming'}`;
-  row.dataset.messageId = m.id;
-
-  const status = (m.delivery_status||'').toLowerCase();
-  const statusIcon = m.direction === 'outbound'
-    ? (status === 'read'
-      ? '<i class="fas fa-check-double msg-status-icon read" title="Read"></i>'
-      : ['delivered','sent','accepted'].includes(status)
-        ? '<i class="fas fa-check-double msg-status-icon" title="Delivered"></i>'
-        : '<i class="fas fa-check msg-status-icon" title="Sent"></i>')
-    : '';
-
-  let mediaHtml = '';
-  if (m.media_url) {
-    const src = `${STATIC_BASE}${m.media_url}`;
-    const mediaKind = inferMediaKind(m);
-    if (mediaKind === 'image') {
-      const isSticker = (m.message_type || '').toLowerCase() === 'sticker' || /\.webp(\?|$)/i.test(src);
-      const cls = isSticker ? 'msg-sticker msg-media' : 'msg-media';
-      const alt = isSticker ? 'Sticker' : 'Image';
-      mediaHtml = `<img class="${cls}" data-type="image" src="${esc(src)}" alt="${alt}" loading="lazy">`;
-    } else if (mediaKind === 'video') {
-      mediaHtml = `<video class="msg-media" data-type="video" src="${esc(src)}" controls preload="metadata"></video>`;
-    } else if (mediaKind === 'audio') {
-      mediaHtml = `<audio class="msg-audio" controls src="${esc(src)}" preload="none"></audio>`;
-    } else {
-      mediaHtml = `<a class="msg-doc-link" href="${esc(src)}" target="_blank" rel="noopener" download><i class="fas fa-file-arrow-down"></i><span class="msg-doc-meta"><span class="msg-doc-name">${esc(m.file_name||'Attachment')}</span><span class="msg-doc-type">${esc((m.message_type||'file').replace('_',' '))}</span></span></a>`;
-    }
-  }
-
-  const locHtml = (m.message_type === 'location' && m.latitude != null && m.longitude != null)
-    ? `<div class="msg-location-wrap">
-         <iframe class="msg-location-frame" src="https://maps.google.com/maps?q=${m.latitude},${m.longitude}&z=15&output=embed" loading="lazy"></iframe>
-         <a class="msg-location-link" href="https://www.google.com/maps/search/?api=1&query=${m.latitude},${m.longitude}" target="_blank" rel="noopener">
-           <i class="fas fa-map-pin"></i> Open in Google Maps
-         </a>
-       </div>`
-    : '';
-
-  const fallbackText = m.message_type === 'template' ? '📋 Template message' : m.message_type === 'interactive' ? '🔘 Interactive message' : m.message_type === 'sticker' ? '🧩 Sticker' : '';
-  const textContent = esc(m.text || fallbackText);
-  const showText = Boolean((m.text || fallbackText || '').trim());
-  const errorHtml = m.error_reason ? `<div class="msg-error-chip"><i class="fas fa-circle-exclamation"></i> ${esc(m.error_reason)}</div>` : '';
-  const senderName = m.direction === 'inbound'
-    ? `<div class="msg-sender-name">${esc(m.name || 'Customer')}</div>` : '';
-
-  row.innerHTML = `
-    ${senderName}
-    <div class="msg-bubble">
-      ${locHtml}${mediaHtml}
-      ${showText ? `<p class="msg-text">${textContent}</p>` : ''}
-      ${errorHtml}
-      <div class="msg-footer"><span class="msg-time">${fmtTime(m.created_at)}</span>${statusIcon}</div>
-    </div>`;
-  return row;
-};
 
 /* ── Upsert message ──────────────────────────────────────── */
-const upsertMsg = m => {
-  const idStr = String(m.id);
-  const domNode = chatBody?.querySelector(`[data-message-id="${CSS.escape(idStr)}"]`);
 
-  // DOM is the source of truth; knownIds is only a best-effort cache.
-  if (!domNode) {
-    const emptyHint = $('chatEmptyHint');
-    emptyHint?.remove();
-    chatBody.appendChild(renderMsg(m));
-    const idStr = String(m.id);
-    const isNew = !window.inboxState.globalKnownMessageIds.has(idStr);
-    window.inboxState.globalKnownMessageIds.add(idStr);
-    if (isNew) {
-      window.inboxState.cursors.globalLastMessageId = Math.max(window.inboxState.cursors.globalLastMessageId, +m.id || 0);
-      window.inboxState.cursors.globalLastInboxId = Math.max(window.inboxState.cursors.globalLastInboxId, +m.id || 0);
-    }
-    return true;
-  }
-
-  const existing = domNode;
-
-  // Patch status only
-  const patchStatus = (selector, html) => {
-    let el = existing.querySelector(selector);
-    if (html && !el) {
-      el = document.createElement('div');
-      const timeEl = existing.querySelector('.msg-time');
-      timeEl ? timeEl.before(el) : existing.querySelector('.msg-bubble')?.appendChild(el);
-    }
-    if (el) el.outerHTML = html || '';
-  };
-
-  const status = (m.delivery_status||'').toLowerCase();
-  const statusIcon = m.direction === 'outbound'
-    ? (status === 'read'
-      ? '<i class="fas fa-check-double msg-status-icon read" title="Read"></i>'
-      : ['delivered','sent','accepted'].includes(status)
-        ? '<i class="fas fa-check-double msg-status-icon" title="Delivered"></i>'
-        : '<i class="fas fa-check msg-status-icon" title="Sent"></i>')
-    : '';
-  patchStatus('.msg-status-icon', statusIcon);
-
-  const errorChip = m.error_reason ? `<div class="msg-error-chip"><i class="fas fa-circle-exclamation"></i> ${esc(m.error_reason)}</div>` : '';
-  patchStatus('.msg-error-chip', errorChip);
-
-  return false;
-};
-
-/* ── Render contacts ─────────────────────────────────────── */
-const avatarClasses = ['', 'alt-1', 'alt-2'];
-const renderContacts = contacts => {
-// TODO(phase3): Sidebar updates independently from chat rendering
-  // The unreadByMobile/activeMobile state here is shared with poll().
-  // When a new message arrives, sidebar reorders BEFORE active chat
-  // re-renders, causing a visual mismatch until the next poll cycle.
-  if (!convList) return;
-  prunePerChatState(contacts);
-  if (!contacts.length) {
-    if (!convList.querySelector('.conv-empty')) {
-      convList.innerHTML = `<div class="conv-empty"><i class="fab fa-whatsapp"></i><h4>No conversations yet</h4><p>New WhatsApp messages will appear here in real time</p></div>`;
-    }
-    return;
-  }
-  // Remove empty state if present
-  const emptyEl = convList.querySelector('.conv-empty');
-  if (emptyEl) emptyEl.remove();
-  if (!convList.querySelector('[data-section="active"]')) {
-    convList.innerHTML = `
-      <div class="conv-section" data-section="active"><div class="conv-section-title">Active</div></div>
-      <div class="conv-section" data-section="expiring"><div class="conv-section-title">Expiring Soon</div></div>
-      <div class="conv-section" data-section="inactive"><div class="conv-section-title">Inactive</div></div>
-    `;
-  }
-  const orderedBySection = {
-    active: [],
-    expiring: [],
-    inactive: [],
-  };
-  
-  contacts.forEach((c, i) => {
-    const mobile = c.mobile || '';
-    if (!mobile) return;
-    const isActive = mobile === window.inboxState.activeMobile;
-    // Don't delete unread badge when chat becomes active - keep it visible until marked as read
-    // if (isActive) window.inboxState.unreadByMobile.delete(mobile);
-    const name = c.name || mobile || 'Unknown';
-    const cls = avatarClasses[i % 3];
-    const unreadCount = !isActive ? (window.inboxState.unreadByMobile.get(mobile) || 0) : 0;
-    const hasNewMessage = !isActive && unreadCount > 0;
-    const time = fmtTime(c.created_at);
-    const preview = c.text || c.preview || 'No messages yet';
-    const isChatWindowActive = isActiveChatWindow(c.created_at);
-    const windowStatus = isChatWindowActive ? 'active' : 'inactive';
-    const aiReplied = false;
-    const needsHuman = false;
-    const effectiveUnread = unreadCount;
-    const showAiUnread = false;
-    const sectionEl = convList.querySelector(`[data-section="${windowStatus}"]`) || convList;
-    const existing = convList.querySelector(`[data-mobile="${CSS.escape(mobile)}"]`);
-    
-    if (existing) {
-      // Patch only what changed — no full re-render, no flash
-      existing.classList.toggle('active', isActive);
-      existing.classList.toggle('has-new', hasNewMessage);
-      existing.classList.toggle('inactive-24h', !isChatWindowActive);
-      
-      const nameEl = existing.querySelector('.conv-name');
-      if (nameEl && nameEl.textContent !== name) nameEl.textContent = name;
-      const previewEl = existing.querySelector('.conv-preview');
-      if (previewEl && previewEl.textContent !== preview) previewEl.textContent = preview;
-      const timeEl = existing.querySelector('.conv-time');
-      if (timeEl && timeEl.textContent !== time) timeEl.textContent = time;
-      
-      existing.dataset.unreadCount = String(unreadCount);
-      existing.dataset.aiReplied = aiReplied ? '1' : '0';
-      existing.dataset.needsHuman = needsHuman ? '1' : '0';
-      let unreadEl = existing.querySelector('.conv-unread');
-      if (effectiveUnread > 0) {
-        if (!unreadEl) {
-          existing.insertAdjacentHTML('beforeend', `<span class="conv-unread">${formatUnreadBadge(effectiveUnread)}</span>`);
-        } else if (unreadEl.textContent !== formatUnreadBadge(effectiveUnread)) {
-          unreadEl.textContent = formatUnreadBadge(effectiveUnread);
-        }
-      } else if (unreadEl) {
-        unreadEl.remove();
-      }
-      let flagWrap = existing.querySelector('.conv-flags');
-      if (!flagWrap) {
-        existing.querySelector('.conv-preview')?.insertAdjacentHTML('afterend', '<div class="conv-flags"></div>');
-        flagWrap = existing.querySelector('.conv-flags');
-      }
-      let aiEl = flagWrap?.querySelector('.conv-ai-pill');
-      let nhEl = flagWrap?.querySelector('.conv-needs-human');
-      if (showAiUnread) {
-        if (!aiEl) {
-          flagWrap?.insertAdjacentHTML('beforeend', '<span class="conv-ai-pill">AI replied</span>');
-        }
-      } else if (aiEl) {
-        aiEl.remove();
-      }
-      if (needsHuman) {
-        if (!nhEl) flagWrap?.insertAdjacentHTML('beforeend', '<span class="conv-needs-human">Needs human</span>');
-      } else if (nhEl) {
-        nhEl.remove();
-      }
-      orderedBySection[windowStatus]?.push(existing);
-    } else {
-      // Brand new contact — build and append
-      const unreadHtml = effectiveUnread > 0 ? `<span class="conv-unread">${formatUnreadBadge(effectiveUnread)}</span>` : '';
-      const aiHtml = showAiUnread ? `<span class="conv-ai-pill">AI replied</span>` : '';
-      const needsHumanHtml = needsHuman ? `<span class="conv-needs-human">Needs human</span>` : '';
-      const inactiveClass = !isChatWindowActive ? 'inactive-24h' : '';
-      const html = `
-        <a class="conv-item ${isActive ? 'active' : ''} ${hasNewMessage ? 'has-new' : ''} ${inactiveClass}"
-           href="${PAGE_URL}?mobile=${encodeURIComponent(mobile)}"
-           data-mobile="${esc(mobile)}"
-           data-unread-count="${effectiveUnread}"
-           data-ai-replied="${aiReplied ? '1' : '0'}"
-           data-name="${esc(name.toLowerCase())}"
-           title="${isChatWindowActive ? 'Active chat window' : 'Chat window closed (>24h old)'}">
-          <div class="conv-avatar ${cls}">${(name[0]||'?').toUpperCase()}</div>
-          <div class="conv-meta">
-            <div class="conv-row1">
-              <div class="conv-name">${esc(name)}</div>
-              <div class="conv-time">${esc(time)}</div>
-            </div>
-            <div class="conv-preview">${esc(preview)}</div>
-            <div class="conv-flags">${aiHtml}${needsHumanHtml}</div>
-          </div>
-          ${unreadHtml}
-        </a>`;
-      sectionEl.insertAdjacentHTML('beforeend', html);
-      const inserted = convList.querySelector(`[data-mobile="${CSS.escape(mobile)}"]`);
-      if (inserted) orderedBySection[windowStatus]?.push(inserted);
-      console.log(`[Chat List] Added new contact ${name} (${mobile})${hasNewMessage ? ' - with green dot' : ''}`);
-    }
-  });
-  ['active', 'expiring', 'inactive'].forEach(sectionKey => {
-    const section = convList.querySelector(`[data-section="${sectionKey}"]`);
-    if (!section) return;
-    orderedBySection[sectionKey].forEach(node => section.appendChild(node));
-  });
-  applyComposerWindowPolicy();
-};
   
 /* ── Send message ────────────────────────────────────────── */
 chatForm?.addEventListener('submit', async e => {
@@ -1815,7 +1523,9 @@ window.pollingEngine.init({
     scrollBottom,
     upsertMsg,
     beep,
-    updateContactGreenDot
+    updateContactGreenDot,
+    refreshSidebar,
+    refreshActiveChat
   }
 });
 

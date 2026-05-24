@@ -63,6 +63,9 @@
         conversationOpenedAt: Date.now(),
       },
 
+      /* ── Contacts (centralized source of truth) ──────── */
+      contacts: [],
+
       /* ── Cursors (global offsets for polling) ─────────── */
       cursors: {
         globalLastMessageId: 0,

@@ -51,6 +51,8 @@
   let upsertMsg   = null;
   let beep        = null;
   let updateContactGreenDot = null;
+  let refreshSidebar = null;
+  let refreshActiveChat = null;
 
   /* ── Flag helpers (set during init) ────────────────────── */
   let HEARTBEAT_ACTIVE_MS       = 1000;
@@ -117,7 +119,8 @@
 
       // ── Contacts / Sidebar ──
       if (data.contacts?.length) {
-        // immediate = true for instant green dot update
+        // Centralize contact ownership: store then render
+        window.inboxState.contacts = data.contacts;
         if (debouncedRenderContacts) debouncedRenderContacts(data.contacts, true);
       }
 
@@ -210,6 +213,11 @@
 
         if (hasNew || wasNearBottom) {
           if (scrollBottom) scrollBottom();
+        }
+
+        // Refresh active chat UI after processing its messages
+        if (window.inboxState.activeMobile && refreshActiveChat) {
+          refreshActiveChat();
         }
       }
 
@@ -312,6 +320,11 @@
         }
 
         if (hasNew || wasNearBottom) { if (scrollBottom) scrollBottom(); }
+
+        // Refresh active chat UI after explicit message poll
+        if (window.inboxState.activeMobile && refreshActiveChat) {
+          refreshActiveChat();
+        }
       }
 
       window.inboxState.resetPollFails();
@@ -429,8 +442,9 @@
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      if (data.contacts?.length && debouncedRenderContacts) {
-        debouncedRenderContacts(data.contacts, true);
+      if (data.contacts?.length) {
+        window.inboxState.contacts = data.contacts;
+        if (debouncedRenderContacts) debouncedRenderContacts(data.contacts, true);
       }
       console.debug('[POLLING] pollSidebar() completed — contacts:', data.contacts?.length);
     } catch (err) {
@@ -494,6 +508,8 @@
       upsertMsg   = config.renderFns.upsertMsg   || null;
       beep        = config.renderFns.beep        || null;
       updateContactGreenDot = config.renderFns.updateContactGreenDot || null;
+      refreshSidebar = config.renderFns.refreshSidebar || null;
+      refreshActiveChat = config.renderFns.refreshActiveChat || null;
     }
 
     window.__pollingEngineInitialized = true;
