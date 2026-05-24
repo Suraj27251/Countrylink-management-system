@@ -79,6 +79,9 @@
       flows: [],
       iType: 'button',
 
+      /* ── Chat window status per mobile (24h window) ──── */
+      chatWindowStatusByMobile: new Map(),
+
       /* ── AbortControllers (for future use) ────────────── */
       messagesAbortController: null,
       sidebarAbortController: null,
@@ -92,6 +95,7 @@
   window.inboxState = createInitialState();
   window.__inboxStateInitialized = true;
 
+  console.debug('[MODULE]', 'state.js loaded');
   console.debug('[STATE] Initialized:', {
     activeMobile: window.inboxState.activeMobile,
     cursors: window.inboxState.cursors,
