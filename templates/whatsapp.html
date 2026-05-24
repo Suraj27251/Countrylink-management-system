@@ -6,6 +6,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<<<<<<< HEAD
 <style>
 /* ── Reset & Base ───────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1731,6 +1732,9 @@ kbd {
   box-shadow: 0 2px 4px green, 0 0 4px green inset;
 }
 </style>
+=======
+<link rel="stylesheet" href="{{ url_for('static', filename='css/whatsapp.css') }}?v=1">
+>>>>>>> 66ca929 (Phase 2 state modularization stable)
 {% endblock %}
 
 {% block tabs %}{% endblock %}
@@ -2358,12 +2362,13 @@ kbd {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/state.js') }}"></script>
 <script>
 (() => {
 'use strict';
 
 /* ── Config ──────────────────────────────────────────────── */
-let ACTIVE_MOBILE     = '{{ active_mobile or "" }}';
+window.inboxState.activeMobile = '{{ active_mobile or "" }}';
 const API_URL         = '{{ url_for("whatsapp_messages_api") }}';
 const PAGE_URL        = '{{ url_for("whatsapp_complaints") }}';
 const SEND_URL        = '{{ url_for("send_whatsapp") }}';
@@ -2410,6 +2415,7 @@ const cmdChip        = $('cmdChip');
 const pageLoader     = $('pageLoader');
 
 /* ── State ───────────────────────────────────────────────── */
+<<<<<<< HEAD
 let templates = [];
 let selectedQuickTemplate = null;
 let flows = [];
@@ -2437,6 +2443,23 @@ let lastSeenMessageIdByMobile = new Map(); // Track last processed message per m
 let conversationOpenedAt = Date.now();
 let renderContactsTimeout = null;
 let pendingRenderContacts = null;
+=======
+window.inboxState.templates = [];
+window.inboxState.selectedQuickTemplate = null;
+window.inboxState.flows = [];
+window.inboxState.iType = 'button';
+/* pollTimer in window.inboxState */
+/* pollFails in window.inboxState */
+/* hasInteracted in window.inboxState.ui */
+/* window.inboxState.ui.soundEnabled in window.inboxState.ui */
+window.inboxState.globalKnownMessageIds = new Set(
+  $all('#chatBody .msg-row[data-message-id]').map(el => el.dataset.messageId)
+);
+window.inboxState.cursors.globalLastMessageId = Math.max(0, ...[...$all('#chatBody .msg-row[data-message-id]')].map(el => +el.dataset.messageId));
+window.inboxState.cursors.globalLastInboxId = Math.max(window.inboxState.cursors.globalLastMessageId, INITIAL_LAST_INBOX_ID);
+/* unreadByMobile, lastSeenMessageIdByMobile, window.inboxState.ui.conversationOpenedAt in window.inboxState */
+/* window.inboxState.renderContactsTimeout, window.inboxState.pendingRenderContacts in window.inboxState */
+>>>>>>> 66ca929 (Phase 2 state modularization stable)
 
 if (ACTIVE_MOBILE && lastMsgId > 0) {
   lastMessageIdByMobile.set(ACTIVE_MOBILE, lastMsgId);
@@ -2446,6 +2469,7 @@ if (ACTIVE_MOBILE) {
 }
 
 // Debounce renderContacts to prevent excessive DOM updates and re-sorting
+<<<<<<< HEAD
 const debouncedRenderContacts = (contacts, immediate = false) => {
   clearTimeout(renderContactsTimeout);
   pendingRenderContacts = contacts;
@@ -2461,6 +2485,17 @@ const debouncedRenderContacts = (contacts, immediate = false) => {
       }
     }, 300);
   }
+=======
+const debouncedRenderContacts = (contacts) => {
+  clearTimeout(window.inboxState.renderContactsTimeout);
+  window.inboxState.pendingRenderContacts = contacts;
+  window.inboxState.renderContactsTimeout = setTimeout(() => {
+    if (window.inboxState.pendingRenderContacts) {
+      renderContacts(window.inboxState.pendingRenderContacts);
+      window.inboxState.pendingRenderContacts = null;
+    }
+  }, 300);
+>>>>>>> 66ca929 (Phase 2 state modularization stable)
 }; 
 const prunePerChatState = contacts => {
   const activeMobile = ACTIVE_MOBILE || '';
@@ -2508,6 +2543,7 @@ themeToggle?.addEventListener('click', () => {
 const NOTIFICATION_SOUND_URL = `${STATIC_BASE}audio/whatsapp_notification.wav`;
 const SOFT_SOUND_URL = `${STATIC_BASE}audio/soft_sound.mp3`;
 
+<<<<<<< HEAD
 // Create audio elements with better error handling
 const createAudioElement = (url, volume = 1.0) => {
   const audio = new Audio();
@@ -2549,10 +2585,25 @@ setTimeout(async () => {
   await verifyAudioFile(NOTIFICATION_SOUND_URL);
   await verifyAudioFile(SOFT_SOUND_URL);
 }, 100);
+=======
+window.inboxState.notificationAudio = new Audio(NOTIFICATION_SOUND_URL);
+window.inboxState.notificationAudio.preload = 'auto';
+window.inboxState.notificationAudio.volume = 1.0;
+
+// Debug: confirm file loads correctly
+window.inboxState.notificationAudio.addEventListener('error', () => {
+  console.warn('⚠️ Notification sound failed to load from:', NOTIFICATION_SOUND_URL);
+});
+
+window.inboxState.notificationAudio.addEventListener('canplaythrough', () => {
+  console.log('✅ Notification sound loaded:', NOTIFICATION_SOUND_URL);
+});
+>>>>>>> 66ca929 (Phase 2 state modularization stable)
 
 /* Unlock audio after first user interaction */
 ['pointerdown', 'keydown', 'touchstart', 'click'].forEach(ev =>
   window.addEventListener(ev, async () => {
+<<<<<<< HEAD
     if (hasInteracted) return;
     hasInteracted = true;
 
@@ -2565,6 +2616,16 @@ setTimeout(async () => {
       testAudio.currentTime = 0;
       
       console.log('🔓 Audio context unlocked successfully');
+=======
+    window.inboxState.ui.hasInteracted = true;
+
+    try {
+    // await window.inboxState.notificationAudio.play();
+    // window.inboxState.notificationAudio.pause();
+    // window.inboxState.notificationAudio.currentTime = 0;
+
+      console.log('🔓 Audio unlocked');
+>>>>>>> 66ca929 (Phase 2 state modularization stable)
     } catch (err) {
       console.warn('⚠️ Audio context unlock attempted (may fail in some browsers):', err.message);
     }
@@ -2577,6 +2638,7 @@ setTimeout(async () => {
   }, { passive: true });
 });
 
+<<<<<<< HEAD
 /* ── Sound ───────────────────────────────────────────────── */
 const beep = (inboundMobile, isNewConversation = false) => {
 
@@ -2590,6 +2652,15 @@ const beep = (inboundMobile, isNewConversation = false) => {
     if (inboundMobile && inboundMobile === ACTIVE_MOBILE) {
       console.log(`[Sound] Skipped - message is in active chat (${inboundMobile})`);
       return;
+=======
+  if (!window.inboxState.ui.soundEnabled || !window.inboxState.ui.hasInteracted) return;
+
+  try {
+    // Don't play any sound for messages in the currently active chat
+    // The soft sound was causing issues - just disable it entirely for active chat
+    if (inboundMobile && inboundMobile === window.inboxState.activeMobile) {
+      return; // No sound for active chat
+>>>>>>> 66ca929 (Phase 2 state modularization stable)
     }
 
     // Use notification sound for all messages
@@ -2813,7 +2884,7 @@ convList.addEventListener('click', async e => {
   e.preventDefault();
 
   const mobile = link.dataset.mobile;
-  if (mobile === ACTIVE_MOBILE) return;
+  if (mobile === window.inboxState.activeMobile) return;
 
   // Swap active highlight immediately — no flicker
   $all('.conv-item').forEach(el => el.classList.toggle('active', el.dataset.mobile === mobile));
@@ -2822,11 +2893,18 @@ convList.addEventListener('click', async e => {
   history.pushState({}, '', `${PAGE_URL}?mobile=${encodeURIComponent(mobile)}`);
 
   // Reset chat for new contact
+<<<<<<< HEAD
   const oldMobile = ACTIVE_MOBILE;
   ACTIVE_MOBILE = mobile;
   knownIds = knownIdsByMobile.get(mobile) || new Set();
   knownIdsByMobile.set(mobile, knownIds);
   conversationOpenedAt = Date.now();
+=======
+  window.inboxState.setActiveMobile(mobile);
+  window.inboxState.cursors.globalLastMessageId = 0;
+  window.inboxState.globalKnownMessageIds.clear();
+  window.inboxState.ui.conversationOpenedAt = Date.now();
+>>>>>>> 66ca929 (Phase 2 state modularization stable)
 
   // Only abort if switching to a different mobile (prevents unnecessary cancellation during heartbeat)
   if (oldMobile && oldMobile !== mobile) {
@@ -2856,6 +2934,7 @@ convList.addEventListener('click', async e => {
   // Enable composer
   applyComposerWindowPolicy();
 
+<<<<<<< HEAD
   // Load for new contact - heartbeat loop continues in background
   try {
     await fetch(OPEN_CONV_URL, {
@@ -2866,6 +2945,18 @@ convList.addEventListener('click', async e => {
     await pollMessages(); // Load messages after server marks conversation as opened by human
     await pollSidebar();
     unreadByMobile.delete(mobile);
+=======
+  const sendBtn = $('sendBtn');
+  if (sendBtn) sendBtn.disabled = false;
+
+  // Restart poll for new contact - this fetches messages and sets lastSeenMessageIdByMobile correctly
+  clearTimeout(window.inboxState.pollTimer);
+  try {
+    await poll(); // This will set window.inboxState.lastSeenMessageIdByMobile.get(mobile) to latest message ID
+    // Now that human has opened the chat and poll loaded messages, clear unread badge
+    window.inboxState.unreadByMobile.delete(mobile);
+    // Refresh the conversation list to update unread badge visually
+>>>>>>> 66ca929 (Phase 2 state modularization stable)
     const activeLink = convList.querySelector(`[data-mobile="${CSS.escape(mobile)}"]`);
     if (activeLink) {
       activeLink.dataset.unreadCount = '0';
@@ -2995,8 +3086,18 @@ const upsertMsg = m => {
     const emptyHint = $('chatEmptyHint');
     emptyHint?.remove();
     chatBody.appendChild(renderMsg(m));
+<<<<<<< HEAD
     knownIds.add(idStr);
     lastInboxId = Math.max(lastInboxId, +m.id || 0);
+=======
+    const idStr = String(m.id);
+    const isNew = !window.inboxState.globalKnownMessageIds.has(idStr);
+    window.inboxState.globalKnownMessageIds.add(idStr);
+    if (isNew) {
+      window.inboxState.cursors.globalLastMessageId = Math.max(window.inboxState.cursors.globalLastMessageId, +m.id || 0);
+      window.inboxState.cursors.globalLastInboxId = Math.max(window.inboxState.cursors.globalLastInboxId, +m.id || 0);
+    }
+>>>>>>> 66ca929 (Phase 2 state modularization stable)
     return true;
   }
 
@@ -3032,6 +3133,10 @@ const upsertMsg = m => {
 /* ── Render contacts ─────────────────────────────────────── */
 const avatarClasses = ['', 'alt-1', 'alt-2'];
 const renderContacts = contacts => {
+// TODO(phase3): Sidebar updates independently from chat rendering
+  // The unreadByMobile/activeMobile state here is shared with poll().
+  // When a new message arrives, sidebar reorders BEFORE active chat
+  // re-renders, causing a visual mismatch until the next poll cycle.
   if (!convList) return;
   prunePerChatState(contacts);
   if (!contacts.length) {
@@ -3059,6 +3164,7 @@ const renderContacts = contacts => {
   contacts.forEach((c, i) => {
     const mobile = c.mobile || '';
     if (!mobile) return;
+<<<<<<< HEAD
     const isActive = mobile === ACTIVE_MOBILE;
     const name = c.name || mobile || 'Unknown';
     const cls = avatarClasses[i % 3];
@@ -3070,6 +3176,14 @@ const renderContacts = contacts => {
     const windowStatus = ['active', 'expiring', 'inactive'].includes(c.chat_window_status) ? c.chat_window_status : 'active';
     chatWindowStatusByMobile.set(mobile, windowStatus);
     const showAiUnread = aiReplied && effectiveUnread > 0;
+=======
+    const isActive = mobile === window.inboxState.activeMobile;
+    // Don't delete unread badge when chat becomes active - keep it visible until marked as read
+    // if (isActive) window.inboxState.unreadByMobile.delete(mobile);
+    const name = c.name || mobile || 'Unknown';
+    const cls = avatarClasses[i % 3];
+    const unreadCount = !isActive ? (window.inboxState.unreadByMobile.get(mobile) || 0) : 0;
+>>>>>>> 66ca929 (Phase 2 state modularization stable)
     const hasNewMessage = !isActive && unreadCount > 0;
     const time = fmtTime(c.created_at);
     const preview = c.text || c.preview || 'No messages yet';
@@ -3163,6 +3277,7 @@ const renderContacts = contacts => {
 };
   
 /* ── Poll ────────────────────────────────────────────────── */
+<<<<<<< HEAD
 const pollSidebar = async () => {
   sidebarPollController?.abort();
   sidebarPollController = new AbortController();
@@ -3171,6 +3286,15 @@ const pollSidebar = async () => {
     headers: { 'X-Requested-With': 'XMLHttpRequest' },
     signal: sidebarPollController.signal
   });
+=======
+const poll = async () => {
+// TODO(phase3): Polling updates bypass active render cycle.
+  // No AbortController — stale responses can overwrite newer state.
+  // Add request token guard to discard outdated responses in poll().
+  const params = new URLSearchParams({ include_contacts: '1', since_inbox_id: String(window.inboxState.cursors.globalLastInboxId) });
+  if (window.inboxState.activeMobile) { params.set('mobile', window.inboxState.activeMobile); params.set('since_id', String(window.inboxState.cursors.globalLastMessageId)); }
+  const res = await fetch(`${API_URL}?${params}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+>>>>>>> 66ca929 (Phase 2 state modularization stable)
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
 
@@ -3185,6 +3309,7 @@ const pollSidebar = async () => {
     const contactsToUpdate = new Set();
     
     data.inbox_messages.forEach(m => {
+<<<<<<< HEAD
       const inboxId = String(m.id || '');
       if (seenInboxIds.has(inboxId)) return;
       seenInboxIds.add(inboxId);
@@ -3213,6 +3338,29 @@ const pollSidebar = async () => {
             soundsToPlay.push(mobile);
             contactsToUpdate.add(mobile);
             console.log(`[New Message] Received in inactive chat from ${mobile} - unread count: ${newUnreadCount}`);
+=======
+      const idStr = String(m.id);
+      if (window.inboxState.globalKnownMessageIds.has(idStr)) return;
+      window.inboxState.globalKnownMessageIds.add(idStr);
+      window.inboxState.cursors.globalLastInboxId = Math.max(window.inboxState.cursors.globalLastInboxId, +m.id||0);
+      const mobile = m.mobile || '';
+      const isInbound = m.direction !== 'outbound';
+      const isActiveChatMessage = window.inboxState.activeMobile && mobile === window.inboxState.activeMobile;
+      if (isInbound && mobile) {
+        // Track this message so we don't notify twice
+        const lastSeenId = window.inboxState.lastSeenMessageIdByMobile.get(mobile) || 0;
+        const currentMsgId = +m.id || 0;
+        window.inboxState.lastSeenMessageIdByMobile.set(mobile, Math.max(lastSeenId, currentMsgId));
+        
+        if (isActiveChatMessage) {
+          window.inboxState.unreadByMobile.delete(mobile);
+          // beep disabled for currently open chat
+        } else {
+          // Only beep if this is newer than what we've seen before
+          if (currentMsgId > lastSeenId) {
+            window.inboxState.unreadByMobile.set(mobile, (window.inboxState.unreadByMobile.get(mobile) || 0) + 1);
+            beep(); // sound for messages in other chats
+>>>>>>> 66ca929 (Phase 2 state modularization stable)
           }
         } else {
           // This is an old message, just update tracking without notification
@@ -3231,6 +3379,7 @@ const pollSidebar = async () => {
       console.log(`[Poll Sidebar] ${newMessagesCount} new message(s) received, green dots updated`);
     }
   }
+<<<<<<< HEAD
 
   if (data.last_inbox_message_id) {
     lastInboxId = Math.max(lastInboxId, +data.last_inbox_message_id || 0);
@@ -3242,6 +3391,71 @@ const pollSidebar = async () => {
 const pollMessages = async () => {
   const requestMobile = ACTIVE_MOBILE;
   if (!requestMobile) return;
+=======
+   if (data.last_inbox_message_id) {
+    window.inboxState.cursors.globalLastInboxId = Math.max(window.inboxState.cursors.globalLastInboxId, +data.last_inbox_message_id || 0);
+  }
+
+  if (data.messages?.length) {
+    const wasNearBottom = nearBottom();
+    let hasNew = false;
+
+    // Initialize lastSeenMessageIdByMobile for window.inboxState.activeMobile to prevent beeping old messages
+    if (window.inboxState.activeMobile && data.last_message_id) {
+      window.inboxState.lastSeenMessageIdByMobile.set(window.inboxState.activeMobile, Math.max(window.inboxState.lastSeenMessageIdByMobile.get(window.inboxState.activeMobile) || 0, +data.last_message_id || 0));
+    }
+
+    data.messages.forEach(m => {
+      const isNewMsg = upsertMsg(m);
+
+      // Only play sound if: (1) truly new message, (2) inbound, (3) document has focus, (4) not the active chat, (5) newer than what we've seen
+      if (isNewMsg && m.direction !== 'outbound' && document.hasFocus() && m.mobile !== window.inboxState.activeMobile) {
+        const lastSeenId = window.inboxState.lastSeenMessageIdByMobile.get(m.mobile) || 0;
+        const currentMsgId = +m.id || 0;
+        if (currentMsgId > lastSeenId) {
+          window.inboxState.lastSeenMessageIdByMobile.set(m.mobile, Math.max(lastSeenId, currentMsgId));
+          beep(m.mobile);
+        }
+      }
+
+      hasNew = isNewMsg || hasNew;
+    });
+
+    if (data.last_message_id) {
+      window.inboxState.cursors.globalLastMessageId = Math.max(window.inboxState.cursors.globalLastMessageId, +data.last_message_id || 0);
+    }
+
+    if (hasNew || wasNearBottom) {
+      scrollBottom();
+    }
+  }
+
+  window.inboxState.pollFails = 0;
+  setPoll(true, 'Connected');
+};
+
+const schedulePoll = (delay = POLL_BASE) => {
+  clearTimeout(window.inboxState.pollTimer);
+
+  window.inboxState.pollTimer = setTimeout(async () => {
+    try {
+      await poll();
+      schedulePoll(POLL_BASE);
+
+    } catch(e) {
+      window.inboxState.pollFails++;
+
+      const backoff = Math.min(
+        POLL_BASE * (2 ** window.inboxState.pollFails),
+        POLL_MAX
+      );
+
+      setPoll(false, `Retry in ${Math.round(backoff / 1000)}s`);
+      schedulePoll(backoff);
+    }
+  }, delay);
+};
+>>>>>>> 66ca929 (Phase 2 state modularization stable)
   
   // Increment token for this request
   const currentToken = ++activeMessageRequestToken;
@@ -3393,19 +3607,19 @@ const buildParamFields = (vars, wrapId) => {
 
 const onTemplateChange = (selectId, langId, wrapId) => {
   const sel = $(selectId);
-  const t = templates.find(x => x.name === sel?.value);
+  const t = window.inboxState.templates.find(x => x.name === sel?.value);
   const vars = extractVars(getBodyText(t));
   buildParamFields(vars, wrapId);
   if ($(langId)) $(langId).value = t?.language || 'en_US';
 };
 
 const loadTemplates = async (force = false) => {
-  if (templates.length && !force) return;
+  if (window.inboxState.templates.length && !force) return;
   const r = await fetch(TEMPLATE_URL);
   if (!r.ok) return;
   const data = await r.json();
-  templates = data.data || [];
-  const opts = templates.map(t => `<option value="${esc(t.name)}">${esc(t.name)} (${esc(t.language||'en')})</option>`).join('');
+  window.inboxState.templates = data.data || [];
+  const opts = window.inboxState.templates.map(t => `<option value="${esc(t.name)}">${esc(t.name)} (${esc(t.language||'en')})</option>`).join('');
   if ($('templateSelect'))    { $('templateSelect').innerHTML    = opts || '<option value="">No templates</option>'; }
   if ($('newConvTemplate'))   { $('newConvTemplate').innerHTML   = opts || '<option value="">No templates</option>'; }
   onTemplateChange('templateSelect', 'templateLang', 'templateParamsWrap');
@@ -3420,7 +3634,7 @@ const renderApprovedTemplateRows = () => {
   const statusFilter = $('templateStatusFilter')?.value || 'all';
   const categoryFilter = $('templateCategoryFilter')?.value || 'all';
 
-  const filtered = templates.filter(t => {
+  const filtered = window.inboxState.templates.filter(t => {
     const status = String(t.status || '').toUpperCase();
     const category = String(t.category || 'UNCATEGORIZED').toUpperCase();
     const text = `${t.name || ''} ${getBodyText(t) || ''} ${category}`.toLowerCase();
@@ -3499,13 +3713,13 @@ $('approvedTemplateRows')?.addEventListener('click', e => {
   const btn = e.target.closest('.quick-send-template-btn');
   if (btn) {
     const tName = btn.dataset.template;
-    selectedQuickTemplate = templates.find(t => t.name === tName);
-    if (!selectedQuickTemplate) return;
-    $('quickSendTemplateName').textContent = `Send a test message using template "${selectedQuickTemplate.name}"`;
-    $('quickTemplateMobile').value = ACTIVE_MOBILE ? `+${ACTIVE_MOBILE}` : '';
-    $('quickTemplateLang').value = selectedQuickTemplate.language || 'en_US';
-    buildParamFields(extractVars(getBodyText(selectedQuickTemplate)), 'quickTemplateVars');
-    $('quickTemplatePreviewText').textContent = getBodyText(selectedQuickTemplate) || `Template: ${selectedQuickTemplate.name}`;
+    window.inboxState.selectedQuickTemplate = window.inboxState.templates.find(t => t.name === tName);
+    if (!window.inboxState.selectedQuickTemplate) return;
+    $('quickSendTemplateName').textContent = `Send a test message using template "${window.inboxState.selectedQuickTemplate.name}"`;
+    $('quickTemplateMobile').value = window.inboxState.activeMobile ? `+${window.inboxState.activeMobile}` : '';
+    $('quickTemplateLang').value = window.inboxState.selectedQuickTemplate.language || 'en_US';
+    buildParamFields(extractVars(getBodyText(window.inboxState.selectedQuickTemplate)), 'quickTemplateVars');
+    $('quickTemplatePreviewText').textContent = getBodyText(window.inboxState.selectedQuickTemplate) || `Template: ${window.inboxState.selectedQuickTemplate.name}`;
     templateQuickSendModal?.show();
     return;
   }
@@ -3514,7 +3728,7 @@ $('approvedTemplateRows')?.addEventListener('click', e => {
   const moreBtn = e.target.closest('.tpl-more-btn');
   if (moreBtn) {
     const tName = moreBtn.dataset.template;
-    const t = templates.find(x => x.name === tName);
+    const t = window.inboxState.templates.find(x => x.name === tName);
     if (!t) return;
     const action = confirm(`Template: ${tName}\n\nClick OK to copy template name to clipboard.`);
     if (action) {
@@ -3527,13 +3741,13 @@ $('approvedTemplateRows')?.addEventListener('click', e => {
 });
 
 $('quickTemplateSendBtn')?.addEventListener('click', async () => {
-  const tName = selectedQuickTemplate?.name;
-  const mobile = ($('quickTemplateMobile')?.value || ACTIVE_MOBILE || '').replace(/\D/g, '');
+  const tName = window.inboxState.selectedQuickTemplate?.name;
+  const mobile = ($('quickTemplateMobile')?.value || window.inboxState.activeMobile || '').replace(/\D/g, '');
   if (!tName || !mobile) return alert('Select template and recipient.');
   const lang = $('quickTemplateLang')?.value || 'en_US';
   const params = $all('#quickTemplateVars .tpl-param').map(i => i.value.trim());
   if (params.some(v => !v)) return alert('Fill all variable values.');
-  const t = selectedQuickTemplate || templates.find(x => x.name === tName);
+  const t = window.inboxState.selectedQuickTemplate || window.inboxState.templates.find(x => x.name === tName);
   const body = { mobile, template_name: tName, language_code: lang, template_preview: getBodyText(t) || `Template: ${tName}`,
     components: params.length ? [{ type:'body', parameters: params.map(text=>({type:'text', text})) }] : [] };
   const r = await fetch(SEND_TPL_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
@@ -3546,7 +3760,7 @@ $('quickTemplateSendBtn')?.addEventListener('click', async () => {
 const refreshTemplateCategories = () => {
   const el = $('templateCategoryFilter');
   if (!el) return;
-  const unique = [...new Set(templates.map(t => String(t.category || 'UNCATEGORIZED').toUpperCase()))].sort();
+  const unique = [...new Set(window.inboxState.templates.map(t => String(t.category || 'UNCATEGORIZED').toUpperCase()))].sort();
   el.innerHTML = '<option value="all">All categories</option>' + unique.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
 };
 
@@ -3585,8 +3799,8 @@ $('sendTemplateBtn')?.addEventListener('click', async () => {
   const lang = $('templateLang')?.value || 'en_US';
   const params = $all('#templateParamsWrap .tpl-param').map(i => i.value.trim());
   if (params.some(v => !v)) { alert('Fill all parameters'); return; }
-  const t = templates.find(x => x.name === tName);
-  const body = { mobile: ACTIVE_MOBILE, template_name: tName, language_code: lang,
+  const t = window.inboxState.templates.find(x => x.name === tName);
+  const body = { mobile: window.inboxState.activeMobile, template_name: tName, language_code: lang,
     template_preview: getBodyText(t) || `Template: ${tName}`,
     components: params.length ? [{ type:'body', parameters: params.map(text=>({type:'text',text})) }] : [] };
   const r = await fetch(SEND_TPL_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
@@ -3606,7 +3820,7 @@ $('startConvBtn')?.addEventListener('click', async () => {
   const lang = $('newConvLang')?.value || 'en_US';
   const params = $all('#newConvParamsWrap .tpl-param').map(i => i.value.trim());
   if (params.some(v => !v)) { alert('Fill all parameters'); return; }
-  const t = templates.find(x => x.name === tName);
+  const t = window.inboxState.templates.find(x => x.name === tName);
   const body = { mobile: phone, template_name: tName, language_code: lang,
     template_preview: getBodyText(t) || `Template: ${tName}`,
     components: params.length ? [{ type:'body', parameters: params.map(text=>({type:'text',text})) }] : [] };
@@ -3619,7 +3833,7 @@ $('startConvBtn')?.addEventListener('click', async () => {
 
 /* ── Interactive message ─────────────────────────────────── */
 const setIType = type => {
-  iType = type;
+  window.inboxState.iType = type;
   $all('#iTypeTabs .nav-link').forEach(b => b.classList.toggle('active', b.dataset.type === type));
   ['paneButton','paneList','paneCta','paneFlow'].forEach(id => $(id)?.classList.add('d-none'));
   const paneMap = { button:'paneButton', list:'paneList', cta_url:'paneCta', flow:'paneFlow' };
@@ -3672,15 +3886,15 @@ const loadFlows = async (forceSync = false) => {
   const r = await fetch(url);
   const data = await r.json();
   if (!r.ok) throw new Error(data.error || 'Failed');
-  flows = data.data || [];
+  window.inboxState.flows = data.data || [];
   const sel = $('flowSelect');
-  if (sel) sel.innerHTML = '<option value="">Select flow</option>' + flows.map(f =>
+  if (sel) sel.innerHTML = '<option value="">Select flow</option>' + window.inboxState.flows.map(f =>
     `<option value="${esc(f.id)}">${esc(f.name||f.id)} (${esc((f.status||'').toUpperCase())})</option>`).join('');
 };
 
 $('syncFlowsBtn')?.addEventListener('click', async function() {
   this.disabled = true;
-  try { await loadFlows(true); alert(`Synced ${flows.length} flows.`); }
+  try { await loadFlows(true); alert(`Synced ${window.inboxState.flows.length} flows.`); }
   catch(e) { alert(e.message); }
   finally { this.disabled = false; }
 });
@@ -3706,13 +3920,13 @@ $('sendInteractiveBtn')?.addEventListener('click', async () => {
   if (!body) { alert('Body text is required'); return; }
   const header = $('iHeader')?.value.trim();
   const footer = $('iFooter')?.value.trim();
-  const payload = { mobile: ACTIVE_MOBILE, interactive_type: iType, body, header, footer };
+  const payload = { mobile: window.inboxState.activeMobile, interactive_type: window.inboxState.iType, body, header, footer };
 
-  if (iType === 'button') {
+  if (window.inboxState.iType === 'button') {
     const titles = $all('#btnRows .btn-title-input').map(i => i.value.trim()).filter(Boolean);
     if (!titles.length) { alert('Add at least one button'); return; }
     payload.buttons = titles.map((title, i) => ({ id:`btn_${i+1}`, title }));
-  } else if (iType === 'list') {
+  } else if (window.inboxState.iType === 'list') {
     const lbt = $('listBtnText')?.value.trim();
     if (!lbt) { alert('List button text required'); return; }
     const sections = $all('.list-section').map(s => ({
@@ -3726,12 +3940,12 @@ $('sendInteractiveBtn')?.addEventListener('click', async () => {
     if (!sections.length) { alert('Add at least one row'); return; }
     payload.list_button_text = lbt;
     payload.sections = sections;
-  } else if (iType === 'cta_url') {
+  } else if (window.inboxState.iType === 'cta_url') {
     const text = $('ctaText')?.value.trim();
     const url  = $('ctaUrl')?.value.trim();
     if (!text || !url) { alert('Button text and URL required'); return; }
     payload.button_text = text; payload.button_url = url;
-  } else if (iType === 'flow') {
+  } else if (window.inboxState.iType === 'flow') {
     const fid = $('flowId')?.value.trim();
     const fbt = $('flowBtnText')?.value.trim();
     if (!fid || !fbt) { alert('Flow ID and button text required'); return; }
@@ -3776,6 +3990,7 @@ $all('.cmd-item').forEach(item => {
 });
 
 /* ── Init ────────────────────────────────────────────────── */
+<<<<<<< HEAD
 // Log system initialization
 console.log('═══════════════════════════════════════════════════');
 console.log('🚀 WhatsApp Inbox System Initializing');
@@ -3825,6 +4040,11 @@ setTimeout(() => {
 }, 1000);
 
 if ($('quickTemplateMobile') && ACTIVE_MOBILE) $('quickTemplateMobile').value = ACTIVE_MOBILE;
+=======
+window.inboxState.log('[STATE] Inbox initialized, starting poll');
+schedulePoll(0); // start silently — dot only appears on failure
+if ($('quickTemplateMobile') && window.inboxState.activeMobile) $('quickTemplateMobile').value = window.inboxState.activeMobile;
+>>>>>>> 66ca929 (Phase 2 state modularization stable)
 setWorkspace('inbox');
 resizeInput();
 if (msgInput && !msgInput.disabled) msgInput.focus();
