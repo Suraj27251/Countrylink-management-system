@@ -85,11 +85,12 @@
   let esc  = v => String(v||'').replace(/[&<>'\"]/g,
     m => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]));
 
-  // Render function deps (from render.js)
-  let updateContactGreenDot  = null;
-  let scrollBottom           = null;
-  let nearBottom             = null;
-  let applyComposerWindowPolicy = null;
+ // Render function deps (from render.js)
+let updateContactGreenDot     = null;
+let scrollBottom              = null;
+let nearBottom                = null;
+let applyComposerWindowPolicy = null;
+let upsertMsg                 = null;
 
   /* ── Listener count tracker ────────────────────────────── */
   let _listenerCount = 0;
@@ -205,19 +206,29 @@
       if (config.helpers.esc)  esc  = config.helpers.esc;
     }
 
-    // Render function deps
-    if (config.renderFns) {
-      if (config.renderFns.updateContactGreenDot)  updateContactGreenDot  = config.renderFns.updateContactGreenDot;
-      if (config.renderFns.scrollBottom)           scrollBottom           = config.renderFns.scrollBottom;
-      if (config.renderFns.nearBottom)             nearBottom             = config.renderFns.nearBottom;
-      if (config.renderFns.applyComposerWindowPolicy) applyComposerWindowPolicy = config.renderFns.applyComposerWindowPolicy;
-    }
+   // Render function deps
+  if (config.renderFns) {
+  if (config.renderFns.updateContactGreenDot)
+    updateContactGreenDot = config.renderFns.updateContactGreenDot;
 
-    console.debug('[EVENT] Engine initialized with', Object.keys(config).length, 'config groups');
-    console.debug('[EVENT_BIND] Config loaded — API URLs:', Object.keys(api).length, 'DOM refs:', Object.keys(config.dom||{}).length, 'Modals:', Object.keys(config.modals||{}).length);
-    console.debug('[MEMORY] Initial listener count:', _listenerCount);
-    window.__eventsEngineInitDone = true;
+  if (config.renderFns.scrollBottom)
+    scrollBottom = config.renderFns.scrollBottom;
 
+  if (config.renderFns.nearBottom)
+    nearBottom = config.renderFns.nearBottom;
+
+  if (config.renderFns.applyComposerWindowPolicy)
+    applyComposerWindowPolicy = config.renderFns.applyComposerWindowPolicy;
+
+  if (config.renderFns.upsertMsg)
+    upsertMsg = config.renderFns.upsertMsg;
+}
+
+console.debug('[EVENT] Engine initialized with', Object.keys(config).length, 'config groups');
+console.debug('[EVENT_BIND] Config loaded — API URLs:', Object.keys(api).length, 'DOM refs:', Object.keys(config.dom || {}).length, 'Modals:', Object.keys(config.modals || {}).length);
+console.debug('[MEMORY] Initial listener count:', _listenerCount);
+
+window.__eventsEngineInitDone = true;
     /* ── TODO(websocket): When migrating to WebSocket transport,
        the events engine will need a reconnect lifecycle hook:
        - eventsEngine.onReconnect() to re-bind modal listeners
