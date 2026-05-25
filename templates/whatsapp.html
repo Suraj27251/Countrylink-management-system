@@ -6,7 +6,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/whatsapp.css') }}?v=6">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/whatsapp.css') }}?v=7">
 {% endblock %}
 
 {% block tabs %}{% endblock %}
@@ -633,11 +633,11 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/state.js') }}?v=6"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/utils.js') }}?v=6"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}?v=6"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/render.js') }}?v=6"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/events.js') }}?v=6"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/state.js') }}?v=7"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/utils.js') }}?v=7"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}?v=7"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/render.js') }}?v=7"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/events.js') }}?v=7"></script>
 <script>
 (() => {
 'use strict';
@@ -799,8 +799,22 @@ window.inboxState.globalKnownMessageIds = new Set(
 );
 window.inboxState.cursors.globalLastMessageId = Math.max(0, ...[...$all('#chatBody .msg-row[data-message-id]')].map(el => +el.dataset.messageId));
 window.inboxState.cursors.globalLastInboxId = Math.max(window.inboxState.cursors.globalLastMessageId, INITIAL_LAST_INBOX_ID);
-/* unreadByMobile, lastSeenMessageIdByMobile, window.inboxState.ui.conversationOpenedAt in window.inboxState */
-/* window.inboxState.renderContactsTimeout, window.inboxState.pendingRenderContacts in window.inboxState */
+
+// Seed lastSeenMessageIdByMobile so existing messages don't trigger notification sounds
+// All contacts' messages up to INITIAL_LAST_INBOX_ID are considered "already seen"
+if (window.inboxState.activeMobile) {
+  window.inboxState.lastSeenMessageIdByMobile.set(
+    window.inboxState.activeMobile,
+    window.inboxState.cursors.globalLastMessageId
+  );
+}
+// Mark all sidebar contacts as seen up to the global inbox ID
+$all('.conv-item[data-mobile]').forEach(el => {
+  const mob = el.dataset.mobile;
+  if (mob) {
+    window.inboxState.lastSeenMessageIdByMobile.set(mob, INITIAL_LAST_INBOX_ID);
+  }
+});
 
 
 const safeModal = id => {

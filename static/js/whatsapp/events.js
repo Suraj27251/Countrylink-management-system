@@ -287,15 +287,23 @@ window.__eventsEngineInitDone = true;
     window.inboxState.audio = { soft: audioSoft, newConversation: audioStrong };
 
     const unlockAudio = () => {
+      // Only unlock if sound is enabled — don't play anything when muted
+      if (!window.inboxState.ui.soundEnabled) return;
+
       const audioEntries = Object.entries(window.inboxState.audio || {});
       audioEntries.forEach(([label, audio]) => {
         if (!audio) return;
+        // Set volume to 0 during unlock so user hears nothing
+        const originalVolume = audio.volume;
+        audio.volume = 0;
         audio.play().then(() => {
           audio.pause();
           audio.currentTime = 0;
-          console.debug(`[AUDIO] ${label} audio unlocked successfully after user interaction`);
+          audio.volume = originalVolume;
+          console.debug(`[AUDIO] ${label} audio unlocked silently`);
         }).catch(err => {
-          console.debug(`[AUDIO] ${label} audio unlock attempt blocked/failed:`, err?.name || err);
+          audio.volume = originalVolume;
+          console.debug(`[AUDIO] ${label} audio unlock blocked:`, err?.name || err);
         });
       });
     };
