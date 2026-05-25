@@ -266,6 +266,11 @@
           }
           const isNewMsg = upsertMsg ? upsertMsg(m) : false;
           hasNew = isNewMsg || hasNew;
+
+          // Play soft sound for new inbound messages in the active chat
+          if (isNewMsg && !isOutbound && !isSelfMessage && messageMobile === activeMobile) {
+            if (beep) beep(activeMobile);
+          }
         });
 
         if (data.last_message_id) {

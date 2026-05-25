@@ -706,6 +706,9 @@ window.__eventsEngineInitDone = true;
         }
       }
 
+      // ALWAYS restart polling after chat switch (whether success or failure)
+      window.pollingEngine.schedulePoll(1000);
+
       if (dom.msgInput) dom.msgInput.focus();
     });
 
