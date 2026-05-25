@@ -157,13 +157,13 @@
       // ── Inbox messages (all chats) ──
       if (data.inbox_messages?.length) {
         let newMessagesCount = 0;
-        const soundsToPlay = [];
         const contactsToUpdate = new Set();
 
         data.inbox_messages.forEach(m => {
           const idStr = String(m.id);
           if (window.inboxState.globalKnownMessageIds.has(idStr)) return;
           window.inboxState.globalKnownMessageIds.add(idStr);
+          newMessagesCount++;
           window.inboxState.cursors.globalLastInboxId = Math.max(
             window.inboxState.cursors.globalLastInboxId, +m.id || 0
           );
@@ -192,7 +192,6 @@
         });
 
         contactsToUpdate.forEach(mob => { if (updateContactGreenDot) updateContactGreenDot(mob); });
-        soundsToPlay.forEach(mob => { if (beep) beep(mob); });
 
         if (newMessagesCount > 0) {
           console.debug('[POLLING] inbox_messages processed:', newMessagesCount);
@@ -320,7 +319,7 @@
    */
   const pollMessages = async () => {
     const requestMobile = (window.activeConversationMobile || window.inboxState.activeMobile || '').trim();
-    if (!requestMobile) { console.error('[STATE_FATAL] activeMobile missing'); debugger; return; }
+    if (!requestMobile) { console.error('[STATE_FATAL] activeMobile missing in pollMessages'); return; }
     const pollMsgStart = performance.now();
     const requestToken = ++window.inboxState.activeMessageRequestToken;
     activeMessageRequestToken = window.inboxState.activeMessageRequestToken;

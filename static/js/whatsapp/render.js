@@ -578,17 +578,20 @@
       const hasNewMessage = !isActive && unreadCount > 0;
       const time = fmtTime(c.created_at);
       const preview = c.text || c.preview || 'No messages yet';
-      const isChatWindowActive = isActiveChatWindow(c.created_at);
-      const windowStatus = isChatWindowActive ? 'active' : 'inactive';
-      const aiReplied = false;
-      const needsHuman = false;
+      // Use last_customer_message_at for 24h window if available, fallback to created_at
+      const windowTimestamp = c.last_customer_message_at || c.created_at;
+      const isChatWindowActive = isActiveChatWindow(windowTimestamp);
+      const windowStatus = c.chat_window_status || (isChatWindowActive ? 'active' : 'inactive');
+      const aiReplied = Boolean(c.ai_replied);
+      const needsHuman = Boolean(c.needs_human);
       const effectiveUnread = unreadCount;
-      const showAiUnread = false;
+      const showAiUnread = aiReplied && !isActive && effectiveUnread > 0;
 
       // Shared context for build/patch helpers
-      const ctx = { mobile, isActive, unreadCount, effectiveUnread, name, cls, time, preview, isChatWindowActive, windowStatus, aiReplied, needsHuman, showAiUnread, hasNewMessage };
+      const ctx = { mobile, isActive, unreadCount, effectiveUnread, name, cls, time, preview, isChatWindowActive: windowStatus !== 'inactive', windowStatus: windowStatus === 'inactive' ? 'inactive' : (windowStatus === 'expiring' ? 'expiring' : 'active'), aiReplied, needsHuman, showAiUnread, hasNewMessage };
 
-      const sectionEl = el.querySelector(`[data-section="${windowStatus}"]`) || el;
+      const sectionKey = windowStatus === 'inactive' ? 'inactive' : (windowStatus === 'expiring' ? 'expiring' : 'active');
+      const sectionEl = el.querySelector(`[data-section="${sectionKey}"]`) || el;
       const existing = el.querySelector(`[data-mobile="${CSS.escape(mobile)}"]`);
 
       if (existing) {
@@ -755,9 +758,9 @@
     console.debug('[ACTIVE_CHAT] refreshActiveChat triggered');
     if (window.inboxState.debugActiveMobile) window.inboxState.debugActiveMobile('refreshActiveChat:start');
     if (!window.inboxState.activeMobile) {
-      console.error('[STATE_FATAL] activeMobile missing');
-      debugger;
+      console.error('[STATE_FATAL] activeMobile missing in refreshActiveChat');
       console.warn('[ACTIVE_CHAT] refreshActiveChat skipped: empty activeMobile');
+      isRenderInProgress = false;
       return;
     }
 
