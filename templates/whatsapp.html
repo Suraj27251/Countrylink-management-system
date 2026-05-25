@@ -633,11 +633,11 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/state.js') }}?v=8"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/utils.js') }}?v=8"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}?v=8"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/render.js') }}?v=8"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/events.js') }}?v=8"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/state.js') }}?v=9"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/utils.js') }}?v=9"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}?v=9"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/render.js') }}?v=9"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/events.js') }}?v=9"></script>
 <script>
 (() => {
 'use strict';
@@ -993,6 +993,95 @@ window.eventsEngine.setWorkspace('inbox');
 window.eventsEngine.resizeInput();
 if (msgInput && !msgInput.disabled) msgInput.focus();
 scrollBottom();
+
+/* ═══════════════════════════════════════════════════════════
+   SIMPLE REAL-TIME POLLER — independent of pollingEngine
+   Fetches new messages every 2s for the active chat.
+   ═══════════════════════════════════════════════════════════ */
+(function startSimplePoller() {
+  const POLL_INTERVAL = 2000;
+  const apiBase = API_URL;
+
+  setInterval(async () => {
+    try {
+      const mobile = window.inboxState.activeMobile;
+      if (!mobile) return;
+
+      const sinceId = window.inboxState.cursors.globalLastMessageId || 0;
+      const url = `${apiBase}?mobile=${encodeURIComponent(mobile)}&since_id=${sinceId}`;
+
+      const res = await fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin'
+      });
+      if (!res.ok) return;
+
+      const data = await res.json();
+
+      // Bail if user switched chats during fetch
+      if (window.inboxState.activeMobile !== mobile) return;
+
+      if (data.messages && data.messages.length > 0) {
+        const chatEl = document.getElementById('chatBody');
+        if (!chatEl) return;
+
+        const renderFn = window.renderEngine.renderMsg;
+        let rendered = false;
+
+        data.messages.forEach(m => {
+          const idStr = String(m.id);
+          // Skip if already rendered
+          if (window.inboxState.globalKnownMessageIds.has(idStr)) return;
+          if (chatEl.querySelector(`[data-message-id="${CSS.escape(idStr)}"]`)) return;
+
+          // Render the message
+          try {
+            const node = renderFn(m);
+            chatEl.appendChild(node);
+            window.inboxState.globalKnownMessageIds.add(idStr);
+            rendered = true;
+
+            // Play soft sound for new inbound messages
+            if (m.direction !== 'outbound' && m.sender_type === 'customer') {
+              window.eventsEngine.beep(mobile);
+            }
+          } catch (e) {
+            console.error('[SIMPLE_POLL] Render error:', e);
+          }
+        });
+
+        // Update cursor
+        const lastMsg = data.messages[data.messages.length - 1];
+        if (lastMsg) {
+          window.inboxState.cursors.globalLastMessageId = Math.max(
+            window.inboxState.cursors.globalLastMessageId, +lastMsg.id || 0
+          );
+        }
+        if (data.last_message_id) {
+          window.inboxState.cursors.globalLastMessageId = Math.max(
+            window.inboxState.cursors.globalLastMessageId, +data.last_message_id || 0
+          );
+        }
+
+        // Auto-scroll if near bottom
+        if (rendered && chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 160) {
+          chatEl.scrollTop = chatEl.scrollHeight;
+        }
+      }
+
+      // Update global inbox cursor
+      if (data.last_inbox_message_id) {
+        window.inboxState.cursors.globalLastInboxId = Math.max(
+          window.inboxState.cursors.globalLastInboxId, +data.last_inbox_message_id || 0
+        );
+      }
+    } catch (e) {
+      // Silent fail — next interval will retry
+    }
+  }, POLL_INTERVAL);
+
+  console.debug('[SIMPLE_POLL] Started — 2s interval');
+})();
 
 } catch (bootErr) {
   console.error('[BOOT] Bootstrap FAILED:', bootErr && bootErr.message ? bootErr.message : bootErr);
