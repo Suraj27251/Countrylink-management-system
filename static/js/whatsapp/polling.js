@@ -116,6 +116,7 @@
    */
   const poll = async () => {
     console.debug('[POLLING] poll() started — activeMobile:', window.inboxState.activeMobile);
+    if (window.inboxState.debugActiveMobile) window.inboxState.debugActiveMobile('poll:begin');
 
     try {
       const params = new URLSearchParams({
@@ -127,6 +128,7 @@
         params.set('since_id', String(window.inboxState.cursors.globalLastMessageId));
       }
       const pollStart = performance.now();
+      console.debug('[FETCH_MOBILE]', { endpoint: API_URL, mobile: window.inboxState.activeMobile, source: 'poll' });
       const res = await fetchWithTimeout(`${API_URL}?${params}`, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
       }, 20000, 'Polling fetch');
@@ -270,8 +272,8 @@
    * Depends on globals: nearBottom(), upsertMsg(), scrollBottom(), beep()
    */
   const pollMessages = async () => {
-    const requestMobile = window.inboxState.activeMobile;
-    if (!requestMobile) return;
+    const requestMobile = (window.inboxState.activeMobile || '').trim();
+    if (!requestMobile) { console.error('[STATE_FATAL] activeMobile missing'); debugger; return; }
     const pollMsgStart = performance.now();
     const currentToken = ++activeMessageRequestToken;
     console.debug('[POLLING] pollMessages() started — mobile:', requestMobile, 'token:', currentToken);
@@ -287,6 +289,7 @@
         window.inboxState.activeAbortControllers.push(messagesPollController);
       }
 
+      console.debug('[FETCH_MOBILE]', { endpoint: API_URL, mobile: requestMobile, source: 'pollMessages' });
       const res = await fetchWithTimeout(`${API_URL}?${params}`, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
         signal: messagesPollController.signal
@@ -551,6 +554,7 @@
     console.debug('[POLLING] pollSidebar() started');
     try {
       const params = new URLSearchParams({ include_contacts: '1' });
+      console.debug('[FETCH_MOBILE]', { endpoint: API_URL, mobile: window.inboxState.activeMobile, source: 'pollSidebar' });
       const res = await fetchWithTimeout(`${API_URL}?${params}`, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
       }, 20000, 'Polling fetch');
