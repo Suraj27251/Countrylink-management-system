@@ -553,8 +553,20 @@ window.__eventsEngineInitDone = true;
       const mobile = link.dataset.mobile;
       if (mobile === window.inboxState.activeMobile) return;
 
-      // Simple navigation — server renders the full chat reliably
-      window.location.href = `${PAGE_URL}?mobile=${encodeURIComponent(mobile)}`;
+      // Show skeleton transition immediately — feels instant
+      const loader = document.getElementById('pageLoader');
+      if (loader) {
+        loader.classList.add('show');
+        loader.setAttribute('aria-hidden', 'false');
+      }
+
+      // Highlight the clicked contact in the skeleton sidebar area
+      $all('.conv-item').forEach(el => el.classList.toggle('active', el.dataset.mobile === mobile));
+
+      // Navigate after a micro-delay so the skeleton paints first
+      requestAnimationFrame(() => {
+        window.location.href = `${PAGE_URL}?mobile=${encodeURIComponent(mobile)}`;
+      });
     });
 
     console.debug('[EVENT_BIND] Conversation click delegate listener registered on convList');

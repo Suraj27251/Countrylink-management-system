@@ -85,40 +85,238 @@ main.container {
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: color-mix(in srgb, var(--surface-3) 92%, transparent);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  background: var(--surface-3);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: stretch;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity .18s ease, visibility .18s ease;
+  transition: opacity .12s ease, visibility .12s ease;
 }
 .page-loader.show { opacity: 1; visibility: visible; pointer-events: auto; }
-.page-loader-card {
-  min-width: 140px;
-  padding: 14px 16px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
+
+/* ── Transition shell: mimics the app layout ──────────── */
+.transition-shell {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.transition-rail {
+  width: 60px;
   background: var(--surface);
-  box-shadow: var(--shadow);
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 16px;
+}
+
+.transition-rail-logo {
+  width: 36px;
+  height: 36px;
+  background: var(--green);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 18px;
+}
+
+.transition-sidebar {
+  width: 310px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.transition-sidebar-title {
+  height: 20px;
+  width: 60px;
+  background: var(--surface-3);
+  border-radius: 6px;
+}
+
+.transition-sidebar-search {
+  height: 36px;
+  background: var(--surface-3);
+  border-radius: var(--radius);
+}
+
+.transition-contact {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: var(--text-2);
-  font-size: 13px;
-  font-weight: 600;
+  padding: 8px 0;
 }
-.page-loader-spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid color-mix(in srgb, var(--green) 24%, var(--border));
-  border-top-color: var(--green-dk);
+
+.transition-contact-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--surface-3);
+  flex-shrink: 0;
+  animation: shimmer 1.5s infinite;
+}
+
+.transition-contact-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.transition-contact-line {
+  height: 12px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  animation: shimmer 1.5s infinite;
+}
+
+.transition-contact-line:first-child { width: 70%; }
+.transition-contact-line:last-child { width: 90%; opacity: .6; }
+
+.transition-chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-3);
+}
+
+.transition-chat-header {
+  height: 64px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 12px;
+}
+
+.transition-chat-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--surface-3);
+  animation: shimmer 1.5s infinite;
+}
+
+.transition-chat-name {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.transition-chat-name-line {
+  height: 14px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  animation: shimmer 1.5s infinite;
+}
+
+.transition-chat-name-line:first-child { width: 120px; }
+.transition-chat-name-line:last-child { width: 80px; height: 10px; opacity: .5; }
+
+.transition-chat-body {
+  flex: 1;
+  padding: 30px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  justify-content: flex-end;
+}
+
+.transition-msg {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: shimmer 1.5s infinite;
+}
+
+.transition-msg.incoming { align-items: flex-start; }
+.transition-msg.outgoing { align-items: flex-end; }
+
+.transition-msg-bubble {
+  border-radius: 14px;
+  padding: 0;
+  height: 42px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.transition-msg.incoming .transition-msg-bubble {
+  width: 55%;
+  border-bottom-left-radius: 4px;
+}
+
+.transition-msg.outgoing .transition-msg-bubble {
+  width: 40%;
+  border-bottom-right-radius: 4px;
+  background: color-mix(in srgb, var(--green) 15%, var(--surface));
+  border-color: color-mix(in srgb, var(--green) 20%, var(--border));
+}
+
+.transition-msg-bubble.tall { height: 64px; }
+.transition-msg-bubble.short { height: 32px; width: 30%; }
+
+.transition-chat-compose {
+  height: 80px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 10px;
+}
+
+.transition-compose-box {
+  flex: 1;
+  height: 42px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.transition-compose-btn {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  animation: waSpin .75s linear infinite;
+  background: var(--green);
+  opacity: .5;
 }
+
+/* Shimmer animation */
+@keyframes shimmer {
+  0% { opacity: 1; }
+  50% { opacity: .5; }
+  100% { opacity: 1; }
+}
+
+/* Stagger animation delays for contacts */
+.transition-contact:nth-child(1) { animation-delay: 0s; }
+.transition-contact:nth-child(2) .transition-contact-avatar,
+.transition-contact:nth-child(2) .transition-contact-line { animation-delay: .1s; }
+.transition-contact:nth-child(3) .transition-contact-avatar,
+.transition-contact:nth-child(3) .transition-contact-line { animation-delay: .2s; }
+.transition-contact:nth-child(4) .transition-contact-avatar,
+.transition-contact:nth-child(4) .transition-contact-line { animation-delay: .3s; }
+.transition-contact:nth-child(5) .transition-contact-avatar,
+.transition-contact:nth-child(5) .transition-contact-line { animation-delay: .4s; }
+
+/* Stagger for messages */
+.transition-msg:nth-child(1) .transition-msg-bubble { animation-delay: .1s; }
+.transition-msg:nth-child(2) .transition-msg-bubble { animation-delay: .2s; }
+.transition-msg:nth-child(3) .transition-msg-bubble { animation-delay: .3s; }
+.transition-msg:nth-child(4) .transition-msg-bubble { animation-delay: .4s; }
+.transition-msg:nth-child(5) .transition-msg-bubble { animation-delay: .5s; }
+
 @keyframes waSpin { to { transform: rotate(360deg); } }
 
 /* ── Icon Rail (far left) ───────────────────────────────── */
@@ -1432,6 +1630,7 @@ kbd {
   .wa-sidebar { width: 280px; }
   .hdr-btn span { display: none; }
   .hdr-btn { padding: 7px; }
+  .transition-sidebar { width: 280px; }
 }
 
 @media (max-width: 680px) {
@@ -1439,6 +1638,8 @@ kbd {
   .wa-sidebar { width: 100%; position: absolute; z-index: 20; height: 100%; transform: translateX(-100%); transition: transform .25s; }
   .wa-sidebar.mob-open { transform: translateX(0); }
   .msg-bubble { max-width: 80%; }
+  .transition-rail { display: none; }
+  .transition-sidebar { display: none; }
 }
 
 @media (max-width: 680px) {
