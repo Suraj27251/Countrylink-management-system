@@ -2842,31 +2842,35 @@ def whatsapp_messages_api():
                 else "outbound"
             )
 
-                messages.append({
-                    "id": msg["id"],
-                    "message_id": msg.get("message_id"),
-                    "name": active_name or mobile,
-                    "mobile": normalize_mobile(msg["mobile"]),
-                    "sender_type": sender_type,
-                    "is_outgoing": is_outgoing,
-                    "direction": direction,
-                    "from_me": is_outgoing,
-                    "message_type": msg.get("message_type") or "text",
-                    "text": msg.get("text") or "",
-                    "media_url": msg.get("media_url"),
-                    "media_public_url": url_for(
-                        'static',
-                        filename=msg["media_url"],
-                        _external=True
-                    ) if msg.get("media_url") else None,
-                    "file_name": None,
-                    "media_mime_type": None,
-                    "latitude": None,
-                    "longitude": None,
-                    "delivery_status": msg.get("status"),
-                    "error_reason": None,
-                    "created_at": str(msg.get("created_at")) if msg.get("created_at") else None,
-                })
+          messages.append({
+    "id": msg["id"],
+    "message_id": msg.get("message_id"),
+    "name": active_name or mobile,
+    "mobile": normalize_mobile(msg["mobile"]),
+    "sender_type": sender_type,
+    "is_outgoing": is_outgoing,
+    "direction": direction,
+    "from_me": is_outgoing,
+    "message_type": msg.get("message_type") or "text",
+    "text": msg.get("text") or "",
+    "media_url": msg.get("media_url"),
+    "media_public_url": url_for(
+        'static',
+        filename=msg["media_url"],
+        _external=True
+    ) if msg.get("media_url") else None,
+    "file_name": None,
+    "media_mime_type": None,
+    "latitude": None,
+    "longitude": None,
+    "delivery_status": msg.get("status"),
+    "error_reason": None,
+    "created_at": (
+        str(msg.get("created_at"))
+        if msg.get("created_at")
+        else None
+    ),
+})
 
                 if direction == "outbound":
                     app.logger.debug(
