@@ -2495,10 +2495,10 @@ def whatsapp_messages_api():
     include_contacts = request.args.get('include_contacts', '0') == '1'
 
     def parse_non_negative_int(raw_value, field_name):
-        if raw_value == '':
+        if not raw_value or raw_value.strip() == '':
             return 0
         try:
-            value = int(raw_value)
+            value = int(raw_value.strip())
             if value < 0:
                 raise ValueError("negative value")
             return value
@@ -2519,179 +2519,201 @@ def whatsapp_messages_api():
     latest_inbox_id = 0
     active_name = ""
 
-    # =========================
-    # MYSQL AI CRM MODE
-    # =========================
+    mysql_conn = None
+    mysql_cursor = None
 
-    mysql_conn = mysql.connector.connect(
-        host=MYSQL_DB_HOST,
-        database=MYSQL_DB_NAME,
-        user=MYSQL_DB_USER,
-        password=MYSQL_DB_PASSWORD,
-    )
+    try:
+        # =========================
+        # MYSQL AI CRM MODE
+        # =========================
 
-    mysql_cursor = mysql_conn.cursor(dictionary=True)
+        mysql_conn = mysql.connector.connect(
+            host=MYSQL_DB_HOST,
+            database=MYSQL_DB_NAME,
+            user=MYSQL_DB_USER,
+            password=MYSQL_DB_PASSWORD,
+        )
 
-    if include_contacts:
+        mysql_cursor = mysql_conn.cursor(dictionary=True)
+
+        if include_contacts:
+
+            mysql_cursor.execute("""
+                SELECT
+                    phone AS mobile,
+                    customer_name AS name,
+                    last_message AS text,
+                    last_message_at AS created_at,
+                    unread_count,
+                    ai_replied,
+                    last_customer_message_at,
+                    COALESCE(needs_human, 0) AS needs_human,
+                    CASE
+                        WHEN last_customer_message_at IS NULL THEN 'active'
+                        WHEN TIMESTAMPDIFF(HOUR, last_customer_message_at, NOW()) < 22 THEN 'active'
+                        WHEN TIMESTAMPDIFF(HOUR, last_customer_message_at, NOW()) < 24 THEN 'expiring'
+                        ELSE 'inactive'
+                    END AS chat_window_status
+                FROM whatsapp_conversations
+                ORDER BY COALESCE(needs_human, 0) DESC, unread_count DESC, last_customer_message_at DESC, updated_at DESC
+            """)
+
+            raw_contacts = mysql_cursor.fetchall()
+
+            contacts = []
+
+            for idx, row in enumerate(raw_contacts, start=1):
+                contacts.append({
+                    "id": idx,
+                    "name": row.get("name") or row.get("mobile"),
+                    "mobile": normalize_mobile(row.get("mobile")),
+                    "text": row.get("text") or "",
+                    "created_at": str(row.get("created_at")) if row.get("created_at") else None,
+                    "unread_count": int(row.get("unread_count") or 0),
+                    "ai_replied": int(row.get("ai_replied") or 0),
+                    "last_customer_message_at": str(row.get("last_customer_message_at")) if row.get("last_customer_message_at") else None,
+                    "needs_human": int(row.get("needs_human") or 0),
+                    "chat_window_status": row.get("chat_window_status") or "active",
+                    "message_type": "text",
+                    "direction": "inbound",
+                })
 
         mysql_cursor.execute("""
-            SELECT
-                phone AS mobile,
-                customer_name AS name,
-                last_message AS text,
-                last_message_at AS created_at,
-                unread_count,
-                ai_replied,
-                last_customer_message_at,
-                COALESCE(needs_human, 0) AS needs_human,
-                CASE
-                    WHEN last_customer_message_at IS NULL THEN 'active'
-                    WHEN TIMESTAMPDIFF(HOUR, last_customer_message_at, NOW()) < 22 THEN 'active'
-                    WHEN TIMESTAMPDIFF(HOUR, last_customer_message_at, NOW()) < 24 THEN 'expiring'
-                    ELSE 'inactive'
-                END AS chat_window_status
-            FROM whatsapp_conversations
-            ORDER BY COALESCE(needs_human, 0) DESC, unread_count DESC, last_customer_message_at DESC, updated_at DESC
+            SELECT COALESCE(MAX(id), 0) AS latest_id
+            FROM whatsapp_messages
         """)
 
-        raw_contacts = mysql_cursor.fetchall()
+        latest_row = mysql_cursor.fetchone()
+        latest_inbox_id = latest_row["latest_id"] if latest_row else 0
 
-        contacts = []
-
-        for idx, row in enumerate(raw_contacts, start=1):
-            contacts.append({
-                "id": idx,
-                "name": row.get("name") or row.get("mobile"),
-                "mobile": normalize_mobile(row.get("mobile")),
-                "text": row.get("text") or "",
-                "created_at": row.get("created_at"),
-                "unread_count": int(row.get("unread_count") or 0),
-                "ai_replied": int(row.get("ai_replied") or 0),
-                "last_customer_message_at": row.get("last_customer_message_at"),
-                "needs_human": int(row.get("needs_human") or 0),
-                "chat_window_status": row.get("chat_window_status") or "active",
-                "message_type": "text",
-                "direction": "inbound",
-            })
-
-    mysql_cursor.execute("""
-        SELECT COALESCE(MAX(id), 0) AS latest_id
-        FROM whatsapp_messages
-    """)
-
-    latest_row = mysql_cursor.fetchone()
-    latest_inbox_id = latest_row["latest_id"] if latest_row else 0
-
-    # Fetch recent inbound messages from all conversations for inbox notification
-    # This ensures operators are notified about all new messages, including AI-responded ones
-    inbox_messages = []
-    if include_contacts and since_inbox_id_raw != '':
-        mysql_cursor.execute("""
-            SELECT
-                id,
-                whatsapp_message_id AS message_id,
-                phone AS mobile,
-                sender_type,
-                message_text AS text,
-                message_type,
-                media_url,
-                status,
-                created_at
-            FROM whatsapp_messages
-            WHERE sender_type = 'customer' AND id > %s
-            ORDER BY created_at ASC, id ASC
-            LIMIT 100
-        """, (since_inbox_id,))
-        db_inbox_messages = mysql_cursor.fetchall()
-
-        for msg in db_inbox_messages:
-            inbox_messages.append({
-                "id": msg["id"],
-                "message_id": msg.get("message_id"),
-                "mobile": normalize_mobile(msg["mobile"]),
-                "direction": "inbound",
-                "message_type": msg.get("message_type") or "text",
-                "text": msg.get("text") or "",
-                "media_url": msg.get("media_url"),
-                "delivery_status": msg.get("status"),
-                "created_at": msg.get("created_at"),
-            })
-
-    if mobile:
-
-        mysql_cursor.execute("""
-            SELECT
-                id,
-                whatsapp_message_id AS message_id,
-                phone AS mobile,
-                sender_type,
-                message_text AS text,
-                message_type,
-                media_url,
-                status,
-                created_at
-            FROM whatsapp_messages
-            WHERE phone = %s AND id > %s
-            ORDER BY created_at ASC, id ASC
-        """, (mobile, since_id))
-        db_messages = mysql_cursor.fetchall()
-
-        for msg in db_messages:
-
-            sender_type = msg.get("sender_type", "customer")
-
-            direction = (
-                "inbound"
-                if sender_type == "customer"
-                else "outbound"
-            )
-
-            messages.append({
-                "id": msg["id"],
-                "message_id": msg.get("message_id"),
-                "name": active_name or mobile,
-                "mobile": normalize_mobile(msg["mobile"]),
-                "direction": direction,
-                "from_me": direction == "outbound",
-                "message_type": msg.get("message_type") or "text",
-                "text": msg.get("text") or "",
-                "media_url": msg.get("media_url"),
-                "media_public_url": url_for(
-                    'static',
-                    filename=msg["media_url"],
-                    _external=True
-                ) if msg.get("media_url") else None,
-                "file_name": None,
-                "media_mime_type": None,
-                "latitude": None,
-                "longitude": None,
-                "delivery_status": msg.get("status"),
-                "error_reason": None,
-                "created_at": msg.get("created_at"),
-            })
-
-            if direction == "outbound":
-                app.logger.debug(
-                    "[OUTBOUND_MSG_RETURN] Returning outbound message id=%s sender_type=%s direction=%s",
-                    msg["id"],
+        # Fetch recent inbound messages from all conversations for inbox notification
+        # This ensures operators are notified about all new messages, including AI-responded ones
+        inbox_messages = []
+        if include_contacts and since_inbox_id_raw != '':
+            mysql_cursor.execute("""
+                SELECT
+                    id,
+                    whatsapp_message_id AS message_id,
+                    phone AS mobile,
                     sender_type,
-                    direction,
+                    message_text AS text,
+                    message_type,
+                    media_url,
+                    status,
+                    created_at
+                FROM whatsapp_messages
+                WHERE sender_type = 'customer' AND id > %s
+                ORDER BY created_at ASC, id ASC
+                LIMIT 100
+            """, (since_inbox_id,))
+            db_inbox_messages = mysql_cursor.fetchall()
+
+            for msg in db_inbox_messages:
+                inbox_messages.append({
+                    "id": msg["id"],
+                    "message_id": msg.get("message_id"),
+                    "mobile": normalize_mobile(msg["mobile"]),
+                    "direction": "inbound",
+                    "message_type": msg.get("message_type") or "text",
+                    "text": msg.get("text") or "",
+                    "media_url": msg.get("media_url"),
+                    "delivery_status": msg.get("status"),
+                    "created_at": str(msg.get("created_at")) if msg.get("created_at") else None,
+                })
+
+        if mobile:
+
+            mysql_cursor.execute("""
+                SELECT
+                    id,
+                    whatsapp_message_id AS message_id,
+                    phone AS mobile,
+                    sender_type,
+                    message_text AS text,
+                    message_type,
+                    media_url,
+                    status,
+                    created_at
+                FROM whatsapp_messages
+                WHERE phone = %s AND id > %s
+                ORDER BY created_at ASC, id ASC
+            """, (mobile, since_id))
+            db_messages = mysql_cursor.fetchall()
+
+            for msg in db_messages:
+
+                sender_type = msg.get("sender_type", "customer")
+
+                direction = (
+                    "inbound"
+                    if sender_type == "customer"
+                    else "outbound"
                 )
 
-        mysql_cursor.execute("""
-            SELECT customer_name
-            FROM whatsapp_conversations
-            WHERE phone = %s
-            LIMIT 1
-        """, (mobile,))
+                messages.append({
+                    "id": msg["id"],
+                    "message_id": msg.get("message_id"),
+                    "name": active_name or mobile,
+                    "mobile": normalize_mobile(msg["mobile"]),
+                    "direction": direction,
+                    "from_me": direction == "outbound",
+                    "message_type": msg.get("message_type") or "text",
+                    "text": msg.get("text") or "",
+                    "media_url": msg.get("media_url"),
+                    "media_public_url": url_for(
+                        'static',
+                        filename=msg["media_url"],
+                        _external=True
+                    ) if msg.get("media_url") else None,
+                    "file_name": None,
+                    "media_mime_type": None,
+                    "latitude": None,
+                    "longitude": None,
+                    "delivery_status": msg.get("status"),
+                    "error_reason": None,
+                    "created_at": str(msg.get("created_at")) if msg.get("created_at") else None,
+                })
 
-        active_contact = mysql_cursor.fetchone()
+                if direction == "outbound":
+                    app.logger.debug(
+                        "[OUTBOUND_MSG_RETURN] Returning outbound message id=%s sender_type=%s direction=%s",
+                        msg["id"],
+                        sender_type,
+                        direction,
+                    )
 
-        if active_contact:
-            active_name = active_contact.get("customer_name") or mobile
+            mysql_cursor.execute("""
+                SELECT customer_name
+                FROM whatsapp_conversations
+                WHERE phone = %s
+                LIMIT 1
+            """, (mobile,))
 
-    mysql_cursor.close()
-    mysql_conn.close()
+            active_contact = mysql_cursor.fetchone()
+
+            if active_contact:
+                active_name = active_contact.get("customer_name") or mobile
+
+    except MySQLError as e:
+        app.logger.exception("Failed to fetch WhatsApp messages from MySQL: %s", e)
+        # Return safe empty response on MySQL failure so frontend keeps polling
+        contacts = []
+        messages = []
+        inbox_messages = []
+        latest_inbox_id = 0
+        active_name = ""
+
+    finally:
+        if mysql_cursor:
+            try:
+                mysql_cursor.close()
+            except Exception:
+                pass
+        if mysql_conn and mysql_conn.is_connected():
+            try:
+                mysql_conn.close()
+            except Exception:
+                pass
 
     last_message_id = messages[-1]["id"] if messages else None
 
