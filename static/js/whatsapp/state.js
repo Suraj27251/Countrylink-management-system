@@ -97,7 +97,11 @@
       sidebarAbortController: null,
 
       /* ── Notification audio ───────────────────────────── */
-      notificationAudio: null,
+      audio: {
+        soft: null,
+        newConversation: null,
+      },
+      lastPollSuccessAt: Date.now(),
 
       /* ── Runtime tracking (for memory/leak observation) ── */
       activeTimerIds: [],        // setTimeout/setInterval IDs for cleanup auditing

@@ -263,20 +263,45 @@
      2. AUDIO INITIALIZATION
      ═══════════════════════════════════════════════════════════ */
 
+  const { parseJsonResponse, fetchWithTimeout } = window.whatsappUtils || {};
+
   const initAudio = () => {
-    window.inboxState.notificationAudio = new Audio(NOTIFICATION_SOUND_URL);
-    window.inboxState.notificationAudio.preload = 'auto';
-    window.inboxState.notificationAudio.volume = 1.0;
+    const audioSoft = new Audio(SOFT_SOUND_URL);
+    const audioStrong = new Audio(NOTIFICATION_SOUND_URL);
+    audioSoft.preload = 'auto';
+    audioStrong.preload = 'auto';
+    audioSoft.volume = 0.6;
+    audioStrong.volume = 1.0;
+    window.inboxState.audio = { soft: audioSoft, newConversation: audioStrong };
 
-    window.inboxState.notificationAudio.addEventListener('error', () => {
-      console.warn('⚠️ Notification sound failed to load from:', NOTIFICATION_SOUND_URL);
+    const unlockAudio = () => {
+      const audioEntries = Object.entries(window.inboxState.audio || {});
+      audioEntries.forEach(([label, audio]) => {
+        if (!audio) return;
+        audio.play().then(() => {
+          audio.pause();
+          audio.currentTime = 0;
+          console.debug(`[AUDIO] ${label} audio unlocked successfully after user interaction`);
+        }).catch(err => {
+          console.debug(`[AUDIO] ${label} audio unlock attempt blocked/failed:`, err?.name || err);
+        });
+      });
+    };
+
+    audioSoft.addEventListener('error', () => {
+      console.warn('⚠️ Notification soft sound failed to load from:', SOFT_SOUND_URL);
+    });
+    audioStrong.addEventListener('error', () => {
+      console.warn('⚠️ Notification attention sound failed to load from:', NOTIFICATION_SOUND_URL);
+    });
+    audioSoft.addEventListener('canplaythrough', () => console.debug('[AUDIO] Soft sound loaded:', SOFT_SOUND_URL));
+    audioStrong.addEventListener('canplaythrough', () => console.debug('[AUDIO] Attention sound loaded:', NOTIFICATION_SOUND_URL));
+    const unlockOnce = () => unlockAudio();
+    ['pointerdown', 'touchstart', 'keydown'].forEach(ev => {
+      document.addEventListener(ev, unlockOnce, { once: true, passive: ev !== 'keydown' });
     });
 
-    window.inboxState.notificationAudio.addEventListener('canplaythrough', () => {
-      console.debug('[AUDIO] Notification sound loaded:', NOTIFICATION_SOUND_URL);
-    });
-
-    console.debug('[AUDIO] Notification audio created:', NOTIFICATION_SOUND_URL);
+    console.debug('[AUDIO] Notification audio created:', { soft: SOFT_SOUND_URL, strong: NOTIFICATION_SOUND_URL });
     console.debug('[LIFECYCLE] Audio initialized');
     console.debug('[EVENT] Audio initialized');
   };
@@ -310,16 +335,16 @@
      4. BEEP (Notification Sound)
      ═══════════════════════════════════════════════════════════ */
 
+
   const beep = (inboundMobile) => {
     if (!window.inboxState.ui.soundEnabled || !window.inboxState.ui.hasInteracted) return;
 
     try {
-      // Don't play any sound for messages in the currently active chat
-      if (inboundMobile && inboundMobile === window.inboxState.activeMobile) {
-        return;
-      }
-
-      const audioToPlay = window.inboxState.notificationAudio;
+      const isActiveChat = Boolean(inboundMobile && inboundMobile === window.inboxState.activeMobile);
+      const audioToPlay = isActiveChat
+        ? window.inboxState.audio?.soft
+        : window.inboxState.audio?.newConversation;
+      if (!audioToPlay) return;
       audioToPlay.currentTime = 0;
 
       const playPromise = audioToPlay.play();
@@ -386,11 +411,20 @@
     updateNotifIcon();
 
     // Monitor audio state for debugging
+    let consecutiveAudioNotReady = 0;
+    let audioWarnedThisSession = false;
     setInterval(() => {
-      if (window.inboxState.ui.soundEnabled && window.inboxState.notificationAudio) {
-        if (window.inboxState.notificationAudio.readyState === 0) {
-          console.warn('[AUDIO] Notification audio not ready - may have loading issues');
+      if (document.hidden || !window.inboxState.ui.soundEnabled) return;
+      const softReady = window.inboxState.audio?.soft?.readyState || 0;
+      const strongReady = window.inboxState.audio?.newConversation?.readyState || 0;
+      if (softReady === 0 || strongReady === 0) {
+        consecutiveAudioNotReady += 1;
+        if (consecutiveAudioNotReady >= 3 && !audioWarnedThisSession) {
+          console.warn('[AUDIO] One or more notification audio tracks not ready', { softReady, strongReady, consecutiveAudioNotReady });
+          audioWarnedThisSession = true;
         }
+      } else {
+        consecutiveAudioNotReady = 0;
       }
     }, 30000);
 
@@ -683,9 +717,9 @@
       }
 
       try {
-        const r = await fetch(SEND_URL, { method: 'POST', body: fd });
-        if (!r.ok) { 
-          const p = await r.json(); 
+        const r = await fetchWithTimeout(SEND_URL, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } }, 20000, 'Send message');
+        const p = await parseJsonResponse(r, 'Send message');
+        if (!r.ok) {
           alert(p.error || 'Failed to send');
           // Remove optimistic message on send failure
           const optNode = dom.chatBody?.querySelector(`[data-message-id="${CSS.escape(optimisticId)}"]`);
@@ -765,21 +799,28 @@
 
   const loadTemplates = async (force = false) => {
     if (window.inboxState.templates.length && !force) return;
-    const r = await fetch(TEMPLATE_URL);
-    if (!r.ok) return;
-    const data = await r.json();
-    window.inboxState.templates = data.data || [];
-    const opts = window.inboxState.templates.map(t => `<option value="${esc(t.name)}">${esc(t.name)} (${esc(t.language||'en')})</option>`).join('');
+    try {
+      const r = await fetchWithTimeout(TEMPLATE_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } }, 30000, 'Load templates');
+      const data = await parseJsonResponse(r, 'Load templates');
+      if (!r.ok) {
+        console.error('[API] Template load failed', { status: r.status, error: data?.error || 'Unknown error' });
+        return;
+      }
+      window.inboxState.templates = data.data || [];
+      const opts = window.inboxState.templates.map(t => `<option value="${esc(t.name)}">${esc(t.name)} (${esc(t.language||'en')})</option>`).join('');
 
-    const templateSelectEl = document.getElementById('templateSelect');
-    if (templateSelectEl) templateSelectEl.innerHTML = opts || '<option value="">No templates</option>';
+      const templateSelectEl = document.getElementById('templateSelect');
+      if (templateSelectEl) templateSelectEl.innerHTML = opts || '<option value="">No templates</option>';
 
-    const newConvTemplateEl = document.getElementById('newConvTemplate');
-    if (newConvTemplateEl) newConvTemplateEl.innerHTML = opts || '<option value="">No templates</option>';
+      const newConvTemplateEl = document.getElementById('newConvTemplate');
+      if (newConvTemplateEl) newConvTemplateEl.innerHTML = opts || '<option value="">No templates</option>';
 
-    onTemplateChange('templateSelect', 'templateLang', 'templateParamsWrap');
-    onTemplateChange('newConvTemplate', 'newConvLang', 'newConvParamsWrap');
-    renderApprovedTemplateRows();
+      onTemplateChange('templateSelect', 'templateLang', 'templateParamsWrap');
+      onTemplateChange('newConvTemplate', 'newConvLang', 'newConvParamsWrap');
+      renderApprovedTemplateRows();
+    } catch (err) {
+      console.error('[API] Template sync failed:', err?.message || err);
+    }
   };
 
   const renderApprovedTemplateRows = () => {
@@ -924,8 +965,8 @@
       const t = window.inboxState.selectedQuickTemplate || window.inboxState.templates.find(x => x.name === tName);
       const body = { mobile, template_name: tName, language_code: lang, template_preview: getBodyText(t) || `Template: ${tName}`,
         components: params.length ? [{ type:'body', parameters: params.map(text=>({type:'text', text})) }] : [] };
-      const r = await fetch(SEND_TPL_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-      const d = await r.json();
+      const r = await fetchWithTimeout(SEND_TPL_URL, { method:'POST', headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify(body) }, 20000, 'Send template');
+      const d = await parseJsonResponse(r, 'Send template');
       if (!r.ok) return alert(d.error || 'Failed to send.');
       alert('Template sent successfully.');
       if (templateQuickSendModal) templateQuickSendModal.hide();
@@ -942,8 +983,8 @@
       const body = { mobile: window.inboxState.activeMobile, template_name: tName, language_code: lang,
         template_preview: getBodyText(t) || `Template: ${tName}`,
         components: params.length ? [{ type:'body', parameters: params.map(text=>({type:'text',text})) }] : [] };
-      const r = await fetch(SEND_TPL_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-      const d = await r.json();
+      const r = await fetchWithTimeout(SEND_TPL_URL, { method:'POST', headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify(body) }, 20000, 'Send template');
+      const d = await parseJsonResponse(r, 'Send template');
       if (!r.ok) { alert(d.error || 'Failed'); return; }
       if (templateModal) templateModal.hide();
       await window.pollingEngine.pollMessages();
@@ -1025,8 +1066,8 @@
       const body = { mobile: phone, template_name: tName, language_code: lang,
         template_preview: getBodyText(t) || `Template: ${tName}`,
         components: params.length ? [{ type:'body', parameters: params.map(text=>({type:'text',text})) }] : [] };
-      const r = await fetch(SEND_TPL_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-      const d = await r.json();
+      const r = await fetchWithTimeout(SEND_TPL_URL, { method:'POST', headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify(body) }, 20000, 'Send template');
+      const d = await parseJsonResponse(r, 'Send template');
       if (!r.ok) { alert(d.error || 'Failed to start conversation'); return; }
       if (newConvModal) newConvModal.hide();
       window.location.href = `${PAGE_URL}?mobile=${encodeURIComponent(phone)}`;
@@ -1087,8 +1128,8 @@
 
   const loadFlows = async (forceSync = false) => {
     const url = forceSync ? `${FLOWS_URL}?sync=1` : FLOWS_URL;
-    const r = await fetch(url);
-    const data = await r.json();
+    const r = await fetchWithTimeout(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } }, 30000, 'Load flows');
+    const data = await parseJsonResponse(r, 'Load flows');
     if (!r.ok) throw new Error(data.error || 'Failed');
     window.inboxState.flows = data.data || [];
     const sel = document.getElementById('flowSelect');
@@ -1181,8 +1222,8 @@
         payload.flow_id = fid; payload.button_text = fbt;
       }
 
-      const r = await fetch(SEND_INT_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-      const d = await r.json();
+      const r = await fetchWithTimeout(SEND_INT_URL, { method:'POST', headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify(payload) }, 20000, 'Send interactive message');
+      const d = await parseJsonResponse(r, 'Send interactive message');
       if (!r.ok) { alert(d.error || 'Failed'); return; }
       if (interactiveModal) interactiveModal.hide();
       await window.pollingEngine.pollMessages();
@@ -1259,12 +1300,12 @@
         if (aiLabel) aiLabel.textContent = newHuman ? 'Human' : 'AI';
 
         try {
-          const response = await fetch('/api/whatsapp/toggle-ai', {
+          const response = await fetchWithTimeout('/api/whatsapp/toggle-ai', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
             body: JSON.stringify({ phone, human_takeover: newHuman })
-          });
-          const data = await response.json();
+          }, 20000, 'Toggle AI');
+          const data = await parseJsonResponse(response, 'Toggle AI');
 
           if (!data.success) {
             // Revert on failure

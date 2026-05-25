@@ -635,6 +635,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/state.js') }}"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/utils.js') }}"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/render.js') }}"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/events.js') }}"></script>
@@ -880,7 +881,6 @@ window.closeCommandPalette = window.eventsEngine.closeCommandPalette;
 let _stuckCheckInterval = null;
 const startStuckDetection = () => {
   if (_stuckCheckInterval) return;
-  let lastPollActivity = Date.now();
 
   _stuckCheckInterval = setInterval(() => {
     const now = Date.now();
@@ -902,18 +902,16 @@ const startStuckDetection = () => {
     }
 
     // ── Polling stuck detection ──
+    const lastPollActivity = st.lastPollSuccessAt || now;
     const pollElapsed = now - lastPollActivity;
-    if (pollElapsed > 15000 && st.pollTimer) {
+    if (!document.hidden && pollElapsed > 25000 && st.pollTimer) {
       console.warn('[SELF_HEAL] Polling appears stuck — last activity', Math.round(pollElapsed / 1000), 's ago — restarting poll');
       st.resetPollFails();
       window.pollingEngine.clearPollTimer();
       window.pollingEngine.schedulePoll(0);
-      lastPollActivity = now;
+      st.lastPollSuccessAt = now;
       st.stress.stalePollDrops++;
     }
-
-    // ── Track last poll activity ──
-    if (st.pollTimer) lastPollActivity = now;
 
     // ── DOM pressure threshold warning + pruning ──
     const totalNodes = document.querySelectorAll('*').length;
