@@ -560,15 +560,17 @@ window.__eventsEngineInitDone = true;
 
       // Reset chat for new contact
       window.inboxState.setActiveMobile(mobile);
-      window.inboxState.hydrateActiveMobileFromUrl('contact_click:post_pushstate');
       window.inboxState.debugActiveMobile('contact_click:setActiveMobile');
       console.debug('[ACTIVE_CHAT] Conversation switch requested:', { from: oldMobile || '', to: mobile, activeConversationMobile: window.activeConversationMobile || '' });
       window.inboxState.cursors.globalLastMessageId = 0;
       window.inboxState.globalKnownMessageIds.clear();
+      // Reset per-conversation cursor so pollMessages fetches ALL messages for this chat
+      window.inboxState.lastMessageIdByMobile.delete(mobile);
       if (window.renderEngine.clearMessageNodeMap) window.renderEngine.clearMessageNodeMap();
       window.inboxState.ui.conversationOpenedAt = Date.now();
       if (dom.chatBody) {
         dom.chatBody.querySelectorAll('.msg-row').forEach(node => node.remove());
+        dom.chatBody.querySelectorAll('.date-sep').forEach(node => node.remove());
         const emptyHint = document.getElementById('chatEmptyHint');
         if (emptyHint) emptyHint.remove();
         console.debug('[ACTIVE_CHAT] Cleared previous chat DOM rows for new conversation:', mobile);
@@ -604,10 +606,12 @@ window.__eventsEngineInitDone = true;
       const sendBtn = document.getElementById('sendBtn');
       if (sendBtn) sendBtn.disabled = false;
 
-      // Restart poll for new contact
+      // Restart poll for new contact — use pollMessages for stale-response safety
       clearTimeout(window.inboxState.pollTimer);
+      window.pollingEngine.clearPollTimer();
       try {
-        await window.pollingEngine.poll();
+        // Use dedicated pollMessages which has stale-response guards
+        await window.pollingEngine.pollMessages();
         // Now that human has opened the chat and poll loaded messages, clear unread badge
         window.inboxState.unreadByMobile.delete(mobile);
         // Refresh the conversation list to update unread badge visually
@@ -619,8 +623,19 @@ window.__eventsEngineInitDone = true;
         }
         await window.pollingEngine.pollSidebar();
       } catch (err) {
-        console.error('[EVENT] Error loading chat:', err);
+        if (err?.name !== 'AbortError') {
+          console.error('[EVENT] Error loading chat:', err);
+          // Retry once after a short delay
+          setTimeout(async () => {
+            if (window.inboxState.activeMobile === mobile) {
+              try { await window.pollingEngine.pollMessages(); } catch (_) {}
+            }
+          }, 1000);
+        }
       }
+
+      // Restart the scheduled polling
+      window.pollingEngine.schedulePoll(2000);
 
       if (scrollBottom) scrollBottom();
       dom.msgInput?.focus();
