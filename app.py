@@ -1249,11 +1249,13 @@ def load_mysql_messages(mysql_cursor, conversation_id):
 
 def setup_mysql_whatsapp_indexes():
     global MYSQL_WHATSAPP_INDEXES_ENSURED
+
     if MYSQL_WHATSAPP_INDEXES_ENSURED:
         return
 
     mysql_conn = None
     mysql_cursor = None
+
     try:
         mysql_conn = mysql.connector.connect(
             host=MYSQL_DB_HOST,
@@ -1261,31 +1263,74 @@ def setup_mysql_whatsapp_indexes():
             user=MYSQL_DB_USER,
             password=MYSQL_DB_PASSWORD,
         )
+
         mysql_cursor = mysql_conn.cursor(dictionary=True)
         mysql_conn.start_transaction()
 
-        mysql_cursor.execute("SHOW INDEX FROM whatsapp_messages WHERE Key_name = 'idx_messages_conversation_created'")
-        if not mysql_cursor.fetchone():
-            mysql_cursor.execute("CREATE INDEX idx_messages_conversation_created ON whatsapp_messages(conversation_id, created_at)")
+        # ---------------------------------------------------
+        # whatsapp_messages indexes
+        # ---------------------------------------------------
 
-        mysql_cursor.execute("SHOW INDEX FROM whatsapp_messages WHERE Key_name = 'idx_messages_phone'")
-        if not mysql_cursor.fetchone():
-            mysql_cursor.execute("CREATE INDEX idx_messages_phone ON whatsapp_messages(phone)")
+        mysql_cursor.execute("""
+            SHOW INDEX FROM whatsapp_messages
+            WHERE Key_name = 'idx_messages_conversation_created'
+        """)
+        existing_index = mysql_cursor.fetchone()
+        mysql_cursor.fetchall()
 
-        mysql_cursor.execute("SHOW INDEX FROM whatsapp_conversations WHERE Key_name = 'idx_conversations_updated'")
-        if not mysql_cursor.fetchone():
-            mysql_cursor.execute("CREATE INDEX idx_conversations_updated ON whatsapp_conversations(updated_at)")
+        if not existing_index:
+            mysql_cursor.execute("""
+                CREATE INDEX idx_messages_conversation_created
+                ON whatsapp_messages(conversation_id, created_at)
+            """)
 
-        mysql_cursor.execute(
-            """
-            SELECT whatsapp_message_id, COUNT(*) AS duplicate_count
+        mysql_cursor.execute("""
+            SHOW INDEX FROM whatsapp_messages
+            WHERE Key_name = 'idx_messages_phone'
+        """)
+        existing_index = mysql_cursor.fetchone()
+        mysql_cursor.fetchall()
+
+        if not existing_index:
+            mysql_cursor.execute("""
+                CREATE INDEX idx_messages_phone
+                ON whatsapp_messages(phone)
+            """)
+
+        # ---------------------------------------------------
+        # whatsapp_conversations indexes
+        # ---------------------------------------------------
+
+        mysql_cursor.execute("""
+            SHOW INDEX FROM whatsapp_conversations
+            WHERE Key_name = 'idx_conversations_updated'
+        """)
+        existing_index = mysql_cursor.fetchone()
+        mysql_cursor.fetchall()
+
+        if not existing_index:
+            mysql_cursor.execute("""
+                CREATE INDEX idx_conversations_updated
+                ON whatsapp_conversations(updated_at)
+            """)
+
+        # ---------------------------------------------------
+        # duplicate whatsapp_message_id detection
+        # ---------------------------------------------------
+
+        mysql_cursor.execute("""
+            SELECT whatsapp_message_id,
+                   COUNT(*) AS duplicate_count
             FROM whatsapp_messages
-            WHERE whatsapp_message_id IS NOT NULL AND TRIM(whatsapp_message_id) <> ''
+            WHERE whatsapp_message_id IS NOT NULL
+              AND TRIM(whatsapp_message_id) <> ''
             GROUP BY whatsapp_message_id
             HAVING COUNT(*) > 1
             LIMIT 1
-            """
-        )
+        """)
+
+        duplicate_row = mysql_cursor.fetchone()
+        mysql_cursor.fetchall()
         duplicate_message_id = mysql_cursor.fetchone()
         mysql_cursor.execute("SHOW INDEX FROM whatsapp_messages WHERE Key_name = 'uniq_whatsapp_messages_message_id'")
         message_unique_index_exists = mysql_cursor.fetchone() is not None
