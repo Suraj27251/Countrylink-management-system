@@ -2762,160 +2762,55 @@ def whatsapp_messages_api():
             FROM whatsapp_messages
         """)
 
-        latest_row = mysql_cursor.fetchone()
-        latest_inbox_id = latest_row["latest_id"] if latest_row else 0
+for msg in db_messages:
 
-        # Fetch recent inbound messages from all conversations for inbox notification
-        # This ensures operators are notified about all new messages, including AI-responded ones
-        inbox_messages = []
-        if include_contacts and since_inbox_id_raw != '':
-            mysql_cursor.execute("""
-                SELECT
-                    id,
-                    whatsapp_message_id AS message_id,
-                    phone AS mobile,
-                    sender_type,
-                    message_text AS text,
-                    message_type,
-                    media_url,
-                    status,
-                    created_at
-                FROM whatsapp_messages
-                WHERE id > %s
-                ORDER BY created_at ASC, id ASC
-                LIMIT 100
-            """, (since_inbox_id,))
-            db_inbox_messages = mysql_cursor.fetchall()
+    sender_type = msg.get("sender_type", "customer")
 
-            for msg in db_inbox_messages:
-                inbox_messages.append({
-                    "id": msg["id"],
-                    "message_id": msg.get("message_id"),
-                    "mobile": normalize_mobile(msg["mobile"]),
-                    "sender_type": msg.get("sender_type") or "customer",
-                    "is_outgoing": (msg.get("sender_type") or "customer") in ("ai", "human"),
-                    "direction": "outbound" if (msg.get("sender_type") or "customer") in ("ai", "human") else "inbound",
-                    "message_type": msg.get("message_type") or "text",
-                    "text": msg.get("text") or "",
-                    "media_url": msg.get("media_url"),
-                    "delivery_status": msg.get("status"),
-                    "created_at": str(msg.get("created_at")) if msg.get("created_at") else None,
-                })
+    direction = (
+        "inbound"
+        if sender_type == "customer"
+        else "outbound"
+    )
 
-        if mobile:
+    is_outgoing = sender_type in ("ai", "human")
 
-            mysql_cursor.execute("SELECT id, customer_name FROM whatsapp_conversations WHERE phone = %s LIMIT 1", (mobile,))
-            active_conversation = mysql_cursor.fetchone()
-            conversation_id = active_conversation["id"] if active_conversation else None
-            if active_conversation:
-                active_name = active_conversation.get("customer_name") or mobile
+    messages.append({
+        "id": msg["id"],
+        "message_id": msg.get("message_id"),
+        "name": active_name or mobile,
+        "mobile": normalize_mobile(msg["mobile"]),
+        "sender_type": sender_type,
+        "is_outgoing": is_outgoing,
+        "direction": direction,
+        "from_me": is_outgoing,
+        "message_type": msg.get("message_type") or "text",
+        "text": msg.get("text") or "",
+        "media_url": msg.get("media_url"),
+        "media_public_url": url_for(
+            'static',
+            filename=msg["media_url"],
+            _external=True
+        ) if msg.get("media_url") else None,
+        "file_name": None,
+        "media_mime_type": None,
+        "latitude": None,
+        "longitude": None,
+        "delivery_status": msg.get("status"),
+        "error_reason": None,
+        "created_at": (
+            str(msg.get("created_at"))
+            if msg.get("created_at")
+            else None
+        ),
+    })
 
-            if conversation_id:
-                mysql_cursor.execute("""
-                    SELECT
-                        id,
-                        whatsapp_message_id AS message_id,
-                        phone AS mobile,
-                        sender_type,
-                        message_text AS text,
-                        message_type,
-                        media_url,
-                        status,
-                        created_at
-                    FROM whatsapp_messages
-                    WHERE conversation_id = %s AND id > %s
-                    ORDER BY created_at ASC, id ASC
-                """, (conversation_id, since_id))
-            else:
-                db_messages = []
-
-            if conversation_id:
-                db_messages = mysql_cursor.fetchall()
-
-        for msg in db_messages:
-
-            sender_type = msg.get("sender_type", "customer")
-
-            direction = (
-                "inbound"
-                if sender_type == "customer"
-                else "outbound"
-            )
-
-          messages.append({
-    "id": msg["id"],
-    "message_id": msg.get("message_id"),
-    "name": active_name or mobile,
-    "mobile": normalize_mobile(msg["mobile"]),
-    "sender_type": sender_type,
-    "is_outgoing": is_outgoing,
-    "direction": direction,
-    "from_me": is_outgoing,
-    "message_type": msg.get("message_type") or "text",
-    "text": msg.get("text") or "",
-    "media_url": msg.get("media_url"),
-    "media_public_url": url_for(
-        'static',
-        filename=msg["media_url"],
-        _external=True
-    ) if msg.get("media_url") else None,
-    "file_name": None,
-    "media_mime_type": None,
-    "latitude": None,
-    "longitude": None,
-    "delivery_status": msg.get("status"),
-    "error_reason": None,
-    "created_at": (
-        str(msg.get("created_at"))
-        if msg.get("created_at")
-        else None
-    ),
-})
-
-                if direction == "outbound":
-                    app.logger.debug(
-                        "[OUTBOUND_MSG_RETURN] Returning outbound message id=%s sender_type=%s direction=%s",
-                        msg["id"],
-                        sender_type,
-                        direction,
-                    )
-
-            
-
-    except MySQLError as e:
-        app.logger.exception("Failed to fetch WhatsApp messages from MySQL: %s", e)
-        # Return safe empty response on MySQL failure so frontend keeps polling
-        contacts = []
-        messages = []
-        inbox_messages = []
-        latest_inbox_id = 0
-        active_name = ""
-
-    finally:
-        if mysql_cursor:
-            try:
-                mysql_cursor.close()
-            except Exception:
-                pass
-        if mysql_conn and mysql_conn.is_connected():
-            try:
-                mysql_conn.close()
-            except Exception:
-                pass
-
-    last_message_id = messages[-1]["id"] if messages else None
-
-    response_payload = {
-        "contacts": contacts if include_contacts else [],
-        "messages": messages,
-        "inbox_messages": inbox_messages if include_contacts else [],
-        "active_mobile": mobile,
-        "active_name": active_name,
-        "last_message_id": last_message_id,
-        "last_inbox_message_id": latest_inbox_id,
-        "legacy_mode": False,
-    }
-
+    if direction == "outbound":
+        app.logger.debug(
+            "[OUTBOUND_MSG_RETURN] Returning outbound message id=%s sender_type=%s direction=%s",
+            msg["id"],
+            sender_type,
+            direction,
+        )
     return jsonify(response_payload)
 @app.route('/api/whatsapp/logs')
 @login_required
