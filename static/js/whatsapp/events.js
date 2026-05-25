@@ -22,8 +22,8 @@
   'use strict';
 
   /* ── Guard: prevent double-initialization ──────────────── */
-  if (window.__eventsEngineInitialized) {
-    console.debug('[EVENT] Already initialized — skipping.');
+  if (window.__eventsEngineModuleLoaded) {
+    console.debug('[EVENT] Module already loaded — skipping duplicate script execution.');
     return;
   }
 
@@ -142,7 +142,7 @@
    * One-time initialization with dependency injection.
    */
   const init = (config) => {
-    if (window.__eventsEngineInitialized) return;
+    if (window.__eventsEngineInitDone) return;
     if (!config) { console.warn('[EVENT] init() requires config — skipping'); return; }
 
     // API URLs
@@ -216,6 +216,7 @@
     console.debug('[EVENT] Engine initialized with', Object.keys(config).length, 'config groups');
     console.debug('[EVENT_BIND] Config loaded — API URLs:', Object.keys(api).length, 'DOM refs:', Object.keys(config.dom||{}).length, 'Modals:', Object.keys(config.modals||{}).length);
     console.debug('[MEMORY] Initial listener count:', _listenerCount);
+    window.__eventsEngineInitDone = true;
 
     /* ── TODO(websocket): When migrating to WebSocket transport,
        the events engine will need a reconnect lifecycle hook:
@@ -1592,6 +1593,6 @@
     initAiToggle,
   };
 
-  window.__eventsEngineInitialized = true;
+  window.__eventsEngineModuleLoaded = true;
 
 })();
