@@ -2882,7 +2882,39 @@ def whatsapp_messages_api():
         }
 
         return jsonify(response_payload)
-    
+
+    except MySQLError as e:
+        app.logger.exception(
+            "Failed to fetch WhatsApp messages from MySQL: %s",
+            e
+        )
+
+        return jsonify({
+            "contacts": [],
+            "messages": [],
+            "inbox_messages": [],
+            "active_mobile": mobile,
+            "active_name": "",
+            "last_message_id": None,
+            "last_inbox_message_id": 0,
+            "legacy_mode": False,
+            "error": "database_error"
+        }), 500
+
+    finally:
+        if mysql_cursor:
+            try:
+                mysql_cursor.close()
+            except Exception:
+                pass
+
+        if mysql_conn and mysql_conn.is_connected():
+            try:
+                mysql_conn.close()
+            except Exception:
+                pass
+
+
 @app.route('/api/whatsapp/logs')
 @login_required
 def api_whatsapp_logs():
@@ -2894,6 +2926,7 @@ def api_whatsapp_logs():
 
     if date_filter not in allowed_date_filters:
         return jsonify({'error': 'Invalid date filter'}), 422
+
     if status_filter not in allowed_statuses:
         return jsonify({'error': 'Invalid status filter'}), 422
 
@@ -2905,6 +2938,7 @@ def api_whatsapp_logs():
 
     status_clause = ""
     params = []
+
     if status_filter != 'all':
         status_clause = " AND status = %s"
         params.append(status_filter)
@@ -2916,6 +2950,7 @@ def api_whatsapp_logs():
             user=MYSQL_DB_USER,
             password=MYSQL_DB_PASSWORD,
         )
+
         cursor = conn.cursor(dictionary=True)
 
         summary_query = f"""
@@ -2928,6 +2963,7 @@ def api_whatsapp_logs():
             FROM whatsapp_logs
             WHERE {date_clause}{status_clause}
         """
+
         cursor.execute(summary_query, tuple(params))
         summary = cursor.fetchone()
 
