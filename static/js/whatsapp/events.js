@@ -562,10 +562,17 @@ window.__eventsEngineInitDone = true;
       window.inboxState.setActiveMobile(mobile);
       window.inboxState.hydrateActiveMobileFromUrl('contact_click:post_pushstate');
       window.inboxState.debugActiveMobile('contact_click:setActiveMobile');
+      console.debug('[ACTIVE_CHAT] Conversation switch requested:', { from: oldMobile || '', to: mobile, activeConversationMobile: window.activeConversationMobile || '' });
       window.inboxState.cursors.globalLastMessageId = 0;
       window.inboxState.globalKnownMessageIds.clear();
       if (window.renderEngine.clearMessageNodeMap) window.renderEngine.clearMessageNodeMap();
       window.inboxState.ui.conversationOpenedAt = Date.now();
+      if (dom.chatBody) {
+        dom.chatBody.querySelectorAll('.msg-row').forEach(node => node.remove());
+        const emptyHint = document.getElementById('chatEmptyHint');
+        if (emptyHint) emptyHint.remove();
+        console.debug('[ACTIVE_CHAT] Cleared previous chat DOM rows for new conversation:', mobile);
+      }
 
       // Only abort if switching to a different mobile (prevents unnecessary cancellation during heartbeat)
       if (oldMobile && oldMobile !== mobile) {
@@ -1376,6 +1383,11 @@ window.__eventsEngineInitDone = true;
      ═══════════════════════════════════════════════════════════ */
 
   const bindAll = () => {
+    if (window.__eventsBound) {
+      console.debug('[EVENT_BIND] bindAll skipped — listeners already bound once');
+      return;
+    }
+    window.__eventsBound = true;
     console.debug('[EVENT] bindAll() — registering all event listeners');
 
     initTheme();

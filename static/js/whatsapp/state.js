@@ -292,6 +292,8 @@
   window.inboxState.setActiveMobile = function setActiveMobile(mobile) {
     const prev = window.inboxState.activeMobile;
     window.inboxState.activeMobile = mobile;
+    window.activeConversationMobile = mobile || '';
+    console.debug('[ACTIVE_CHAT] Synced global activeConversationMobile:', window.activeConversationMobile);
     window.inboxState.logActiveChat(`Changed: ${prev || '(none)'} → ${mobile || '(none)'}`);
 
     // Also clear per-conversation tracking for the NEW chat so we start fresh
