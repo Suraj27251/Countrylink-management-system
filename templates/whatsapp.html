@@ -634,11 +634,11 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/state.js') }}"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/utils.js') }}"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/render.js') }}"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/events.js') }}"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/state.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/utils.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/render.js') }}?v=2"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/events.js') }}?v=2"></script>
 <script>
 (() => {
 'use strict';
@@ -693,6 +693,7 @@ window.inboxState.hydrateActiveMobileFromUrl('boot:url_hydration');
 const API_URL         = '{{ url_for("whatsapp_messages_api") }}';
 const PAGE_URL        = '{{ url_for("whatsapp_complaints") }}';
 window.PAGE_URL = PAGE_URL;
+window.MESSAGES_API_URL = API_URL;
 const SEND_URL        = '{{ url_for("send_whatsapp") }}';
 const TEMPLATE_URL    = '{{ url_for("whatsapp_templates_api") }}';
 const SEND_TPL_URL    = '{{ url_for("send_whatsapp_template_api") }}';

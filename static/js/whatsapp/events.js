@@ -558,41 +558,34 @@ window.__eventsEngineInitDone = true;
       // Update URL without page reload
       history.pushState({}, '', `${PAGE_URL}?mobile=${encodeURIComponent(mobile)}`);
 
-      // Reset chat for new contact
+      // Reset chat state for new contact
       window.inboxState.setActiveMobile(mobile);
       window.inboxState.debugActiveMobile('contact_click:setActiveMobile');
-      console.debug('[ACTIVE_CHAT] Conversation switch requested:', { from: oldMobile || '', to: mobile, activeConversationMobile: window.activeConversationMobile || '' });
+      console.debug('[ACTIVE_CHAT] Conversation switch:', { from: oldMobile || '', to: mobile });
+
+      // Reset ALL message cursors for clean load
       window.inboxState.cursors.globalLastMessageId = 0;
       window.inboxState.globalKnownMessageIds.clear();
-      // Reset per-conversation cursor so pollMessages fetches ALL messages for this chat
       window.inboxState.lastMessageIdByMobile.delete(mobile);
       if (window.renderEngine.clearMessageNodeMap) window.renderEngine.clearMessageNodeMap();
       window.inboxState.ui.conversationOpenedAt = Date.now();
+
+      // Clear chat DOM completely
       if (dom.chatBody) {
-        dom.chatBody.querySelectorAll('.msg-row').forEach(node => node.remove());
-        dom.chatBody.querySelectorAll('.date-sep').forEach(node => node.remove());
+        dom.chatBody.querySelectorAll('.msg-row, .date-sep, .chat-empty').forEach(node => node.remove());
         const emptyHint = document.getElementById('chatEmptyHint');
         if (emptyHint) emptyHint.remove();
-        console.debug('[ACTIVE_CHAT] Cleared previous chat DOM rows for new conversation:', mobile);
       }
 
-      // Only abort if switching to a different mobile (prevents unnecessary cancellation during heartbeat)
+      // Abort any in-flight message polls
       if (oldMobile && oldMobile !== mobile) {
         window.pollingEngine.abortMessagesPoll();
       }
 
-      // Show lightweight loading overlay — preserve existing messages
-      const loadingOverlay = dom.chatBody?.querySelector('.chat-loading-overlay');
-      if (loadingOverlay) {
-        loadingOverlay.classList.remove('hide');
-        loadingOverlay.classList.add('show');
-      }
-
-      // Update header name and mobile
+      // Update header
       const contactName = link.querySelector('.conv-name')?.textContent || mobile;
       const headerName = document.querySelector('.chat-header-info h3');
       const headerSub  = document.querySelector('.chat-header-info p span[style*="monospace"]');
-
       if (headerName) headerName.textContent = contactName;
       if (headerSub)  headerSub.textContent  = mobile;
 
@@ -602,39 +595,66 @@ window.__eventsEngineInitDone = true;
 
       // Enable composer
       if (applyComposerWindowPolicy) applyComposerWindowPolicy();
-
       const sendBtn = document.getElementById('sendBtn');
       if (sendBtn) sendBtn.disabled = false;
 
-      // Restart poll for new contact — use pollMessages for stale-response safety
-      clearTimeout(window.inboxState.pollTimer);
+      // Stop scheduled polling during switch
       window.pollingEngine.clearPollTimer();
+
+      // ── Direct fetch for new chat messages (bypass complex guards) ──
       try {
-        // Use dedicated pollMessages which has stale-response guards
-        await window.pollingEngine.pollMessages();
-        // Now that human has opened the chat and poll loaded messages, clear unread badge
+        const apiUrl = window.MESSAGES_API_URL || '/api/whatsapp/messages';
+        const params = new URLSearchParams({ mobile, since_id: '0' });
+        const res = await fetch(`${apiUrl}?${params}`, {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        // Verify we're still on the same chat (user didn't click another)
+        if (window.inboxState.activeMobile !== mobile) {
+          console.debug('[ACTIVE_CHAT] Stale response — user switched away');
+          return;
+        }
+
+        // Render messages directly
+        if (data.messages && data.messages.length > 0) {
+          console.debug('[ACTIVE_CHAT] Rendering', data.messages.length, 'messages for', mobile);
+          data.messages.forEach(m => {
+            if (upsertMsg) upsertMsg(m);
+          });
+
+          // Update cursor
+          const lastId = data.last_message_id || data.messages[data.messages.length - 1]?.id || 0;
+          window.inboxState.cursors.globalLastMessageId = +lastId || 0;
+          window.inboxState.lastMessageIdByMobile.set(mobile, +lastId || 0);
+        } else {
+          console.debug('[ACTIVE_CHAT] No messages for', mobile);
+        }
+
+        // Update inbox cursor
+        if (data.last_inbox_message_id) {
+          window.inboxState.cursors.globalLastInboxId = Math.max(
+            window.inboxState.cursors.globalLastInboxId, +data.last_inbox_message_id || 0
+          );
+        }
+
+        // Clear unread
         window.inboxState.unreadByMobile.delete(mobile);
-        // Refresh the conversation list to update unread badge visually
         const activeLink = dom.convList?.querySelector(`[data-mobile="${CSS.escape(mobile)}"]`);
         if (activeLink) {
           activeLink.dataset.unreadCount = '0';
           activeLink.dataset.aiReplied = '0';
           if (updateContactGreenDot) updateContactGreenDot(mobile);
         }
-        await window.pollingEngine.pollSidebar();
+
+        window.inboxState.resetPollFails();
       } catch (err) {
-        if (err?.name !== 'AbortError') {
-          console.error('[EVENT] Error loading chat:', err);
-          // Retry once after a short delay
-          setTimeout(async () => {
-            if (window.inboxState.activeMobile === mobile) {
-              try { await window.pollingEngine.pollMessages(); } catch (_) {}
-            }
-          }, 1000);
-        }
+        console.error('[ACTIVE_CHAT] Failed to load messages:', err);
       }
 
-      // Restart the scheduled polling
+      // Restart polling
       window.pollingEngine.schedulePoll(2000);
 
       if (scrollBottom) scrollBottom();
@@ -642,7 +662,6 @@ window.__eventsEngineInitDone = true;
     });
 
     console.debug('[EVENT_BIND] Conversation click delegate listener registered on convList');
-    console.debug('[LIFECYCLE] Conversation click initialized');
     console.debug('[EVENT] Conversation click initialized');
   };
 
