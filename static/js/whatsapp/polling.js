@@ -194,6 +194,7 @@
 
       // ── Active chat messages ──
       if (data.messages?.length) {
+        const activeMobile = (window.activeConversationMobile || window.inboxState.activeMobile || '').trim();
         const wasNearBottom = nearBottom ? nearBottom() : false;
         let hasNew = false;
 
@@ -207,18 +208,50 @@
         }
 
         data.messages.forEach(m => {
-          const isNewMsg = upsertMsg ? upsertMsg(m) : false;
+          const messageMobile = (m.mobile || '').trim();
+          const isOptimistic = String(m.id).startsWith('optimistic_');
+          const isOutbound = String(m.direction || '').toLowerCase() === 'outbound';
+          const isSelfMessage = Boolean(m.from_me === 1 || m.from_me === true || m.is_self === 1 || m.is_self === true);
 
-          // Sound for new inbound messages from OTHER chats
-          if (isNewMsg && m.direction !== 'outbound' && document.hasFocus() &&
-              m.mobile !== window.inboxState.activeMobile) {
-            const lastSeen = window.inboxState.lastSeenMessageIdByMobile.get(m.mobile) || 0;
+          // Sound handling must run before active-chat render guard so other-chat inbound can still beep.
+          if (!isOptimistic && !isOutbound && !isSelfMessage && messageMobile && messageMobile !== activeMobile) {
+            const lastSeen = window.inboxState.lastSeenMessageIdByMobile.get(messageMobile) || 0;
             const curId = +m.id || 0;
             if (curId > lastSeen) {
-              window.inboxState.lastSeenMessageIdByMobile.set(m.mobile, Math.max(lastSeen, curId));
-              if (beep) beep(m.mobile);
+              window.inboxState.lastSeenMessageIdByMobile.set(messageMobile, Math.max(lastSeen, curId));
+              if (beep) beep(messageMobile);
+              console.debug('[POLLING_SOUND] Played sound for non-active inbound message', {
+                messageId: m.id,
+                messageMobile,
+                activeMobile
+              });
+            } else {
+              console.debug('[POLLING_SOUND] Skipped sound — already seen message id', {
+                messageId: m.id,
+                messageMobile,
+                lastSeen
+              });
             }
+          } else {
+            console.debug('[POLLING_SOUND] Skipped sound by rule', {
+              messageId: m.id,
+              messageMobile,
+              activeMobile,
+              isOptimistic,
+              isOutbound,
+              isSelfMessage
+            });
           }
+
+          if (!activeMobile || messageMobile !== activeMobile) {
+            console.debug('[POLLING_RENDER] Skip message render — not active conversation', {
+              messageId: m.id,
+              messageMobile,
+              activeMobile
+            });
+            return;
+          }
+          const isNewMsg = upsertMsg ? upsertMsg(m) : false;
           hasNew = isNewMsg || hasNew;
         });
 
@@ -272,7 +305,7 @@
    * Depends on globals: nearBottom(), upsertMsg(), scrollBottom(), beep()
    */
   const pollMessages = async () => {
-    const requestMobile = (window.inboxState.activeMobile || '').trim();
+    const requestMobile = (window.activeConversationMobile || window.inboxState.activeMobile || '').trim();
     if (!requestMobile) { console.error('[STATE_FATAL] activeMobile missing'); debugger; return; }
     const pollMsgStart = performance.now();
     const currentToken = ++activeMessageRequestToken;
@@ -332,6 +365,15 @@
 
         data.messages.forEach(m => {
           try {
+            const messageMobile = (m.mobile || '').trim();
+            if (messageMobile && messageMobile !== requestMobile) {
+              console.debug('[POLLING_RENDER] Skip pollMessages render — stale/mobile mismatch', {
+                messageId: m.id,
+                messageMobile,
+                requestMobile
+              });
+              return;
+            }
             const isNewMsg = upsertMsg ? upsertMsg(m) : false;
             hasNew = isNewMsg || hasNew;
             maxRenderedId = Math.max(maxRenderedId, +m.id || 0);
