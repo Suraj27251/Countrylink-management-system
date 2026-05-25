@@ -962,6 +962,32 @@ main.container {
   border-color: rgba(255, 82, 82, 0.3);
 }
 
+/* AI message badge */
+.msg-ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 2px 8px 2px 6px;
+  margin-bottom: 5px;
+  letter-spacing: 0.3px;
+}
+
+.msg-ai-badge i {
+  font-size: 9px;
+}
+
+.incoming .msg-ai-badge {
+  color: var(--text-3);
+  background: var(--surface-3);
+  border-color: var(--border);
+}
+
 /* REMOVED: .msg-status-chip - Status shown via icons only */
 
 /* Location embed */

@@ -301,9 +301,16 @@
     const senderName = m.direction === 'inbound'
       ? `<div class="msg-sender-name">${esc(m.name || 'Customer')}</div>` : '';
 
+    // AI badge for AI-generated outbound messages
+    const isAiMsg = m.sender_type === 'ai' || m.is_ai === true;
+    const aiBadgeHtml = isAiMsg
+      ? '<span class="msg-ai-badge"><i class="fas fa-robot"></i> AI</span>'
+      : '';
+
     row.innerHTML = `
     ${senderName}
     <div class="msg-bubble">
+      ${aiBadgeHtml}
       ${locHtml}${mediaHtml}
       ${showText ? `<p class="msg-text">${textContent}</p>` : ''}
       ${errorHtml}
