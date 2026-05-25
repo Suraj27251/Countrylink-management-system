@@ -648,17 +648,81 @@
       const fd = new FormData(dom.chatForm);
       fd.set('message', text || '');
 
+      // Capture optimistic message data before send
+      const optimisticId = `optimistic_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+      const optimisticMsg = {
+        id: optimisticId,
+        message_id: null,
+        name: window.inboxState.activeMobile || 'Me',
+        mobile: window.inboxState.activeMobile || '',
+        direction: 'outbound',
+        from_me: true,
+        message_type: 'text',
+        text: text || '[media]',
+        media_url: null,
+        media_public_url: null,
+        file_name: null,
+        media_mime_type: null,
+        latitude: null,
+        longitude: null,
+        delivery_status: 'sent',
+        error_reason: null,
+        created_at: new Date().toISOString(),
+      };
+
+      // Store optimistic message ID for later cleanup if polling fails
+      if (!window.inboxState.optimisticMessageIds) {
+        window.inboxState.optimisticMessageIds = new Set();
+      }
+      window.inboxState.optimisticMessageIds.add(optimisticId);
+
+      // Render optimistic message immediately
+      if (upsertMsg) {
+        upsertMsg(optimisticMsg);
+        console.debug('[SEND] Optimistic message rendered:', optimisticId);
+      }
+
       try {
         const r = await fetch(SEND_URL, { method: 'POST', body: fd });
-        if (!r.ok) { const p = await r.json(); alert(p.error || 'Failed to send'); return; }
+        if (!r.ok) { 
+          const p = await r.json(); 
+          alert(p.error || 'Failed to send');
+          // Remove optimistic message on send failure
+          const optNode = dom.chatBody?.querySelector(`[data-message-id="${CSS.escape(optimisticId)}"]`);
+          if (optNode) {
+            optNode.remove();
+            console.debug('[SEND] Optimistic message removed after send failure:', optimisticId);
+          }
+          window.inboxState.optimisticMessageIds?.delete(optimisticId);
+          return;
+        }
+
         dom.chatForm.reset();
         dom.attachPreview?.classList.remove('show');
         resizeInput();
         dom.msgInput?.focus();
+
+        console.debug('[SEND] Message sent successfully, polling for confirmation...');
+
+        // Poll to reconcile with real message from DB
         await window.pollingEngine.pollMessages();
         await window.pollingEngine.pollSidebar();
+
+        // Clean up optimistic message ID from tracking
+        window.inboxState.optimisticMessageIds?.delete(optimisticId);
+        console.debug('[SEND] Optimistic message reconciled or replaced by polling:', optimisticId);
+
         if (scrollBottom) scrollBottom();
-      } catch (e) { alert('Network error: ' + e.message); }
+      } catch (e) { 
+        alert('Network error: ' + e.message);
+        // Remove optimistic message on network error
+        const optNode = dom.chatBody?.querySelector(`[data-message-id="${CSS.escape(optimisticId)}"]`);
+        if (optNode) {
+          optNode.remove();
+          console.debug('[SEND] Optimistic message removed after network error:', optimisticId);
+        }
+        window.inboxState.optimisticMessageIds?.delete(optimisticId);
+      }
     });
 
     console.debug('[COMPOSER] Send message submit listener registered');

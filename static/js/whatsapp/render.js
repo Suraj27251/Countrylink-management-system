@@ -315,6 +315,57 @@
     if (!chatBodyEl) return false;
     const idStr = String(m.id);
 
+    // RECONCILIATION LOGIC: Check if this is a real message that should replace an optimistic one
+    const isRealMessage = !String(m.id).startsWith('optimistic_');
+    if (isRealMessage && m.direction === 'outbound' && window.inboxState.optimisticMessageIds?.size > 0) {
+      // Look for optimistic messages with matching text
+      for (const optimisticId of window.inboxState.optimisticMessageIds) {
+        const optimisticNode = chatBodyEl.querySelector(`[data-message-id="${CSS.escape(optimisticId)}"]`);
+        if (optimisticNode) {
+          const optimisticText = optimisticNode.querySelector('.msg-text')?.textContent?.trim() || '';
+          const incomingText = m.text?.trim() || '';
+          if (optimisticText === incomingText && m.direction === 'outbound') {
+            // MATCH FOUND: Replace optimistic message's ID with real message ID
+            console.debug('[RECONCILIATION] Found matching optimistic message:', optimisticId, '→', idStr);
+            messageNodeMap.delete(optimisticId);
+            optimisticNode.dataset.messageId = idStr;
+            messageNodeMap.set(idStr, optimisticNode);
+            window.inboxState.globalKnownMessageIds.delete(optimisticId);
+            window.inboxState.globalKnownMessageIds.add(idStr);
+            window.inboxState.optimisticMessageIds.delete(optimisticId);
+            
+            // Patch status icons on the existing node
+            const status = (m.delivery_status || '').toLowerCase();
+            const statusIcon = m.direction === 'outbound'
+              ? (status === 'read'
+                ? '<i class="fas fa-check-double msg-status-icon read" title="Read"></i>'
+                : ['delivered', 'sent', 'accepted'].includes(status)
+                  ? '<i class="fas fa-check-double msg-status-icon" title="Delivered"></i>'
+                  : '<i class="fas fa-check msg-status-icon" title="Sent"></i>')
+              : '';
+            
+            const patchStatus = (selector, html) => {
+              let el = optimisticNode.querySelector(selector);
+              if (html && !el) {
+                el = document.createElement('div');
+                const timeEl = optimisticNode.querySelector('.msg-time');
+                timeEl ? timeEl.before(el) : optimisticNode.querySelector('.msg-bubble')?.appendChild(el);
+              }
+              if (el) el.outerHTML = html || '';
+            };
+            
+            patchStatus('.msg-status-icon', statusIcon);
+            
+            const errorChip = m.error_reason ? `<div class="msg-error-chip"><i class="fas fa-circle-exclamation"></i> ${esc(m.error_reason)}</div>` : '';
+            patchStatus('.msg-error-chip', errorChip);
+            
+            console.debug('[RECONCILIATION] Optimistic message reconciled successfully:', idStr);
+            return false;
+          }
+        }
+      }
+    }
+
     // Check message node registry first (faster than querySelector)
     let domNode = messageNodeMap.get(idStr);
     if (domNode && !chatBodyEl.contains(domNode)) {

@@ -2670,6 +2670,14 @@ def whatsapp_messages_api():
                 "created_at": msg.get("created_at"),
             })
 
+            if direction == "outbound":
+                app.logger.debug(
+                    "[OUTBOUND_MSG_RETURN] Returning outbound message id=%s sender_type=%s direction=%s",
+                    msg["id"],
+                    sender_type,
+                    direction,
+                )
+
         mysql_cursor.execute("""
             SELECT customer_name
             FROM whatsapp_conversations
@@ -2942,6 +2950,13 @@ def send_whatsapp():
                     media_url,
                     'sent',
                 ),
+            )
+            app.logger.info(
+                "[OUTBOUND_MSG_STORE] Stored human message to mobile=%s conversation_id=%s whatsapp_message_id=%s message_type=%s status=sent direction=outbound",
+                mobile,
+                conversation_id,
+                message_id or 'none',
+                message_type,
             )
 
         mysql_cursor.execute(

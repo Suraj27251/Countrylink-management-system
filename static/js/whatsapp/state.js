@@ -51,6 +51,8 @@
       lastMessageIdByMobile: new Map(),
       /** Per-conversation last SEEN message ID (for notification dedup) */
       lastSeenMessageIdByMobile: new Map(),
+      /** Optimistic message IDs pending reconciliation from polling */
+      optimisticMessageIds: new Set(),
 
       /* ── Loading states ───────────────────────────────── */
       loadingStates: {
