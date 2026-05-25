@@ -101,6 +101,13 @@
 
   const parseJsonResponse = (response, contextLabel) => window.whatsappUtils.parseJsonResponse(response, contextLabel, '[POLLING_API]');
   const fetchWithTimeout = (url, options, timeoutMs, contextLabel) => window.whatsappUtils.fetchWithTimeout(url, options, timeoutMs, contextLabel);
+  const resolveMessageMobile = (m, fallbackMobile = '') => (
+    m?.mobile ||
+    m?.phone ||
+    m?.contact_phone ||
+    fallbackMobile ||
+    ''
+  ).trim();
 
   /* ═══════════════════════════════════════════════════════════
      POLLING CORE
@@ -208,7 +215,7 @@
         }
 
         data.messages.forEach(m => {
-          const messageMobile = (m.mobile || '').trim();
+          const messageMobile = resolveMessageMobile(m, activeMobile);
           const isOptimistic = String(m.id).startsWith('optimistic_');
           const isOutbound = String(m.direction || '').toLowerCase() === 'outbound';
           const isSelfMessage = Boolean(m.from_me === 1 || m.from_me === true || m.is_self === 1 || m.is_self === true);
@@ -243,7 +250,14 @@
             });
           }
 
-          if (!activeMobile || messageMobile !== activeMobile) {
+          const shouldSkipRender = Boolean(activeMobile && messageMobile && messageMobile !== activeMobile);
+          console.debug('[POLLING_RENDER] Message routing decision', {
+            messageId: m.id,
+            resolvedMobile: messageMobile,
+            activeMobile,
+            skipped: shouldSkipRender
+          });
+          if (!activeMobile || shouldSkipRender) {
             console.debug('[POLLING_RENDER] Skip message render — not active conversation', {
               messageId: m.id,
               messageMobile,
@@ -308,9 +322,23 @@
     const requestMobile = (window.activeConversationMobile || window.inboxState.activeMobile || '').trim();
     if (!requestMobile) { console.error('[STATE_FATAL] activeMobile missing'); debugger; return; }
     const pollMsgStart = performance.now();
-    const currentToken = ++activeMessageRequestToken;
-    console.debug('[POLLING] pollMessages() started — mobile:', requestMobile, 'token:', currentToken);
-    window.inboxState.logToken('messages', currentToken);
+    const requestToken = ++window.inboxState.activeMessageRequestToken;
+    activeMessageRequestToken = window.inboxState.activeMessageRequestToken;
+    const isStaleRequest = () => {
+      const activeToken = window.inboxState.activeMessageRequestToken;
+      const activeMobile = (window.activeConversationMobile || window.inboxState.activeMobile || '').trim();
+      const stale = requestToken !== activeToken || requestMobile !== activeMobile;
+      console.debug('[TOKEN_GUARD]', {
+        requestToken,
+        activeToken,
+        requestMobile,
+        activeMobile,
+        stale
+      });
+      return stale;
+    };
+    console.debug('[POLLING] pollMessages() started — mobile:', requestMobile, 'token:', requestToken);
+    window.inboxState.logToken('messages', requestToken);
 
     try {
       const sinceId = window.inboxState.lastMessageIdByMobile.get(requestMobile) || 0;
@@ -332,8 +360,7 @@
       window.inboxState.lastPollSuccessAt = Date.now();
 
       // Stale response guard: verify still on same chat + token is latest
-      if (requestMobile !== window.inboxState.activeMobile ||
-          currentToken !== activeMessageRequestToken) {
+      if (isStaleRequest()) {
         console.debug('[POLLING] pollMessages() stale response discarded — token mismatch');
         return;
       }
@@ -351,11 +378,13 @@
       }
 
       if (data.messages?.length) {
+        if (isStaleRequest()) return;
         const wasNearBottom = nearBottom ? nearBottom() : false;
         let hasNew = false;
         let maxRenderedId = sinceId;
 
         if (data.last_message_id) {
+          if (isStaleRequest()) return;
           const newLast = Math.max(
             window.inboxState.lastSeenMessageIdByMobile.get(requestMobile) || 0,
             +data.last_message_id || 0
@@ -365,8 +394,16 @@
 
         data.messages.forEach(m => {
           try {
-            const messageMobile = (m.mobile || '').trim();
-            if (messageMobile && messageMobile !== requestMobile) {
+            if (isStaleRequest()) return;
+            const messageMobile = resolveMessageMobile(m, requestMobile);
+            const shouldSkipRender = Boolean(messageMobile && messageMobile !== requestMobile);
+            console.debug('[POLLING_RENDER] Message routing decision', {
+              messageId: m.id,
+              resolvedMobile: messageMobile,
+              activeMobile: requestMobile,
+              skipped: shouldSkipRender
+            });
+            if (shouldSkipRender) {
               console.debug('[POLLING_RENDER] Skip pollMessages render — stale/mobile mismatch', {
                 messageId: m.id,
                 messageMobile,
@@ -383,16 +420,22 @@
         });
 
         if (data.last_message_id) {
+          if (isStaleRequest()) return;
           maxRenderedId = Math.max(maxRenderedId, +data.last_message_id || 0);
         }
         if (maxRenderedId > sinceId) {
+          if (isStaleRequest()) return;
           window.inboxState.lastMessageIdByMobile.set(requestMobile, maxRenderedId);
         }
 
-        if (hasNew || wasNearBottom) { if (scrollBottom) scrollBottom(); }
+        if (hasNew || wasNearBottom) {
+          if (isStaleRequest()) return;
+          if (scrollBottom) scrollBottom();
+        }
 
         // Refresh active chat UI after explicit message poll
         if (window.inboxState.activeMobile && refreshActiveChat) {
+          if (isStaleRequest()) return;
           refreshActiveChat();
         }
       }
@@ -724,6 +767,7 @@
       messagesPollController?.abort();
       messagesPollController = null;
       ++activeMessageRequestToken;
+      window.inboxState.activeMessageRequestToken = activeMessageRequestToken;
       console.debug('[POLLING] Messages poll aborted — token bumped to', activeMessageRequestToken);
     },
 
