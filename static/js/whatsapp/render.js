@@ -252,9 +252,11 @@
      ═══════════════════════════════════════════════════════════ */
 
   const renderMsg = m => {
+    console.debug('[RENDER MESSAGE] direction:', m.direction, 'id:', m.id);
     const row = document.createElement('div');
     row.className = `msg-row ${m.direction === 'outbound' ? 'outbound' : 'incoming'}`;
     row.dataset.messageId = m.id;
+    row.dataset.createdAt = m.created_at || '';
 
     const status = (m.delivery_status||'').toLowerCase();
     const statusIcon = m.direction === 'outbound'

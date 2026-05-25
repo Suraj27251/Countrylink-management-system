@@ -2832,10 +2832,15 @@ def whatsapp_messages_api():
             if conversation_id:
                 db_messages = mysql_cursor.fetchall()
 
-            for msg in db_messages:
-                sender_type = msg.get("sender_type", "customer")
-                is_outgoing = sender_type in ("ai", "human")
-                direction = "outbound" if is_outgoing else "inbound"
+        for msg in db_messages:
+
+            sender_type = msg.get("sender_type", "customer")
+
+            direction = (
+                "inbound"
+                if sender_type == "customer"
+                else "outbound"
+            )
 
                 messages.append({
                     "id": msg["id"],

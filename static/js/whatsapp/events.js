@@ -690,7 +690,7 @@ window.__eventsEngineInitDone = true;
   };
 
   /* ═══════════════════════════════════════════════════════════
-     14. SEND MESSAGE
+     HELPERS — Provisional message hardening
      ═══════════════════════════════════════════════════════════ */
 
   const initSendMessage = () => {
@@ -700,96 +700,20 @@ window.__eventsEngineInitDone = true;
       const file = dom.attachFile?.files[0];
       if (!text && !file) return;
 
-      const activeMobile = (window.inboxState.activeMobile || '').trim();
-      window.inboxState.debugActiveMobile('sendMessage:before_formdata');
-      if (!activeMobile) {
-        console.warn('[SEND] Blocked send with empty active mobile');
-        return;
-      }
-
       const fd = new FormData(dom.chatForm);
-      fd.set('mobile', activeMobile);
       fd.set('message', text || '');
 
-      // Capture optimistic message data before send
-      const optimisticId = `optimistic_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-      const optimisticMsg = {
-        id: optimisticId,
-        message_id: null,
-        name: activeMobile || 'Me',
-        mobile: activeMobile || '',
-        direction: 'outbound',
-        from_me: true,
-        message_type: 'text',
-        text: text || '[media]',
-        media_url: null,
-        media_public_url: null,
-        file_name: null,
-        media_mime_type: null,
-        latitude: null,
-        longitude: null,
-        delivery_status: 'sent',
-        error_reason: null,
-        created_at: new Date().toISOString(),
-      };
-
-      // Store optimistic message ID for later cleanup if polling fails
-      if (!window.inboxState.optimisticMessageIds) {
-        window.inboxState.optimisticMessageIds = new Set();
-      }
-      window.inboxState.optimisticMessageIds.add(optimisticId);
-
-      // Render optimistic message immediately
-      if (upsertMsg) {
-        upsertMsg(optimisticMsg);
-        console.debug('[SEND] Optimistic message rendered:', optimisticId);
-      }
-
       try {
-        if (!activeMobile) { console.error('[STATE_FATAL] activeMobile missing'); debugger; }
-        console.debug('[FETCH_MOBILE]', { endpoint: SEND_URL, mobile: activeMobile });
-        const r = await fetchWithTimeout(SEND_URL, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } }, 20000, 'Send message');
-        const p = await parseJsonResponse(r, 'Send message');
-        if (!r.ok) {
-          alert(p.error || 'Failed to send');
-          // Remove optimistic message on send failure
-          const optNode = dom.chatBody?.querySelector(`[data-message-id="${CSS.escape(optimisticId)}"]`);
-          if (optNode) {
-            optNode.remove();
-            console.debug('[SEND] Optimistic message removed after send failure:', optimisticId);
-          }
-          window.inboxState.optimisticMessageIds?.delete(optimisticId);
-          return;
-        }
-
+        const r = await fetch(SEND_URL, { method: 'POST', body: fd });
+        if (!r.ok) { const p = await r.json(); alert(p.error || 'Failed to send'); return; }
         dom.chatForm.reset();
-        const mobileInputAfterReset = dom.chatForm?.querySelector('input[name="mobile"]');
-        if (mobileInputAfterReset) mobileInputAfterReset.value = activeMobile;
         dom.attachPreview?.classList.remove('show');
         resizeInput();
         dom.msgInput?.focus();
-
-        console.debug('[SEND] Message sent successfully, polling for confirmation...');
-
-        // Poll to reconcile with real message from DB
         await window.pollingEngine.pollMessages();
         await window.pollingEngine.pollSidebar();
-
-        // Clean up optimistic message ID from tracking
-        window.inboxState.optimisticMessageIds?.delete(optimisticId);
-        console.debug('[SEND] Optimistic message reconciled or replaced by polling:', optimisticId);
-
         if (scrollBottom) scrollBottom();
-      } catch (e) { 
-        alert('Network error: ' + e.message);
-        // Remove optimistic message on network error
-        const optNode = dom.chatBody?.querySelector(`[data-message-id="${CSS.escape(optimisticId)}"]`);
-        if (optNode) {
-          optNode.remove();
-          console.debug('[SEND] Optimistic message removed after network error:', optimisticId);
-        }
-        window.inboxState.optimisticMessageIds?.delete(optimisticId);
-      }
+      } catch (e) { alert('Network error: ' + e.message); }
     });
 
     console.debug('[COMPOSER] Send message submit listener registered');
@@ -832,28 +756,21 @@ window.__eventsEngineInitDone = true;
 
   const loadTemplates = async (force = false) => {
     if (window.inboxState.templates.length && !force) return;
-    try {
-      const r = await fetchWithTimeout(TEMPLATE_URL, { headers: { 'X-Requested-With': 'XMLHttpRequest' } }, 30000, 'Load templates');
-      const data = await parseJsonResponse(r, 'Load templates');
-      if (!r.ok) {
-        console.error('[API] Template load failed', { status: r.status, error: data?.error || 'Unknown error' });
-        return;
-      }
-      window.inboxState.templates = data.data || [];
-      const opts = window.inboxState.templates.map(t => `<option value="${esc(t.name)}">${esc(t.name)} (${esc(t.language||'en')})</option>`).join('');
+    const r = await fetch(TEMPLATE_URL);
+    if (!r.ok) return;
+    const data = await r.json();
+    window.inboxState.templates = data.data || [];
+    const opts = window.inboxState.templates.map(t => `<option value="${esc(t.name)}">${esc(t.name)} (${esc(t.language||'en')})</option>`).join('');
 
-      const templateSelectEl = document.getElementById('templateSelect');
-      if (templateSelectEl) templateSelectEl.innerHTML = opts || '<option value="">No templates</option>';
+    const templateSelectEl = document.getElementById('templateSelect');
+    if (templateSelectEl) templateSelectEl.innerHTML = opts || '<option value="">No templates</option>';
 
-      const newConvTemplateEl = document.getElementById('newConvTemplate');
-      if (newConvTemplateEl) newConvTemplateEl.innerHTML = opts || '<option value="">No templates</option>';
+    const newConvTemplateEl = document.getElementById('newConvTemplate');
+    if (newConvTemplateEl) newConvTemplateEl.innerHTML = opts || '<option value="">No templates</option>';
 
-      onTemplateChange('templateSelect', 'templateLang', 'templateParamsWrap');
-      onTemplateChange('newConvTemplate', 'newConvLang', 'newConvParamsWrap');
-      renderApprovedTemplateRows();
-    } catch (err) {
-      console.error('[API] Template sync failed:', err?.message || err);
-    }
+    onTemplateChange('templateSelect', 'templateLang', 'templateParamsWrap');
+    onTemplateChange('newConvTemplate', 'newConvLang', 'newConvParamsWrap');
+    renderApprovedTemplateRows();
   };
 
   const renderApprovedTemplateRows = () => {
@@ -998,8 +915,8 @@ window.__eventsEngineInitDone = true;
       const t = window.inboxState.selectedQuickTemplate || window.inboxState.templates.find(x => x.name === tName);
       const body = { mobile, template_name: tName, language_code: lang, template_preview: getBodyText(t) || `Template: ${tName}`,
         components: params.length ? [{ type:'body', parameters: params.map(text=>({type:'text', text})) }] : [] };
-      const r = await fetchWithTimeout(SEND_TPL_URL, { method:'POST', headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify(body) }, 20000, 'Send template');
-      const d = await parseJsonResponse(r, 'Send template');
+      const r = await fetch(SEND_TPL_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const d = await r.json();
       if (!r.ok) return alert(d.error || 'Failed to send.');
       alert('Template sent successfully.');
       if (templateQuickSendModal) templateQuickSendModal.hide();
@@ -1016,8 +933,8 @@ window.__eventsEngineInitDone = true;
       const body = { mobile: window.inboxState.activeMobile, template_name: tName, language_code: lang,
         template_preview: getBodyText(t) || `Template: ${tName}`,
         components: params.length ? [{ type:'body', parameters: params.map(text=>({type:'text',text})) }] : [] };
-      const r = await fetchWithTimeout(SEND_TPL_URL, { method:'POST', headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify(body) }, 20000, 'Send template');
-      const d = await parseJsonResponse(r, 'Send template');
+      const r = await fetch(SEND_TPL_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const d = await r.json();
       if (!r.ok) { alert(d.error || 'Failed'); return; }
       if (templateModal) templateModal.hide();
       await window.pollingEngine.pollMessages();
@@ -1053,8 +970,6 @@ window.__eventsEngineInitDone = true;
      ═══════════════════════════════════════════════════════════ */
 
   const setWorkspace = async (name = 'inbox') => {
-    const mobileInput = dom.chatForm?.querySelector('input[name="mobile"]');
-    if (mobileInput) mobileInput.value = (window.inboxState.activeMobile || '').trim();
     ['inbox', 'templates', 'campaigns', 'automation'].forEach(key => {
       const panel = document.getElementById(`${key}Panel`);
       if (panel) panel.classList.toggle('active', key === name);
@@ -1079,21 +994,6 @@ window.__eventsEngineInitDone = true;
       if (templateModal) templateModal.show();
     });
 
-    window.addEventListener('popstate', async () => {
-      const mobile = window.inboxState.hydrateActiveMobileFromUrl('browser_popstate');
-      $all('.conv-item').forEach(el => el.classList.toggle('active', el.dataset.mobile === mobile));
-      const mobileInput = dom.chatForm?.querySelector('input[name="mobile"]');
-      if (mobileInput) mobileInput.value = mobile;
-      if (mobile) {
-        try {
-          await window.pollingEngine.poll();
-          await window.pollingEngine.pollSidebar();
-        } catch (err) {
-          console.error('[EVENT] popstate reload failed:', err);
-        }
-      }
-    });
-
     console.debug('[EVENT_BIND] Workspace switching listeners registered');
     console.debug('[LIFECYCLE] Workspace switching initialized');
     console.debug('[EVENT] Workspace switching initialized');
@@ -1116,8 +1016,8 @@ window.__eventsEngineInitDone = true;
       const body = { mobile: phone, template_name: tName, language_code: lang,
         template_preview: getBodyText(t) || `Template: ${tName}`,
         components: params.length ? [{ type:'body', parameters: params.map(text=>({type:'text',text})) }] : [] };
-      const r = await fetchWithTimeout(SEND_TPL_URL, { method:'POST', headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify(body) }, 20000, 'Send template');
-      const d = await parseJsonResponse(r, 'Send template');
+      const r = await fetch(SEND_TPL_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const d = await r.json();
       if (!r.ok) { alert(d.error || 'Failed to start conversation'); return; }
       if (newConvModal) newConvModal.hide();
       window.location.href = `${PAGE_URL}?mobile=${encodeURIComponent(phone)}`;
@@ -1178,8 +1078,8 @@ window.__eventsEngineInitDone = true;
 
   const loadFlows = async (forceSync = false) => {
     const url = forceSync ? `${FLOWS_URL}?sync=1` : FLOWS_URL;
-    const r = await fetchWithTimeout(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } }, 30000, 'Load flows');
-    const data = await parseJsonResponse(r, 'Load flows');
+    const r = await fetch(url);
+    const data = await r.json();
     if (!r.ok) throw new Error(data.error || 'Failed');
     window.inboxState.flows = data.data || [];
     const sel = document.getElementById('flowSelect');
@@ -1272,8 +1172,8 @@ window.__eventsEngineInitDone = true;
         payload.flow_id = fid; payload.button_text = fbt;
       }
 
-      const r = await fetchWithTimeout(SEND_INT_URL, { method:'POST', headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify(payload) }, 20000, 'Send interactive message');
-      const d = await parseJsonResponse(r, 'Send interactive message');
+      const r = await fetch(SEND_INT_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      const d = await r.json();
       if (!r.ok) { alert(d.error || 'Failed'); return; }
       if (interactiveModal) interactiveModal.hide();
       await window.pollingEngine.pollMessages();
@@ -1350,12 +1250,12 @@ window.__eventsEngineInitDone = true;
         if (aiLabel) aiLabel.textContent = newHuman ? 'Human' : 'AI';
 
         try {
-          const response = await fetchWithTimeout('/api/whatsapp/toggle-ai', {
+          const response = await fetch('/api/whatsapp/toggle-ai', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone, human_takeover: newHuman })
-          }, 20000, 'Toggle AI');
-          const data = await parseJsonResponse(response, 'Toggle AI');
+          });
+          const data = await response.json();
 
           if (!data.success) {
             // Revert on failure
@@ -1383,11 +1283,6 @@ window.__eventsEngineInitDone = true;
      ═══════════════════════════════════════════════════════════ */
 
   const bindAll = () => {
-    if (window.__eventsBound) {
-      console.debug('[EVENT_BIND] bindAll skipped — listeners already bound once');
-      return;
-    }
-    window.__eventsBound = true;
     console.debug('[EVENT] bindAll() — registering all event listeners');
 
     initTheme();
@@ -1616,6 +1511,6 @@ window.__eventsEngineInitDone = true;
     initAiToggle,
   };
 
-  window.__eventsEngineModuleLoaded = true;
+  window.__eventsEngineInitialized = true;
 
 })();
