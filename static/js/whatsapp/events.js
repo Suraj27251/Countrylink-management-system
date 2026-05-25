@@ -540,12 +540,8 @@ window.__eventsEngineInitDone = true;
      10. CONVERSATION CLICK (Chat switching)
      ═══════════════════════════════════════════════════════════ */
 
-  /* ═══════════════════════════════════════════════════════════
-     10. CONVERSATION CLICK (Chat switching)
-     ═══════════════════════════════════════════════════════════ */
-
   const initConvClick = () => {
-    dom.convList?.addEventListener('click', e => {
+    dom.convList?.addEventListener('click', async e => {
       const link = e.target.closest('.conv-item[data-mobile]');
       if (!link) return;
       e.preventDefault();
@@ -553,24 +549,122 @@ window.__eventsEngineInitDone = true;
       const mobile = link.dataset.mobile;
       if (mobile === window.inboxState.activeMobile) return;
 
-      // Show skeleton transition immediately — feels instant
-      const loader = document.getElementById('pageLoader');
-      if (loader) {
-        loader.classList.add('show');
-        loader.setAttribute('aria-hidden', 'false');
-      }
-
-      // Highlight the clicked contact in the skeleton sidebar area
+      // Highlight clicked contact immediately
       $all('.conv-item').forEach(el => el.classList.toggle('active', el.dataset.mobile === mobile));
 
-      // Navigate after a micro-delay so the skeleton paints first
-      requestAnimationFrame(() => {
-        window.location.href = `${PAGE_URL}?mobile=${encodeURIComponent(mobile)}`;
-      });
+      // Update URL without reload
+      history.pushState({}, '', `${PAGE_URL}?mobile=${encodeURIComponent(mobile)}`);
+
+      // Show skeleton in chat area only (no full page flash)
+      if (dom.chatBody) {
+        dom.chatBody.innerHTML = `
+          <div class="chat-skeleton">
+            <div class="skel-date"><span></span></div>
+            <div class="skel-row incoming"><div class="skel-bubble wide"></div></div>
+            <div class="skel-row outgoing"><div class="skel-bubble medium"></div></div>
+            <div class="skel-row incoming"><div class="skel-bubble narrow"></div></div>
+            <div class="skel-row outgoing"><div class="skel-bubble wide"></div></div>
+            <div class="skel-row incoming"><div class="skel-bubble medium"></div></div>
+          </div>`;
+      }
+
+      // Update header immediately with contact info
+      const contactName = link.querySelector('.conv-name')?.textContent || mobile;
+      const headerName = document.querySelector('.chat-header-info h3');
+      const headerSub  = document.querySelector('.chat-header-info p span[style*="monospace"]');
+      if (headerName) headerName.textContent = contactName;
+      if (headerSub)  headerSub.textContent  = mobile;
+
+      // Update avatar
+      const headerAvatar = document.querySelector('.chat-header-left .conv-avatar');
+      if (headerAvatar) headerAvatar.textContent = (contactName[0] || '?').toUpperCase();
+
+      // Update form mobile
+      const mobileInput = dom.chatForm?.querySelector('input[name="mobile"]');
+      if (mobileInput) mobileInput.value = mobile;
+
+      // Update state
+      window.inboxState.setActiveMobile(mobile);
+      window.inboxState.cursors.globalLastMessageId = 0;
+      window.inboxState.globalKnownMessageIds.clear();
+      window.inboxState.lastMessageIdByMobile.delete(mobile);
+      if (window.renderEngine.clearMessageNodeMap) window.renderEngine.clearMessageNodeMap();
+
+      // Enable composer
+      if (dom.msgInput) dom.msgInput.disabled = false;
+      const sendBtn = document.getElementById('sendBtn');
+      if (sendBtn) sendBtn.disabled = false;
+
+      // Fetch messages via AJAX
+      try {
+        const apiUrl = window.MESSAGES_API_URL || '/api/whatsapp/messages';
+        const res = await fetch(`${apiUrl}?mobile=${encodeURIComponent(mobile)}&since_id=0`, {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+
+        // If user switched to another chat while we were loading, bail
+        if (window.inboxState.activeMobile !== mobile) return;
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (window.inboxState.activeMobile !== mobile) return;
+
+        // Clear skeleton
+        if (dom.chatBody) dom.chatBody.innerHTML = '';
+
+        // Render messages
+        if (data.messages && data.messages.length > 0) {
+          // Add date separator
+          dom.chatBody.insertAdjacentHTML('afterbegin', '<div class="date-sep"><span>Today</span></div>');
+
+          data.messages.forEach(m => {
+            if (upsertMsg) upsertMsg(m);
+          });
+
+          // Update cursors
+          const lastId = data.last_message_id || data.messages[data.messages.length - 1]?.id || 0;
+          window.inboxState.cursors.globalLastMessageId = +lastId || 0;
+          window.inboxState.lastMessageIdByMobile.set(mobile, +lastId || 0);
+          if (data.last_inbox_message_id) {
+            window.inboxState.cursors.globalLastInboxId = Math.max(
+              window.inboxState.cursors.globalLastInboxId, +data.last_inbox_message_id || 0
+            );
+          }
+        } else {
+          // Show empty state
+          dom.chatBody.innerHTML = `
+            <div class="chat-empty" id="chatEmptyHint">
+              <div class="chat-empty-icon"><i class="fab fa-whatsapp"></i></div>
+              <h3>No messages yet</h3>
+              <p>Start the conversation by sending a message or template below</p>
+            </div>`;
+        }
+
+        // Clear unread badge
+        window.inboxState.unreadByMobile.delete(mobile);
+        const activeLink = dom.convList?.querySelector(`[data-mobile="${CSS.escape(mobile)}"]`);
+        if (activeLink) {
+          activeLink.dataset.unreadCount = '0';
+          activeLink.dataset.aiReplied = '0';
+          if (updateContactGreenDot) updateContactGreenDot(mobile);
+        }
+
+        window.inboxState.resetPollFails();
+        if (scrollBottom) scrollBottom();
+
+      } catch (err) {
+        console.error('[CHAT_SWITCH] Failed:', err);
+        // If fetch fails, fall back to full page navigation
+        if (window.inboxState.activeMobile === mobile) {
+          window.location.href = `${PAGE_URL}?mobile=${encodeURIComponent(mobile)}`;
+        }
+      }
+
+      if (dom.msgInput) dom.msgInput.focus();
     });
 
-    console.debug('[EVENT_BIND] Conversation click delegate listener registered on convList');
-    console.debug('[EVENT] Conversation click initialized');
+    console.debug('[EVENT_BIND] Conversation click initialized');
   };
 
   /* ═══════════════════════════════════════════════════════════
