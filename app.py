@@ -1748,6 +1748,9 @@ def login_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
         if not session.get('user_id'):
+            wants_json = request.path.startswith('/api/') or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            if wants_json:
+                return jsonify({"error": "Authentication required."}), 401
             flash('Please log in to continue.', 'warning')
             return redirect(url_for('auth.login'))
         return view(*args, **kwargs)

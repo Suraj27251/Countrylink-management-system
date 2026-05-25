@@ -98,6 +98,10 @@
     return HEARTBEAT_ACTIVE_MS;
   };
 
+
+  const parseJsonResponse = (response, contextLabel) => window.whatsappUtils.parseJsonResponse(response, contextLabel, '[POLLING_API]');
+  const fetchWithTimeout = (url, options, timeoutMs, contextLabel) => window.whatsappUtils.fetchWithTimeout(url, options, timeoutMs, contextLabel);
+
   /* ═══════════════════════════════════════════════════════════
      POLLING CORE
      ═══════════════════════════════════════════════════════════ */
@@ -123,11 +127,12 @@
         params.set('since_id', String(window.inboxState.cursors.globalLastMessageId));
       }
       const pollStart = performance.now();
-      const res = await fetch(`${API_URL}?${params}`, {
+      const res = await fetchWithTimeout(`${API_URL}?${params}`, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      });
+      }, 20000, 'Polling fetch');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await parseJsonResponse(res, 'Polling fetch');
+      window.inboxState.lastPollSuccessAt = Date.now();
       const fetchDuration = performance.now() - pollStart;
       window.debugMetrics.polling.lastFetchMs = Math.round(fetchDuration);
       console.debug('[POLLING] poll() response received — contacts:', data.contacts?.length, 'messages:', data.messages?.length, 'inbox_messages:', data.inbox_messages?.length);
@@ -282,12 +287,13 @@
         window.inboxState.activeAbortControllers.push(messagesPollController);
       }
 
-      const res = await fetch(`${API_URL}?${params}`, {
+      const res = await fetchWithTimeout(`${API_URL}?${params}`, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
         signal: messagesPollController.signal
-      });
+      }, 20000, 'Polling messages fetch');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await parseJsonResponse(res, 'Polling fetch');
+      window.inboxState.lastPollSuccessAt = Date.now();
 
       // Stale response guard: verify still on same chat + token is latest
       if (requestMobile !== window.inboxState.activeMobile ||
@@ -545,11 +551,12 @@
     console.debug('[POLLING] pollSidebar() started');
     try {
       const params = new URLSearchParams({ include_contacts: '1' });
-      const res = await fetch(`${API_URL}?${params}`, {
+      const res = await fetchWithTimeout(`${API_URL}?${params}`, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
-      });
+      }, 20000, 'Polling fetch');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
+      const data = await parseJsonResponse(res, 'Polling fetch');
+      window.inboxState.lastPollSuccessAt = Date.now();
       if (data.contacts?.length) {
         window.inboxState.contacts = data.contacts;
         if (debouncedRenderContacts) debouncedRenderContacts(data.contacts, true);
