@@ -54,6 +54,8 @@ WHATSAPP_WEBHOOK_LOG_PATH = os.environ.get(
 AUTO_NOTIFICATION_TEMPLATE_NAME = 'notification_team'
 AUTO_NOTIFICATION_TEMPLATE_LANGUAGE = 'en'
 AUTO_NOTIFICATION_RECIPIENTS = ['8149912379', '8055782345']
+MYSQL_WHATSAPP_INDEXES_ENSURED = False
+MYSQL_WHATSAPP_INDEXES_LOCK = threading.Lock()
 REQUIRED_WHATSAPP_ENV_VARS = (
     'META_ACCESS_TOKEN',
     'PHONE_NUMBER_ID',
@@ -61,7 +63,6 @@ REQUIRED_WHATSAPP_ENV_VARS = (
     'WHATSAPP_API_VERSION',
 )
 DEFAULT_ENQUIRY_FLOW_NAME = os.environ.get('WHATSAPP_ENQUIRY_FLOW_NAME', 'enquiry').strip() or 'enquiry'
-WHATSAPP_DB_WRITE_LOCK = threading.Lock()
 WHATSAPP_WEBHOOK_LOGGER = None
 WHATSAPP_WEBHOOK_LOGGER_PATH = None
 
@@ -553,75 +554,8 @@ def process_incoming_message(message, metadata):
         return
 
     inserted_new_message = False
-    is_new_chat = False
     try:
-        # Serialize inbound DB writes with status updates/poll reads to reduce
-        # race windows where the poll request can miss just-arriving rows.
-        with WHATSAPP_DB_WRITE_LOCK:
-            conn = get_db_connection()
-            c = conn.cursor()
-            c.execute(
-                """
-                SELECT 1
-                FROM whatsapp_messages
-                WHERE mobile = ? AND direction = 'inbound'
-                LIMIT 1
-                """,
-                (mobile,),
-            )
-            is_new_chat = c.fetchone() is None
-
-            if message_id:
-                c.execute(
-                    """
-                    INSERT OR IGNORE INTO whatsapp_messages
-                    (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, latitude, longitude, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        message_id,
-                        name or None,
-                        mobile,
-                        'inbound',
-                        message_type,
-                        text_body,
-                        media_id,
-                        media_url,
-                        media_mime_type,
-                        file_name,
-                        latitude,
-                        longitude,
-                        created_at,
-                    ),
-                )
-
-                inserted_new_message = True
-            else:
-                c.execute(
-                    """
-                    INSERT INTO whatsapp_messages
-                    (message_id, name, mobile, direction, message_type, text, media_id, media_url, media_mime_type, file_name, latitude, longitude, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        None,
-                        name or None,
-                        mobile,
-                        'inbound',
-                        message_type,
-                        text_body,
-                        media_id,
-                        media_url,
-                        media_mime_type,
-                        file_name,
-                        latitude,
-                        longitude,
-                        created_at,
-                    ),
-                )
-                inserted_new_message = True
-            conn.commit()
-            conn.close()
+        inserted_new_message = True
 
         app.logger.info(
             "Stored inbound WhatsApp message id=%s mobile=%s",
@@ -644,6 +578,7 @@ def process_incoming_message(message, metadata):
             )
             app.logger.info("MySQL connection opened mobile=%s", mobile)
             mysql_cursor = mysql_conn.cursor(dictionary=True)
+            mysql_conn.start_transaction()
 
             # Find existing conversation
             mysql_cursor.execute("""
@@ -680,36 +615,48 @@ def process_incoming_message(message, metadata):
                     text_body
                 ))
 
-                mysql_conn.commit()
-
                 conversation_id = mysql_cursor.lastrowid
                 app.logger.info("Conversation created mobile=%s conversation_id=%s", mobile, conversation_id)
 
-            # Save customer message
-            mysql_cursor.execute("""
-                INSERT INTO whatsapp_messages (
+            if message_id:
+                mysql_cursor.execute(
+                    """
+                    SELECT id
+                    FROM whatsapp_messages
+                    WHERE whatsapp_message_id = %s
+                    LIMIT 1
+                    """,
+                    (message_id,),
+                )
+                inserted_new_message = mysql_cursor.fetchone() is None
+            else:
+                inserted_new_message = True
+
+            if inserted_new_message:
+                mysql_cursor.execute("""
+                    INSERT INTO whatsapp_messages (
+                        conversation_id,
+                        whatsapp_message_id,
+                        sender_type,
+                        phone,
+                        message_text,
+                        message_type,
+                        media_url,
+                        status,
+                        created_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                """, (
                     conversation_id,
-                    whatsapp_message_id,
-                    sender_type,
-                    phone,
-                    message_text,
+                    message_id,
+                    'customer',
+                    mobile,
+                    text_body,
                     message_type,
                     media_url,
-                    status,
-                    created_at
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
-            """, (
-                conversation_id,
-                message_id,
-                'customer',
-                mobile,
-                text_body,
-                message_type,
-                media_url,
-                'received'
-            ))
-            app.logger.info("Customer message saved mobile=%s conversation_id=%s", mobile, conversation_id)
+                    'received'
+                ))
+                app.logger.info("Customer message saved mobile=%s conversation_id=%s", mobile, conversation_id)
 
             # Update conversation
             mysql_cursor.execute("""
@@ -718,12 +665,13 @@ def process_incoming_message(message, metadata):
                     last_message = %s,
                     last_message_at = NOW(),
                     last_customer_message_at = NOW(),
-                    unread_count = unread_count + 1,
+                    unread_count = unread_count + %s,
                     ai_replied = 0,
                     updated_at = NOW()
                 WHERE id = %s
             """, (
                 text_body,
+                1 if inserted_new_message else 0,
                 conversation_id
             ))
             # Basic needs-human heuristics on inbound customer messages
@@ -753,6 +701,11 @@ def process_incoming_message(message, metadata):
                 )
 
             mysql_conn.commit()
+            app.logger.info(
+                "Inbound transaction committed before AI processing mobile=%s conversation_id=%s",
+                mobile,
+                conversation_id,
+            )
 
             app.logger.info(
                 "MySQL inbox sync success mobile=%s conversation_id=%s",
@@ -828,48 +781,72 @@ def process_incoming_message(message, metadata):
                             ai_message_id = (
                                 ai_response_payload.get('messages') or [{}]
                             )[0].get('id')
-
-                            mysql_cursor.execute(
-                                """
-                                INSERT INTO whatsapp_messages (
-                                    conversation_id,
-                                    whatsapp_message_id,
-                                    sender_type,
-                                    phone,
-                                    message_text,
-                                    message_type,
-                                    media_url,
-                                    status,
-                                    created_at
+                            ai_db_conn = None
+                            ai_db_cursor = None
+                            try:
+                                ai_db_conn = mysql.connector.connect(
+                                    host=MYSQL_DB_HOST,
+                                    database=MYSQL_DB_NAME,
+                                    user=MYSQL_DB_USER,
+                                    password=MYSQL_DB_PASSWORD,
                                 )
-                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
-                                """,
-                                (
-                                    conversation_id,
-                                    ai_message_id,
-                                    'ai',
-                                    mobile,
-                                    ai_reply_text,
-                                    'text',
-                                    None,
-                                    'sent',
-                                ),
-                            )
+                                ai_db_cursor = ai_db_conn.cursor(dictionary=True)
+                                ai_db_conn.start_transaction()
+                                ai_db_cursor.execute(
+                                    """
+                                    INSERT INTO whatsapp_messages (
+                                        conversation_id,
+                                        whatsapp_message_id,
+                                        sender_type,
+                                        phone,
+                                        message_text,
+                                        message_type,
+                                        media_url,
+                                        status,
+                                        created_at
+                                    )
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                                    """,
+                                    (
+                                        conversation_id,
+                                        ai_message_id,
+                                        'ai',
+                                        mobile,
+                                        ai_reply_text,
+                                        'text',
+                                        None,
+                                        'sent',
+                                    ),
+                                )
 
-                            mysql_cursor.execute(
-                                """
-                                UPDATE whatsapp_conversations
-                                SET
-                                    ai_replied = 1,
-                                    updated_at = NOW()
-                                WHERE id = %s
-                                """,
-                                (
-                                    conversation_id,
-                                ),
-                            )
-
-                            mysql_conn.commit()
+                                ai_db_cursor.execute(
+                                    """
+                                    UPDATE whatsapp_conversations
+                                    SET
+                                        last_message = %s,
+                                        last_message_at = NOW(),
+                                        ai_replied = 1,
+                                        updated_at = NOW()
+                                    WHERE id = %s
+                                    """,
+                                    (
+                                        ai_reply_text,
+                                        conversation_id,
+                                    ),
+                                )
+                                ai_db_conn.commit()
+                            except Exception:
+                                if ai_db_conn:
+                                    try:
+                                        ai_db_conn.rollback()
+                                    except Exception:
+                                        pass
+                                raise
+                            finally:
+                                if ai_db_cursor:
+                                    ai_db_cursor.close()
+                                if ai_db_conn and ai_db_conn.is_connected():
+                                    ai_db_conn.close()
 
                             app.logger.info(
                                 "AI reply generated mobile=%s conversation_id=%s",
@@ -896,15 +873,38 @@ def process_incoming_message(message, metadata):
                             mobile,
                             conversation_id
                         )
-                        mysql_cursor.execute(
-                            """
-                            UPDATE whatsapp_conversations
-                            SET needs_human = 1, updated_at = NOW()
-                            WHERE id = %s
-                            """,
-                            (conversation_id,),
-                        )
-                        mysql_conn.commit()
+                        fallback_conn = None
+                        fallback_cursor = None
+                        try:
+                            fallback_conn = mysql.connector.connect(
+                                host=MYSQL_DB_HOST,
+                                database=MYSQL_DB_NAME,
+                                user=MYSQL_DB_USER,
+                                password=MYSQL_DB_PASSWORD,
+                            )
+                            fallback_cursor = fallback_conn.cursor()
+                            fallback_conn.start_transaction()
+                            fallback_cursor.execute(
+                                """
+                                UPDATE whatsapp_conversations
+                                SET needs_human = 1, updated_at = NOW()
+                                WHERE id = %s
+                                """,
+                                (conversation_id,),
+                            )
+                            fallback_conn.commit()
+                        except Exception:
+                            if fallback_conn:
+                                try:
+                                    fallback_conn.rollback()
+                                except Exception:
+                                    pass
+                            raise
+                        finally:
+                            if fallback_cursor:
+                                fallback_cursor.close()
+                            if fallback_conn and fallback_conn.is_connected():
+                                fallback_conn.close()
 
             else:
                 app.logger.info(
@@ -916,6 +916,11 @@ def process_incoming_message(message, metadata):
                     inserted_new_message,
                 )
         except Exception:
+            if mysql_conn:
+                try:
+                    mysql_conn.rollback()
+                except Exception:
+                    pass
             app.logger.exception(
                 "MySQL inbox sync failed for mobile=%s",
                 mobile
@@ -1033,6 +1038,10 @@ def store_webhook_audit_event(data, note):
 def process_message_status_event(status_event):
     message_id = status_event.get('id')
     status = (status_event.get('status') or '').strip().lower() or 'unknown'
+    allowed_statuses = {'sent', 'delivered', 'read', 'failed'}
+    if status not in allowed_statuses:
+        app.logger.info("Ignoring unsupported WhatsApp status update message_id=%s status=%s", message_id or 'no-id', status)
+        return
     timestamp_unix = status_event.get('timestamp')
     status_time = datetime.fromtimestamp(int(timestamp_unix)).strftime('%Y-%m-%d %H:%M:%S') if timestamp_unix else datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
@@ -1046,19 +1055,37 @@ def process_message_status_event(status_event):
     if not message_id:
         return
 
-    with WHATSAPP_DB_WRITE_LOCK:
-        conn = get_db_connection()
-        c = conn.cursor()
-        c.execute(
+    mysql_conn = None
+    mysql_cursor = None
+    try:
+        mysql_conn = mysql.connector.connect(
+            host=MYSQL_DB_HOST,
+            database=MYSQL_DB_NAME,
+            user=MYSQL_DB_USER,
+            password=MYSQL_DB_PASSWORD,
+        )
+        mysql_cursor = mysql_conn.cursor()
+        mysql_cursor.execute(
             """
             UPDATE whatsapp_messages
-            SET delivery_status = ?, error_reason = ?, created_at = CASE WHEN created_at IS NULL THEN ? ELSE created_at END
-            WHERE message_id = ?
+            SET status = %s
+            WHERE whatsapp_message_id = %s
             """,
-            (status, reason or None, status_time, message_id),
+            (status, message_id),
         )
-        conn.commit()
-        conn.close()
+        mysql_conn.commit()
+    except Exception:
+        app.logger.exception(
+            "Failed to persist WhatsApp delivery status message_id=%s status=%s reason=%s",
+            message_id,
+            status,
+            reason or 'none',
+        )
+    finally:
+        if mysql_cursor:
+            mysql_cursor.close()
+        if mysql_conn and mysql_conn.is_connected():
+            mysql_conn.close()
 
 
 def send_auto_notification_templates(inbound_message_id, sender_mobile):
@@ -1183,90 +1210,131 @@ def safe_message_preview(message_type, text):
     }.get(message_type, "New message")
 
 
-def load_whatsapp_rows(conn):
-    # Ensure dictionary-like access (row["id"], row["mobile"], etc.) works
-    # regardless of which caller created the connection.
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    c.execute("""
-        SELECT id, message_id, name, mobile, direction, message_type, text, media_url, file_name, media_mime_type, latitude, longitude, delivery_status, error_reason, created_at
-        FROM whatsapp_messages
-        ORDER BY datetime(created_at) DESC, id DESC
+def load_mysql_conversations(mysql_cursor):
+    mysql_cursor.execute("""
+        SELECT
+            id,
+            phone,
+            customer_name,
+            last_message,
+            last_message_at,
+            unread_count,
+            ai_enabled,
+            human_takeover,
+            updated_at
+        FROM whatsapp_conversations
+        ORDER BY updated_at DESC
     """)
-    rows = c.fetchall()
-    legacy_mode = False
-    if not rows:
-        legacy_mode = True
-        c.execute("""
-            SELECT id, name, mobile, complaint AS text, created_at
-            FROM complaints
-            WHERE source = 'WhatsApp'
-            ORDER BY datetime(created_at) DESC, id DESC
-        """)
-        legacy_rows = c.fetchall()
-        rows = [
-            {
-                "id": row["id"],
-                "message_id": None,
-                "name": row["name"],
-                "mobile": normalize_mobile(row["mobile"]),
-                "direction": "inbound",
-                "message_type": "text",
-                "text": row["text"],
-                "media_url": None,
-                "file_name": None,
-                "media_mime_type": None,
-                "latitude": None,
-                "longitude": None,
-                "delivery_status": None,
-                "error_reason": None,
-                "created_at": row["created_at"],
-            }
-            for row in legacy_rows
-        ]
-    return rows, legacy_mode
+    return mysql_cursor.fetchall()
 
 
-def _is_usable_contact_name(name):
-    normalized = (name or '').strip().lower()
-    return bool(normalized and normalized not in {'unknown', '.', 'agent'})
+def load_mysql_messages(mysql_cursor, conversation_id):
+    mysql_cursor.execute("""
+        SELECT
+            id,
+            whatsapp_message_id,
+            sender_type,
+            phone,
+            message_text,
+            message_type,
+            media_url,
+            status,
+            created_at
+        FROM whatsapp_messages
+        WHERE conversation_id = %s
+        ORDER BY created_at ASC, id ASC
+    """, (conversation_id,))
+    return mysql_cursor.fetchall()
 
 
-def build_whatsapp_contacts(rows):
-    latest_by_mobile = {}
-    preferred_name_by_mobile = {}
+def setup_mysql_whatsapp_indexes():
+    global MYSQL_WHATSAPP_INDEXES_ENSURED
+    if MYSQL_WHATSAPP_INDEXES_ENSURED:
+        return
 
-    def value(row, key, default=None):
-        if isinstance(row, dict):
-            return row.get(key, default)
-        try:
-            return row[key]
-        except Exception:
-            return default
+    mysql_conn = None
+    mysql_cursor = None
+    try:
+        mysql_conn = mysql.connector.connect(
+            host=MYSQL_DB_HOST,
+            database=MYSQL_DB_NAME,
+            user=MYSQL_DB_USER,
+            password=MYSQL_DB_PASSWORD,
+        )
+        mysql_cursor = mysql_conn.cursor(dictionary=True)
+        mysql_conn.start_transaction()
 
-    for row in rows:
-        mobile_raw = normalize_mobile(value(row, "mobile", ''))
-        mobile_key = conversation_mobile_key(mobile_raw)
-        if not mobile_key:
-            continue
+        mysql_cursor.execute("SHOW INDEX FROM whatsapp_messages WHERE Key_name = 'idx_messages_conversation_created'")
+        if not mysql_cursor.fetchone():
+            mysql_cursor.execute("CREATE INDEX idx_messages_conversation_created ON whatsapp_messages(conversation_id, created_at)")
 
-        if mobile_key not in latest_by_mobile:
-            latest_by_mobile[mobile_key] = {
-                "mobile": mobile_raw,
-                "name": value(row, "name") or mobile_raw,
-                "preview": safe_message_preview(value(row, "message_type", 'unknown'), value(row, "text")),
-                "created_at": value(row, "created_at"),
-            }
+        mysql_cursor.execute("SHOW INDEX FROM whatsapp_messages WHERE Key_name = 'idx_messages_phone'")
+        if not mysql_cursor.fetchone():
+            mysql_cursor.execute("CREATE INDEX idx_messages_phone ON whatsapp_messages(phone)")
 
-        row_name = value(row, "name")
-        if value(row, "direction") == 'inbound' and _is_usable_contact_name(row_name):
-            preferred_name_by_mobile[mobile_key] = row_name
+        mysql_cursor.execute("SHOW INDEX FROM whatsapp_conversations WHERE Key_name = 'idx_conversations_updated'")
+        if not mysql_cursor.fetchone():
+            mysql_cursor.execute("CREATE INDEX idx_conversations_updated ON whatsapp_conversations(updated_at)")
 
-    for mobile_key, contact in latest_by_mobile.items():
-        if preferred_name_by_mobile.get(mobile_key):
-            contact["name"] = preferred_name_by_mobile[mobile_key]
+        mysql_cursor.execute(
+            """
+            SELECT whatsapp_message_id, COUNT(*) AS duplicate_count
+            FROM whatsapp_messages
+            WHERE whatsapp_message_id IS NOT NULL AND TRIM(whatsapp_message_id) <> ''
+            GROUP BY whatsapp_message_id
+            HAVING COUNT(*) > 1
+            LIMIT 1
+            """
+        )
+        duplicate_message_id = mysql_cursor.fetchone()
+        mysql_cursor.execute("SHOW INDEX FROM whatsapp_messages WHERE Key_name = 'uniq_whatsapp_messages_message_id'")
+        message_unique_index_exists = mysql_cursor.fetchone() is not None
+        if not message_unique_index_exists and not duplicate_message_id:
+            mysql_cursor.execute("CREATE UNIQUE INDEX uniq_whatsapp_messages_message_id ON whatsapp_messages(whatsapp_message_id)")
+        elif duplicate_message_id:
+            app.logger.warning("Skipped unique message-id index on whatsapp_messages due to duplicates.")
 
-    return sorted(latest_by_mobile.values(), key=lambda item: item["created_at"], reverse=True)
+        mysql_cursor.execute(
+            """
+            SELECT phone, COUNT(*) AS duplicate_count
+            FROM whatsapp_conversations
+            GROUP BY phone
+            HAVING COUNT(*) > 1
+            LIMIT 1
+            """
+        )
+        duplicate_phone = mysql_cursor.fetchone()
+        mysql_cursor.execute("SHOW INDEX FROM whatsapp_conversations WHERE Key_name = 'uniq_whatsapp_conversations_phone'")
+        phone_unique_index_exists = mysql_cursor.fetchone() is not None
+        if not phone_unique_index_exists and not duplicate_phone:
+            mysql_cursor.execute("CREATE UNIQUE INDEX uniq_whatsapp_conversations_phone ON whatsapp_conversations(phone)")
+        elif duplicate_phone:
+            app.logger.warning("Skipped unique phone index on whatsapp_conversations due to duplicates.")
+
+        mysql_conn.commit()
+        MYSQL_WHATSAPP_INDEXES_ENSURED = True
+    except Exception:
+        if mysql_conn:
+            try:
+                mysql_conn.rollback()
+            except Exception:
+                pass
+        app.logger.exception("Failed setting up MySQL WhatsApp inbox indexes.")
+    finally:
+        if mysql_cursor:
+            mysql_cursor.close()
+        if mysql_conn and mysql_conn.is_connected():
+            mysql_conn.close()
+
+
+def ensure_mysql_whatsapp_indexes_once():
+    global MYSQL_WHATSAPP_INDEXES_ENSURED
+    if MYSQL_WHATSAPP_INDEXES_ENSURED:
+        return
+    with MYSQL_WHATSAPP_INDEXES_LOCK:
+        if MYSQL_WHATSAPP_INDEXES_ENSURED:
+            return
+        setup_mysql_whatsapp_indexes()
 
 
 def upload_media_to_whatsapp(file_path, mime_type):
@@ -1913,6 +1981,17 @@ def before_request():
     init_db()
     _launch_ping_thread()
 
+try:
+    ensure_mysql_whatsapp_indexes_once()
+except Exception:
+    app.logger.exception("MySQL WhatsApp index setup failed during application startup.")
+    try:
+        retry_timer = threading.Timer(20.0, ensure_mysql_whatsapp_indexes_once)
+        retry_timer.daemon = True
+        retry_timer.start()
+    except Exception:
+        app.logger.exception("Failed scheduling deferred MySQL WhatsApp index setup retry.")
+
 
 # --- updated ping status route ---
 @app.route('/ping-status')
@@ -2455,24 +2534,76 @@ def view_complaints():
 @app.route('/whatsapp')
 @login_required
 def whatsapp_complaints():
-    conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
-    rows, legacy_mode = load_whatsapp_rows(conn)
-    contacts = build_whatsapp_contacts(rows)
-    active_mobile = normalize_mobile(request.args.get("mobile")) or (contacts[0]["mobile"] if contacts else None)
-    app.logger.info("WhatsApp inbox loaded with %s contacts. Active mobile: %s", len(contacts), active_mobile or "none")
-
+    contacts = []
     messages = []
     active_name = None
-    last_inbox_message_id = max((row["id"] for row in rows), default=0)
-    if active_mobile:
-        messages = [row for row in rows if mobiles_equivalent(row["mobile"], active_mobile)]
-        messages = sorted(messages, key=lambda item: (item["created_at"], item["id"]))
-        active_name = contacts[0]["name"] if contacts and mobiles_equivalent(contacts[0]["mobile"], active_mobile) else None
-        if not active_name and messages:
-            active_name = messages[0]["name"] or active_mobile
+    last_inbox_message_id = 0
+    active_mobile = normalize_mobile(request.args.get("mobile"))
 
-    conn.close()
+    mysql_conn = None
+    mysql_cursor = None
+    try:
+        mysql_conn = mysql.connector.connect(
+            host=MYSQL_DB_HOST,
+            database=MYSQL_DB_NAME,
+            user=MYSQL_DB_USER,
+            password=MYSQL_DB_PASSWORD,
+        )
+        mysql_cursor = mysql_conn.cursor(dictionary=True)
+
+        conversations = load_mysql_conversations(mysql_cursor)
+        for idx, convo in enumerate(conversations, start=1):
+            mobile = normalize_mobile(convo.get("phone"))
+            contacts.append({
+                "id": idx,
+                "name": convo.get("customer_name") or mobile,
+                "mobile": mobile,
+                "preview": convo.get("last_message") or "",
+                "text": convo.get("last_message") or "",
+                "created_at": str(convo.get("last_message_at")) if convo.get("last_message_at") else None,
+                "unread_count": int(convo.get("unread_count") or 0),
+                "ai_enabled": int(convo.get("ai_enabled") or 0),
+                "human_takeover": int(convo.get("human_takeover") or 0),
+            })
+
+        if not active_mobile and contacts:
+            active_mobile = contacts[0]["mobile"]
+
+        if active_mobile:
+            mysql_cursor.execute("SELECT id, customer_name FROM whatsapp_conversations WHERE phone = %s LIMIT 1", (active_mobile,))
+            active_convo = mysql_cursor.fetchone()
+            if active_convo:
+                active_name = active_convo.get("customer_name") or active_mobile
+                for msg in load_mysql_messages(mysql_cursor, active_convo["id"]):
+                    sender_type = msg.get("sender_type") or "customer"
+                    messages.append({
+                        "id": msg["id"],
+                        "message_id": msg.get("whatsapp_message_id"),
+                        "name": active_name,
+                        "mobile": normalize_mobile(msg.get("phone")),
+                        "sender_type": sender_type,
+                        "is_outgoing": sender_type in ("ai", "human"),
+                        "direction": "outbound" if sender_type in ("ai", "human") else "inbound",
+                        "from_me": sender_type in ("ai", "human"),
+                        "message_type": msg.get("message_type") or "text",
+                        "text": msg.get("message_text") or "",
+                        "media_url": msg.get("media_url"),
+                        "delivery_status": msg.get("status"),
+                        "created_at": str(msg.get("created_at")) if msg.get("created_at") else None,
+                    })
+
+        mysql_cursor.execute("SELECT COALESCE(MAX(id), 0) AS latest_id FROM whatsapp_messages")
+        row = mysql_cursor.fetchone()
+        last_inbox_message_id = int((row or {}).get("latest_id") or 0)
+    except Exception:
+        app.logger.exception("Failed loading WhatsApp inbox from MySQL")
+    finally:
+        if mysql_cursor:
+            mysql_cursor.close()
+        if mysql_conn and mysql_conn.is_connected():
+            mysql_conn.close()
+
+    app.logger.info("WhatsApp inbox loaded with %s contacts. Active mobile: %s", len(contacts), active_mobile or "none")
     return render_template(
         "whatsapp.html",
         contacts=contacts,
@@ -2602,7 +2733,7 @@ def whatsapp_messages_api():
                     status,
                     created_at
                 FROM whatsapp_messages
-                WHERE sender_type = 'customer' AND id > %s
+                WHERE id > %s
                 ORDER BY created_at ASC, id ASC
                 LIMIT 100
             """, (since_inbox_id,))
@@ -2613,7 +2744,9 @@ def whatsapp_messages_api():
                     "id": msg["id"],
                     "message_id": msg.get("message_id"),
                     "mobile": normalize_mobile(msg["mobile"]),
-                    "direction": "inbound",
+                    "sender_type": msg.get("sender_type") or "customer",
+                    "is_outgoing": (msg.get("sender_type") or "customer") in ("ai", "human"),
+                    "direction": "outbound" if (msg.get("sender_type") or "customer") in ("ai", "human") else "inbound",
                     "message_type": msg.get("message_type") or "text",
                     "text": msg.get("text") or "",
                     "media_url": msg.get("media_url"),
@@ -2623,40 +2756,48 @@ def whatsapp_messages_api():
 
         if mobile:
 
-            mysql_cursor.execute("""
-                SELECT
-                    id,
-                    whatsapp_message_id AS message_id,
-                    phone AS mobile,
-                    sender_type,
-                    message_text AS text,
-                    message_type,
-                    media_url,
-                    status,
-                    created_at
-                FROM whatsapp_messages
-                WHERE phone = %s AND id > %s
-                ORDER BY created_at ASC, id ASC
-            """, (mobile, since_id))
-            db_messages = mysql_cursor.fetchall()
+            mysql_cursor.execute("SELECT id, customer_name FROM whatsapp_conversations WHERE phone = %s LIMIT 1", (mobile,))
+            active_conversation = mysql_cursor.fetchone()
+            conversation_id = active_conversation["id"] if active_conversation else None
+            if active_conversation:
+                active_name = active_conversation.get("customer_name") or mobile
+
+            if conversation_id:
+                mysql_cursor.execute("""
+                    SELECT
+                        id,
+                        whatsapp_message_id AS message_id,
+                        phone AS mobile,
+                        sender_type,
+                        message_text AS text,
+                        message_type,
+                        media_url,
+                        status,
+                        created_at
+                    FROM whatsapp_messages
+                    WHERE conversation_id = %s AND id > %s
+                    ORDER BY created_at ASC, id ASC
+                """, (conversation_id, since_id))
+            else:
+                db_messages = []
+
+            if conversation_id:
+                db_messages = mysql_cursor.fetchall()
 
             for msg in db_messages:
-
                 sender_type = msg.get("sender_type", "customer")
-
-                direction = (
-                    "inbound"
-                    if sender_type == "customer"
-                    else "outbound"
-                )
+                is_outgoing = sender_type in ("ai", "human")
+                direction = "outbound" if is_outgoing else "inbound"
 
                 messages.append({
                     "id": msg["id"],
                     "message_id": msg.get("message_id"),
                     "name": active_name or mobile,
                     "mobile": normalize_mobile(msg["mobile"]),
+                    "sender_type": sender_type,
+                    "is_outgoing": is_outgoing,
                     "direction": direction,
-                    "from_me": direction == "outbound",
+                    "from_me": is_outgoing,
                     "message_type": msg.get("message_type") or "text",
                     "text": msg.get("text") or "",
                     "media_url": msg.get("media_url"),
@@ -2682,17 +2823,7 @@ def whatsapp_messages_api():
                         direction,
                     )
 
-            mysql_cursor.execute("""
-                SELECT customer_name
-                FROM whatsapp_conversations
-                WHERE phone = %s
-                LIMIT 1
-            """, (mobile,))
-
-            active_contact = mysql_cursor.fetchone()
-
-            if active_contact:
-                active_name = active_contact.get("customer_name") or mobile
+            
 
     except MySQLError as e:
         app.logger.exception("Failed to fetch WhatsApp messages from MySQL: %s", e)
@@ -2928,7 +3059,6 @@ def send_whatsapp():
                 """,
                 (mobile, mobile_raw or mobile, message_text or '[media]'),
             )
-            mysql_conn.commit()
             conversation_id = mysql_cursor.lastrowid
 
         inserted = False
@@ -3006,6 +3136,11 @@ def send_whatsapp():
         )
 
     except Exception as exc:
+        if mysql_conn:
+            try:
+                mysql_conn.rollback()
+            except Exception:
+                pass
         app.logger.exception(
             "Failed to persist outbound WhatsApp message for %s",
             mobile
@@ -3044,23 +3179,40 @@ def mark_whatsapp_conversation_open():
             user=MYSQL_DB_USER,
             password=MYSQL_DB_PASSWORD,
         )
-        mysql_cursor = mysql_conn.cursor()
+        mysql_cursor = mysql_conn.cursor(dictionary=True)
+        mysql_cursor.execute(
+            """
+            SELECT id
+            FROM whatsapp_conversations
+            WHERE phone = %s
+            LIMIT 1
+            """,
+            (mobile,),
+        )
+        conversation = mysql_cursor.fetchone()
+        if not conversation:
+            return jsonify({"status": "ok", "updated": 0}), 200
+
+        mysql_conn.start_transaction()
         mysql_cursor.execute(
             """
             UPDATE whatsapp_conversations
             SET
                 unread_count = 0,
-                ai_replied = 0,
-                needs_human = 0,
                 last_human_opened_at = NOW(),
                 updated_at = NOW()
-            WHERE phone = %s
+            WHERE id = %s
             """,
-            (mobile,),
+            (conversation["id"],),
         )
         mysql_conn.commit()
-        return jsonify({"status": "ok"}), 200
+        return jsonify({"status": "ok", "updated": mysql_cursor.rowcount}), 200
     except Exception:
+        if mysql_conn:
+            try:
+                mysql_conn.rollback()
+            except Exception:
+                pass
         app.logger.exception("Failed to mark conversation open for mobile=%s", mobile)
         return jsonify({"error": "Failed to update conversation state."}), 500
     finally:
