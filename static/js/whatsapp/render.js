@@ -751,6 +751,13 @@
     isRenderInProgress = true;
     _markRenderActive();
     console.debug('[ACTIVE_CHAT] refreshActiveChat triggered');
+    if (window.inboxState.debugActiveMobile) window.inboxState.debugActiveMobile('refreshActiveChat:start');
+    if (!window.inboxState.activeMobile) {
+      console.error('[STATE_FATAL] activeMobile missing');
+      debugger;
+      console.warn('[ACTIVE_CHAT] refreshActiveChat skipped: empty activeMobile');
+      return;
+    }
 
     // ── Stuck render detection ─────────────────────────
     const stuckTimer = setTimeout(() => {

@@ -548,6 +548,8 @@
 
       // Reset chat for new contact
       window.inboxState.setActiveMobile(mobile);
+      window.inboxState.hydrateActiveMobileFromUrl('contact_click:post_pushstate');
+      window.inboxState.debugActiveMobile('contact_click:setActiveMobile');
       window.inboxState.cursors.globalLastMessageId = 0;
       window.inboxState.globalKnownMessageIds.clear();
       if (window.renderEngine.clearMessageNodeMap) window.renderEngine.clearMessageNodeMap();
@@ -679,7 +681,15 @@
       const file = dom.attachFile?.files[0];
       if (!text && !file) return;
 
+      const activeMobile = (window.inboxState.activeMobile || '').trim();
+      window.inboxState.debugActiveMobile('sendMessage:before_formdata');
+      if (!activeMobile) {
+        console.warn('[SEND] Blocked send with empty active mobile');
+        return;
+      }
+
       const fd = new FormData(dom.chatForm);
+      fd.set('mobile', activeMobile);
       fd.set('message', text || '');
 
       // Capture optimistic message data before send
@@ -687,8 +697,8 @@
       const optimisticMsg = {
         id: optimisticId,
         message_id: null,
-        name: window.inboxState.activeMobile || 'Me',
-        mobile: window.inboxState.activeMobile || '',
+        name: activeMobile || 'Me',
+        mobile: activeMobile || '',
         direction: 'outbound',
         from_me: true,
         message_type: 'text',
@@ -717,6 +727,8 @@
       }
 
       try {
+        if (!activeMobile) { console.error('[STATE_FATAL] activeMobile missing'); debugger; }
+        console.debug('[FETCH_MOBILE]', { endpoint: SEND_URL, mobile: activeMobile });
         const r = await fetchWithTimeout(SEND_URL, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } }, 20000, 'Send message');
         const p = await parseJsonResponse(r, 'Send message');
         if (!r.ok) {
@@ -732,6 +744,8 @@
         }
 
         dom.chatForm.reset();
+        const mobileInputAfterReset = dom.chatForm?.querySelector('input[name="mobile"]');
+        if (mobileInputAfterReset) mobileInputAfterReset.value = activeMobile;
         dom.attachPreview?.classList.remove('show');
         resizeInput();
         dom.msgInput?.focus();
@@ -1020,6 +1034,8 @@
      ═══════════════════════════════════════════════════════════ */
 
   const setWorkspace = async (name = 'inbox') => {
+    const mobileInput = dom.chatForm?.querySelector('input[name="mobile"]');
+    if (mobileInput) mobileInput.value = (window.inboxState.activeMobile || '').trim();
     ['inbox', 'templates', 'campaigns', 'automation'].forEach(key => {
       const panel = document.getElementById(`${key}Panel`);
       if (panel) panel.classList.toggle('active', key === name);
@@ -1042,6 +1058,21 @@
     dom.templateBtn?.addEventListener('click', async () => {
       await loadTemplates();
       if (templateModal) templateModal.show();
+    });
+
+    window.addEventListener('popstate', async () => {
+      const mobile = window.inboxState.hydrateActiveMobileFromUrl('browser_popstate');
+      $all('.conv-item').forEach(el => el.classList.toggle('active', el.dataset.mobile === mobile));
+      const mobileInput = dom.chatForm?.querySelector('input[name="mobile"]');
+      if (mobileInput) mobileInput.value = mobile;
+      if (mobile) {
+        try {
+          await window.pollingEngine.poll();
+          await window.pollingEngine.pollSidebar();
+        } catch (err) {
+          console.error('[EVENT] popstate reload failed:', err);
+        }
+      }
     });
 
     console.debug('[EVENT_BIND] Workspace switching listeners registered');

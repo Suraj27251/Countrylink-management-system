@@ -301,6 +301,30 @@
     }
   };
 
+
+  window.inboxState.debugActiveMobile = function debugActiveMobile(source) {
+    let urlMobile = '';
+    try {
+      urlMobile = new URLSearchParams(window.location.search).get('mobile') || '';
+    } catch (_) {}
+    console.debug('[ACTIVE_MOBILE]', {
+      source,
+      activeMobile: window.inboxState.activeMobile,
+      urlMobile
+    });
+  };
+
+  window.inboxState.hydrateActiveMobileFromUrl = function hydrateActiveMobileFromUrl(source) {
+    let urlMobile = '';
+    try {
+      urlMobile = (new URLSearchParams(window.location.search).get('mobile') || '').trim();
+    } catch (_) {}
+    const normalized = urlMobile || '';
+    window.inboxState.setActiveMobile(normalized);
+    window.inboxState.debugActiveMobile(source || 'hydrateActiveMobileFromUrl');
+    return normalized;
+  };
+
   /** Reset per-conversation state when switching chats */
   window.inboxState.resetChatState = function resetChatState(mobile) {
     window.inboxState.globalKnownMessageIds.clear();

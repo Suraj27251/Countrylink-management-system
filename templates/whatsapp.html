@@ -687,7 +687,9 @@ setInterval(() => {
 
 /* ── Config ──────────────────────────────────────────────── */
 /* ── Config ──────────────────────────────────────────────── */
-window.inboxState.activeMobile = '{{ active_mobile or "" }}';
+window.inboxState.setActiveMobile('{{ active_mobile or "" }}');
+window.inboxState.debugActiveMobile('boot:server_hydration');
+window.inboxState.hydrateActiveMobileFromUrl('boot:url_hydration');
 const API_URL         = '{{ url_for("whatsapp_messages_api") }}';
 const PAGE_URL        = '{{ url_for("whatsapp_complaints") }}';
 window.PAGE_URL = PAGE_URL;
@@ -934,6 +936,7 @@ const startStuckDetection = () => {
 startStuckDetection();
 
 // ── End of health check ──
+window.inboxState.debugActiveMobile('boot:before_schedule_poll');
 window.pollingEngine.schedulePoll(0); // start silently — dot only appears on failure
 if ($('quickTemplateMobile') && window.inboxState.activeMobile) $('quickTemplateMobile').value = window.inboxState.activeMobile;
 window.eventsEngine.setWorkspace('inbox');
