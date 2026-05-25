@@ -556,8 +556,9 @@ window.__eventsEngineInitDone = true;
       history.pushState({}, '', `${PAGE_URL}?mobile=${encodeURIComponent(mobile)}`);
 
       // Show skeleton in chat area only (no full page flash)
-      if (dom.chatBody) {
-        dom.chatBody.innerHTML = `
+      const chatEl = document.getElementById('chatBody');
+      if (chatEl) {
+        chatEl.innerHTML = `
           <div class="chat-skeleton">
             <div class="skel-date"><span></span></div>
             <div class="skel-row incoming"><div class="skel-bubble wide"></div></div>
@@ -598,28 +599,44 @@ window.__eventsEngineInitDone = true;
       // Fetch messages via AJAX
       try {
         const apiUrl = window.MESSAGES_API_URL || '/api/whatsapp/messages';
-        const res = await fetch(`${apiUrl}?mobile=${encodeURIComponent(mobile)}&since_id=0`, {
-          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        const fetchUrl = `${apiUrl}?mobile=${encodeURIComponent(mobile)}&since_id=0`;
+        console.debug('[CHAT_SWITCH] Fetching:', fetchUrl);
+
+        const res = await fetch(fetchUrl, {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          credentials: 'same-origin'
         });
 
         // If user switched to another chat while we were loading, bail
         if (window.inboxState.activeMobile !== mobile) return;
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+          console.error('[CHAT_SWITCH] HTTP error:', res.status, res.statusText);
+          throw new Error(`HTTP ${res.status}`);
+        }
+
         const data = await res.json();
+        console.debug('[CHAT_SWITCH] Response:', { messages: data.messages?.length, mobile: data.active_mobile });
 
         if (window.inboxState.activeMobile !== mobile) return;
 
-        // Clear skeleton
-        if (dom.chatBody) dom.chatBody.innerHTML = '';
+        // Clear skeleton and render messages
+        const chatEl2 = document.getElementById('chatBody');
+        if (chatEl2) chatEl2.innerHTML = '';
 
-        // Render messages
         if (data.messages && data.messages.length > 0) {
           // Add date separator
-          dom.chatBody.insertAdjacentHTML('afterbegin', '<div class="date-sep"><span>Today</span></div>');
+          chatEl2.insertAdjacentHTML('afterbegin', '<div class="date-sep"><span>Today</span></div>');
 
+          // Render each message using renderMsg directly (most reliable)
+          const renderFn = window.renderEngine.renderMsg;
           data.messages.forEach(m => {
-            if (upsertMsg) upsertMsg(m);
+            try {
+              const node = renderFn(m);
+              chatEl2.appendChild(node);
+            } catch (renderErr) {
+              console.error('[CHAT_SWITCH] Failed to render message:', m.id, renderErr);
+            }
           });
 
           // Update cursors
@@ -631,14 +648,23 @@ window.__eventsEngineInitDone = true;
               window.inboxState.cursors.globalLastInboxId, +data.last_inbox_message_id || 0
             );
           }
+
+          // Register rendered messages in tracking sets
+          data.messages.forEach(m => {
+            const idStr = String(m.id);
+            window.inboxState.globalKnownMessageIds.add(idStr);
+          });
+
         } else {
           // Show empty state
-          dom.chatBody.innerHTML = `
-            <div class="chat-empty" id="chatEmptyHint">
-              <div class="chat-empty-icon"><i class="fab fa-whatsapp"></i></div>
-              <h3>No messages yet</h3>
-              <p>Start the conversation by sending a message or template below</p>
-            </div>`;
+          if (chatEl2) {
+            chatEl2.innerHTML = `
+              <div class="chat-empty" id="chatEmptyHint">
+                <div class="chat-empty-icon"><i class="fab fa-whatsapp"></i></div>
+                <h3>No messages yet</h3>
+                <p>Start the conversation by sending a message or template below</p>
+              </div>`;
+          }
         }
 
         // Clear unread badge
@@ -655,9 +681,20 @@ window.__eventsEngineInitDone = true;
 
       } catch (err) {
         console.error('[CHAT_SWITCH] Failed:', err);
-        // If fetch fails, fall back to full page navigation
+        // On failure, show error and offer retry via page reload
         if (window.inboxState.activeMobile === mobile) {
-          window.location.href = `${PAGE_URL}?mobile=${encodeURIComponent(mobile)}`;
+          const chatEl3 = document.getElementById('chatBody');
+          if (chatEl3) {
+            chatEl3.innerHTML = `
+              <div class="chat-empty" id="chatEmptyHint">
+                <div class="chat-empty-icon" style="background:var(--surface);border-color:var(--amber);"><i class="fas fa-rotate" style="color:var(--amber);"></i></div>
+                <h3>Couldn't load messages</h3>
+                <p>Tap to retry</p>
+              </div>`;
+            chatEl3.querySelector('.chat-empty')?.addEventListener('click', () => {
+              window.location.href = `${PAGE_URL}?mobile=${encodeURIComponent(mobile)}`;
+            }, { once: true });
+          }
         }
       }
 
