@@ -540,8 +540,12 @@ window.__eventsEngineInitDone = true;
      10. CONVERSATION CLICK (Chat switching)
      ═══════════════════════════════════════════════════════════ */
 
+  /* ═══════════════════════════════════════════════════════════
+     10. CONVERSATION CLICK (Chat switching)
+     ═══════════════════════════════════════════════════════════ */
+
   const initConvClick = () => {
-    dom.convList?.addEventListener('click', async e => {
+    dom.convList?.addEventListener('click', e => {
       const link = e.target.closest('.conv-item[data-mobile]');
       if (!link) return;
       e.preventDefault();
@@ -549,116 +553,8 @@ window.__eventsEngineInitDone = true;
       const mobile = link.dataset.mobile;
       if (mobile === window.inboxState.activeMobile) return;
 
-      // Remember previous active mobile for abort logic
-      const oldMobile = window.inboxState.activeMobile;
-
-      // Swap active highlight immediately — no flicker
-      $all('.conv-item').forEach(el => el.classList.toggle('active', el.dataset.mobile === mobile));
-
-      // Update URL without page reload
-      history.pushState({}, '', `${PAGE_URL}?mobile=${encodeURIComponent(mobile)}`);
-
-      // Reset chat state for new contact
-      window.inboxState.setActiveMobile(mobile);
-      window.inboxState.debugActiveMobile('contact_click:setActiveMobile');
-      console.debug('[ACTIVE_CHAT] Conversation switch:', { from: oldMobile || '', to: mobile });
-
-      // Reset ALL message cursors for clean load
-      window.inboxState.cursors.globalLastMessageId = 0;
-      window.inboxState.globalKnownMessageIds.clear();
-      window.inboxState.lastMessageIdByMobile.delete(mobile);
-      if (window.renderEngine.clearMessageNodeMap) window.renderEngine.clearMessageNodeMap();
-      window.inboxState.ui.conversationOpenedAt = Date.now();
-
-      // Clear chat DOM completely
-      if (dom.chatBody) {
-        dom.chatBody.querySelectorAll('.msg-row, .date-sep, .chat-empty').forEach(node => node.remove());
-        const emptyHint = document.getElementById('chatEmptyHint');
-        if (emptyHint) emptyHint.remove();
-      }
-
-      // Abort any in-flight message polls
-      if (oldMobile && oldMobile !== mobile) {
-        window.pollingEngine.abortMessagesPoll();
-      }
-
-      // Update header
-      const contactName = link.querySelector('.conv-name')?.textContent || mobile;
-      const headerName = document.querySelector('.chat-header-info h3');
-      const headerSub  = document.querySelector('.chat-header-info p span[style*="monospace"]');
-      if (headerName) headerName.textContent = contactName;
-      if (headerSub)  headerSub.textContent  = mobile;
-
-      // Update compose form mobile field
-      const mobileInput = dom.chatForm?.querySelector('input[name="mobile"]');
-      if (mobileInput) mobileInput.value = mobile;
-
-      // Enable composer
-      if (applyComposerWindowPolicy) applyComposerWindowPolicy();
-      const sendBtn = document.getElementById('sendBtn');
-      if (sendBtn) sendBtn.disabled = false;
-
-      // Stop scheduled polling during switch
-      window.pollingEngine.clearPollTimer();
-
-      // ── Direct fetch for new chat messages (bypass complex guards) ──
-      try {
-        const apiUrl = window.MESSAGES_API_URL || '/api/whatsapp/messages';
-        const params = new URLSearchParams({ mobile, since_id: '0' });
-        const res = await fetch(`${apiUrl}?${params}`, {
-          headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        });
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-
-        // Verify we're still on the same chat (user didn't click another)
-        if (window.inboxState.activeMobile !== mobile) {
-          console.debug('[ACTIVE_CHAT] Stale response — user switched away');
-          return;
-        }
-
-        // Render messages directly
-        if (data.messages && data.messages.length > 0) {
-          console.debug('[ACTIVE_CHAT] Rendering', data.messages.length, 'messages for', mobile);
-          data.messages.forEach(m => {
-            if (upsertMsg) upsertMsg(m);
-          });
-
-          // Update cursor
-          const lastId = data.last_message_id || data.messages[data.messages.length - 1]?.id || 0;
-          window.inboxState.cursors.globalLastMessageId = +lastId || 0;
-          window.inboxState.lastMessageIdByMobile.set(mobile, +lastId || 0);
-        } else {
-          console.debug('[ACTIVE_CHAT] No messages for', mobile);
-        }
-
-        // Update inbox cursor
-        if (data.last_inbox_message_id) {
-          window.inboxState.cursors.globalLastInboxId = Math.max(
-            window.inboxState.cursors.globalLastInboxId, +data.last_inbox_message_id || 0
-          );
-        }
-
-        // Clear unread
-        window.inboxState.unreadByMobile.delete(mobile);
-        const activeLink = dom.convList?.querySelector(`[data-mobile="${CSS.escape(mobile)}"]`);
-        if (activeLink) {
-          activeLink.dataset.unreadCount = '0';
-          activeLink.dataset.aiReplied = '0';
-          if (updateContactGreenDot) updateContactGreenDot(mobile);
-        }
-
-        window.inboxState.resetPollFails();
-      } catch (err) {
-        console.error('[ACTIVE_CHAT] Failed to load messages:', err);
-      }
-
-      // Restart polling
-      window.pollingEngine.schedulePoll(2000);
-
-      if (scrollBottom) scrollBottom();
-      dom.msgInput?.focus();
+      // Simple navigation — server renders the full chat reliably
+      window.location.href = `${PAGE_URL}?mobile=${encodeURIComponent(mobile)}`;
     });
 
     console.debug('[EVENT_BIND] Conversation click delegate listener registered on convList');
