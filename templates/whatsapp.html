@@ -837,6 +837,7 @@ window.pollingEngine.init({
     refreshActiveChat
   }
 });
+
 console.debug('[BOOT] Polling engine initialized');
 
 /* ── Initialize events engine ──────────────────────────── */
@@ -849,32 +850,67 @@ window.eventsEngine.init({
     flows: FLOWS_URL,
     syncFlows: SYNC_FLOWS_URL,
   },
+
   pageUrl: PAGE_URL,
   staticBase: STATIC_BASE,
   notificationSoundUrl: NOTIFICATION_SOUND_URL,
   softSoundUrl: SOFT_SOUND_URL,
+
   dom: {
-    chatBody, convList, chatForm, msgInput, searchInput, scrollBtn,
-    connectionDot, attachFile, attachPreview, attachName, attachRemove,
-    cmdOverlay, cmdInput, emojiBtn, notifBtn, notifIcon,
-    themeToggle, themeIcon, newChatBtn, templateBtn, interactiveBtn, cmdChip, pageLoader,
+    chatBody,
+    convList,
+    chatForm,
+    msgInput,
+    searchInput,
+    scrollBtn,
+    connectionDot,
+    attachFile,
+    attachPreview,
+    attachName,
+    attachRemove,
+    cmdOverlay,
+    cmdInput,
+    emojiBtn,
+    notifBtn,
+    notifIcon,
+    themeToggle,
+    themeIcon,
+    newChatBtn,
+    templateBtn,
+    interactiveBtn,
+    cmdChip,
+    pageLoader,
   },
+
   modals: {
-    templateModal, newConvModal, interactiveModal, templateQuickSendModal, mediaModal,
+    templateModal,
+    newConvModal,
+    interactiveModal,
+    templateQuickSendModal,
+    mediaModal,
   },
-  helpers: { $, $q, $all, esc },
+
+  helpers: {
+    $,
+    $q,
+    $all,
+    esc
+  },
+
   renderFns: {
     updateContactGreenDot,
     scrollBottom,
     nearBottom,
     applyComposerWindowPolicy,
+    upsertMsg: window.renderEngine.upsertMsg,
   }
 });
+
 console.debug('[BOOT] Events engine initialized');
 
 window.eventsEngine.bindAll();
-console.debug('[BOOT] Events bound — all listeners registered');
 
+console.debug('[BOOT] Events bound — all listeners registered');
 /* ── Window-level aliases for inline onclick handlers ──── */
 window.openCommandPalette = window.eventsEngine.openCommandPalette;
 window.closeCommandPalette = window.eventsEngine.closeCommandPalette;
