@@ -685,7 +685,11 @@ window.__eventsEngineInitDone = true;
         }
 
         window.inboxState.resetPollFails();
-        if (scrollBottom) scrollBottom();
+        // Scroll to bottom after rendering — use setTimeout to ensure DOM is settled
+        setTimeout(() => {
+          const el = document.getElementById('chatBody');
+          if (el) el.scrollTop = el.scrollHeight;
+        }, 50);
 
       } catch (err) {
         console.error('[CHAT_SWITCH] Failed:', err);
