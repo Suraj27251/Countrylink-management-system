@@ -386,56 +386,12 @@ def send_whatsapp_message(to: str, message: str):
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
     headers = {"Authorization": f"Bearer {WHATSAPP_TOKEN}", "Content-Type": "application/json"}
     payload = {"messaging_product": "whatsapp", "to": to, "type": "text", "text": {"body": message}}
-    whatsapp_message_id = None
     try:
         resp = requests.post(url, headers=headers, json=payload, timeout=10)
         resp.raise_for_status()
-        result = resp.json()
-        whatsapp_message_id = (result.get("messages") or [{}])[0].get("id")
-        logging.info(f"Message sent to {to}, id={whatsapp_message_id}")
+        logging.info(f"Message sent to {to}")
     except requests.RequestException as e:
         logging.error(f"Failed to send message to {to}: {e}")
-        return
-
-    # Store AI reply in MySQL so it appears in the management inbox
-    try:
-        # Normalize phone: strip 91 prefix if 12 digits
-        phone = to
-        if len(phone) == 12 and phone.startswith("91"):
-            phone = phone[2:]
-
-        conn = get_db_connection()
-        with conn.cursor() as cursor:
-            # Find conversation
-            cursor.execute(
-                "SELECT id FROM whatsapp_conversations WHERE phone = %s LIMIT 1",
-                (phone,)
-            )
-            convo = cursor.fetchone()
-
-            if convo:
-                conversation_id = convo["id"]
-
-                # Insert AI message
-                cursor.execute("""
-                    INSERT INTO whatsapp_messages (
-                        conversation_id, whatsapp_message_id, sender_type,
-                        phone, message_text, message_type, status, created_at
-                    ) VALUES (%s, %s, 'ai', %s, %s, 'text', 'sent', NOW())
-                """, (conversation_id, whatsapp_message_id, phone, message))
-
-                # Update conversation
-                cursor.execute("""
-                    UPDATE whatsapp_conversations
-                    SET last_message = %s, last_message_at = NOW(),
-                        ai_replied = 1, updated_at = NOW()
-                    WHERE id = %s
-                """, (message[:255], conversation_id))
-
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        logging.error(f"Failed to store AI reply in DB for {to}: {e}")
 
 
 # ── Webhook GET (Meta verification) ──────────────────────────────────────────

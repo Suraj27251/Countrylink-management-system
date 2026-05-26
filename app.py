@@ -743,14 +743,166 @@ def process_incoming_message(message, metadata):
             within_24h_window = int(last_customer_row.get("within_24h_window") or 0) == 1
 
             if inserted_new_message and ai_enabled == 1 and human_takeover == 0 and whatsapp_config_ready() and within_24h_window:
-                # AI replies are handled by the agent repo (countrylinks.in/agent/webhook)
-                # The agent receives the same webhook from Meta and sends replies directly.
-                # We do NOT generate AI replies here to avoid duplicate messages.
-                app.logger.info(
-                    "AI reply delegated to agent for mobile=%s conversation_id=%s",
-                    mobile,
-                    conversation_id
+                # Check if an AI response already exists for this customer message (idempotency)
+                # This prevents duplicate backup messages if the webhook is called multiple times
+                mysql_cursor.execute(
+                    """
+                    SELECT id
+                    FROM whatsapp_messages
+                    WHERE conversation_id = %s
+                      AND sender_type = 'ai'
+                      AND phone = %s
+                      AND created_at > DATE_SUB(NOW(), INTERVAL 2 MINUTE)
+                    LIMIT 1
+                    """,
+                    (conversation_id, mobile),
                 )
+                existing_response = mysql_cursor.fetchone()
+                
+                if existing_response:
+                    app.logger.info(
+                        "AI response already exists for mobile=%s conversation_id=%s (idempotency check)",
+                        mobile,
+                        conversation_id
+                    )
+                else:
+                    try:
+                        ai_reply_text = generate_ai_whatsapp_reply(text_body, mobile, name)
+
+                        if ai_reply_text:
+                            ai_response_payload = send_whatsapp_message(
+                                mobile,
+                                'text',
+                                text=ai_reply_text
+                            )
+
+                            ai_message_id = (
+                                ai_response_payload.get('messages') or [{}]
+                            )[0].get('id')
+                            ai_db_conn = None
+                            ai_db_cursor = None
+                            try:
+                                ai_db_conn = mysql.connector.connect(
+                                    host=MYSQL_DB_HOST,
+                                    database=MYSQL_DB_NAME,
+                                    user=MYSQL_DB_USER,
+                                    password=MYSQL_DB_PASSWORD,
+                                )
+                                ai_db_cursor = ai_db_conn.cursor(dictionary=True)
+                                ai_db_conn.start_transaction()
+                                ai_db_cursor.execute(
+                                    """
+                                    INSERT INTO whatsapp_messages (
+                                        conversation_id,
+                                        whatsapp_message_id,
+                                        sender_type,
+                                        phone,
+                                        message_text,
+                                        message_type,
+                                        media_url,
+                                        status,
+                                        created_at
+                                    )
+                                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                                    """,
+                                    (
+                                        conversation_id,
+                                        ai_message_id,
+                                        'ai',
+                                        mobile,
+                                        ai_reply_text,
+                                        'text',
+                                        None,
+                                        'sent',
+                                    ),
+                                )
+
+                                ai_db_cursor.execute(
+                                    """
+                                    UPDATE whatsapp_conversations
+                                    SET
+                                        last_message = %s,
+                                        last_message_at = NOW(),
+                                        ai_replied = 1,
+                                        updated_at = NOW()
+                                    WHERE id = %s
+                                    """,
+                                    (
+                                        ai_reply_text,
+                                        conversation_id,
+                                    ),
+                                )
+                                ai_db_conn.commit()
+                            except Exception:
+                                if ai_db_conn:
+                                    try:
+                                        ai_db_conn.rollback()
+                                    except Exception:
+                                        pass
+                                raise
+                            finally:
+                                if ai_db_cursor:
+                                    ai_db_cursor.close()
+                                if ai_db_conn and ai_db_conn.is_connected():
+                                    ai_db_conn.close()
+
+                            app.logger.info(
+                                "AI reply generated mobile=%s conversation_id=%s",
+                                mobile,
+                                conversation_id
+                            )
+
+                        else:
+                            app.logger.info(
+                                "AI reply skipped mobile=%s conversation_id=%s reason=empty_reply",
+                                mobile,
+                                conversation_id
+                            )
+
+                    except Exception:
+                        app.logger.exception(
+                            "AI auto-reply failed mobile=%s conversation_id=%s",
+                            mobile,
+                            conversation_id,
+                        )
+
+                        app.logger.info(
+                            "AI reply skipped mobile=%s conversation_id=%s reason=ai_error",
+                            mobile,
+                            conversation_id
+                        )
+                        fallback_conn = None
+                        fallback_cursor = None
+                        try:
+                            fallback_conn = mysql.connector.connect(
+                                host=MYSQL_DB_HOST,
+                                database=MYSQL_DB_NAME,
+                                user=MYSQL_DB_USER,
+                                password=MYSQL_DB_PASSWORD,
+                            )
+                            fallback_cursor = fallback_conn.cursor()
+                            fallback_conn.start_transaction()
+                            fallback_cursor.execute(
+                                """
+                                UPDATE whatsapp_conversations
+                                SET needs_human = 1, updated_at = NOW()
+                                WHERE id = %s
+                                """,
+                                (conversation_id,),
+                            )
+                            fallback_conn.commit()
+                        except Exception:
+                            if fallback_conn:
+                                try:
+                                    fallback_conn.rollback()
+                                except Exception:
+                                    pass
+                            raise
+                        finally:
+                            if fallback_cursor:
+                                fallback_cursor.close()
+                            if fallback_conn and fallback_conn.is_connected():
+                                fallback_conn.close()
 
             else:
                 app.logger.info(
