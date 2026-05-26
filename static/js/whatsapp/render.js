@@ -268,21 +268,31 @@
       : '';
 
     let mediaHtml = '';
-    if (m.media_url) {
-      const src = `${staticBase}${m.media_url}`;
+    const mediaSrc = m.media_public_url || (m.media_url ? `${staticBase}${m.media_url}` : null);
+
+    if (mediaSrc) {
       const mediaKind = inferMediaKind(m);
       if (mediaKind === 'image') {
-        const isSticker = (m.message_type || '').toLowerCase() === 'sticker' || /\.webp(\?|$)/i.test(src);
+        const isSticker = (m.message_type || '').toLowerCase() === 'sticker' || /\.webp(\?|$)/i.test(mediaSrc);
         const cls = isSticker ? 'msg-sticker msg-media' : 'msg-media';
         const alt = isSticker ? 'Sticker' : 'Image';
-        mediaHtml = `<img class="${cls}" data-type="image" src="${esc(src)}" alt="${alt}" loading="lazy">`;
+        mediaHtml = `<img class="${cls}" data-type="image" src="${esc(mediaSrc)}" alt="${alt}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling&&this.nextElementSibling.classList.remove('hidden')">
+                     <div class="msg-media-placeholder hidden"><i class="fas fa-image"></i> Photo</div>`;
       } else if (mediaKind === 'video') {
-        mediaHtml = `<video class="msg-media" data-type="video" src="${esc(src)}" controls preload="metadata"></video>`;
+        mediaHtml = `<video class="msg-media" data-type="video" src="${esc(mediaSrc)}" controls preload="metadata"></video>`;
       } else if (mediaKind === 'audio') {
-        mediaHtml = `<audio class="msg-audio" controls src="${esc(src)}" preload="none"></audio>`;
+        mediaHtml = `<audio class="msg-audio" controls src="${esc(mediaSrc)}" preload="none"></audio>`;
       } else {
-        mediaHtml = `<a class="msg-doc-link" href="${esc(src)}" target="_blank" rel="noopener" download><i class="fas fa-file-arrow-down"></i><span class="msg-doc-meta"><span class="msg-doc-name">${esc(m.file_name||'Attachment')}</span><span class="msg-doc-type">${esc((m.message_type||'file').replace('_',' '))}</span></span></a>`;
+        mediaHtml = `<a class="msg-doc-link" href="${esc(mediaSrc)}" target="_blank" rel="noopener" download><i class="fas fa-file-arrow-down"></i><span class="msg-doc-meta"><span class="msg-doc-name">${esc(m.file_name||'Attachment')}</span><span class="msg-doc-type">${esc((m.message_type||'file').replace('_',' '))}</span></span></a>`;
       }
+    } else if (['image', 'sticker', 'video', 'audio', 'document', 'gif'].includes((m.message_type || '').toLowerCase())) {
+      // No media URL available — show placeholder based on type
+      const typeIcons = { image: 'fa-image', sticker: 'fa-note-sticky', video: 'fa-video', audio: 'fa-headphones', document: 'fa-file', gif: 'fa-film' };
+      const typeLabels = { image: 'Photo', sticker: 'Sticker', video: 'Video', audio: 'Audio', document: 'Document', gif: 'GIF' };
+      const mType = (m.message_type || '').toLowerCase();
+      const icon = typeIcons[mType] || 'fa-paperclip';
+      const label = typeLabels[mType] || 'Attachment';
+      mediaHtml = `<div class="msg-media-placeholder"><i class="fas ${icon}"></i> ${label}</div>`;
     }
 
     const locHtml = (m.message_type === 'location' && m.latitude != null && m.longitude != null)

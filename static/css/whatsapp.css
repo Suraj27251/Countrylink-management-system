@@ -841,6 +841,35 @@ main.container {
   cursor: pointer;
 }
 
+.msg-media-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(255,255,255,.1);
+  border: 1px dashed rgba(255,255,255,.25);
+  border-radius: 10px;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255,255,255,.7);
+}
+
+.msg-media-placeholder i {
+  font-size: 18px;
+  opacity: .8;
+}
+
+.incoming .msg-media-placeholder {
+  background: var(--surface-3);
+  border-color: var(--border);
+  color: var(--text-2);
+}
+
+.msg-media-placeholder.hidden {
+  display: none;
+}
+
 .msg-audio {
   width: 220px;
   height: 36px;
