@@ -743,27 +743,29 @@ def process_incoming_message(message, metadata):
             within_24h_window = int(last_customer_row.get("within_24h_window") or 0) == 1
 
             if inserted_new_message and ai_enabled == 1 and human_takeover == 0 and whatsapp_config_ready() and within_24h_window:
-                # Check if an AI response already exists for this customer message (idempotency)
-                # This prevents duplicate backup messages if the webhook is called multiple times
-                mysql_cursor.execute(
-                    """
-                    SELECT id
-                    FROM whatsapp_messages
-                    WHERE conversation_id = %s
-                      AND sender_type = 'ai'
-                      AND phone = %s
-                      AND created_at > DATE_SUB(NOW(), INTERVAL 2 MINUTE)
-                    LIMIT 1
-                    """,
-                    (conversation_id, mobile),
-                )
-                existing_response = mysql_cursor.fetchone()
+                # Idempotency: only skip if an AI reply already exists AFTER this specific inbound message
+                existing_response = None
+                if message_id:
+                    mysql_cursor.execute(
+                        """
+                        SELECT wm_ai.id
+                        FROM whatsapp_messages wm_ai
+                        INNER JOIN whatsapp_messages wm_in
+                            ON wm_in.whatsapp_message_id = %s
+                            AND wm_ai.id > wm_in.id
+                        WHERE wm_ai.conversation_id = %s
+                          AND wm_ai.sender_type = 'ai'
+                        LIMIT 1
+                        """,
+                        (message_id, conversation_id),
+                    )
+                    existing_response = mysql_cursor.fetchone()
                 
                 if existing_response:
                     app.logger.info(
-                        "AI response already exists for mobile=%s conversation_id=%s (idempotency check)",
+                        "AI response already exists for mobile=%s message_id=%s (idempotency check)",
                         mobile,
-                        conversation_id
+                        message_id or 'no-id'
                     )
                 else:
                     try:
