@@ -136,7 +136,8 @@
         <a class="conv-item {% if contact.mobile == active_mobile %}active{% endif %}"
            href="{{ url_for('whatsapp_complaints', mobile=contact.mobile) }}"
            data-mobile="{{ contact.mobile }}"
-           data-name="{{ (contact.name or '')|lower }}">
+           data-name="{{ (contact.name or '')|lower }}"
+           data-unread-count="{{ contact.unread_count or 0 }}">
           <div class="conv-avatar {{ avatar_classes[loop.index0 % 3] }}">
             {{ (contact.name or '?')[:1]|upper }}
           </div>
@@ -633,11 +634,11 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/state.js') }}?v=13"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/utils.js') }}?v=13"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}?v=13"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/render.js') }}?v=13"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/events.js') }}?v=13"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/state.js') }}?v=14"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/utils.js') }}?v=14"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}?v=14"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/render.js') }}?v=14"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/events.js') }}?v=14"></script>
 <script>
 (() => {
 'use strict';
@@ -1014,7 +1015,14 @@ setTimeout(() => { const el = document.getElementById('chatBody'); if (el) el.sc
   window._openedChats = openedChats;
 
   // Track last known unread counts to detect NEW unreads
+  // Seed with current values from server-rendered sidebar so first poll doesn't trigger false dots
   const lastKnownUnread = new Map();
+  document.querySelectorAll('.conv-item[data-mobile]').forEach(el => {
+    const mob = el.dataset.mobile;
+    // Read unread_count from data attribute if available, otherwise assume current state is "seen"
+    const unread = parseInt(el.dataset.unreadCount || '0', 10);
+    lastKnownUnread.set(mob, unread);
+  });
 
   setInterval(async () => {
     try {
