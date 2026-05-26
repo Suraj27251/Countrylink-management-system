@@ -27,6 +27,7 @@ from urllib3.util.retry import Retry
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-me')
+app.json.ensure_ascii = False  # Allow Hindi/Marathi/Unicode in JSON responses
 
 DB_PATH = os.environ.get('DATABASE_PATH')
 if not DB_PATH:
@@ -123,6 +124,19 @@ MYSQL_DB_HOST = os.environ.get("MYSQL_DB_HOST", "localhost")
 MYSQL_DB_NAME = os.environ.get("MYSQL_DB_NAME", "countrylinks_user_database")
 MYSQL_DB_USER = os.environ.get("MYSQL_DB_USER", "countrylinks_Suraj27251")
 MYSQL_DB_PASSWORD = os.environ.get("MYSQL_DB_PASSWORD", "")
+
+
+def get_mysql_connection():
+    """Create a MySQL connection with proper UTF-8 support for Indian languages."""
+    return mysql.connector.connect(
+        host=MYSQL_DB_HOST,
+        database=MYSQL_DB_NAME,
+        user=MYSQL_DB_USER,
+        password=MYSQL_DB_PASSWORD,
+        charset='utf8mb4',
+        collation='utf8mb4_unicode_ci',
+        use_unicode=True,
+    )
 
 
 def create_retryable_session():
@@ -260,12 +274,7 @@ def save_customers_to_db(customers):
     """
 
     try:
-        conn = mysql.connector.connect(
-            host=MYSQL_DB_HOST,
-            database=MYSQL_DB_NAME,
-            user=MYSQL_DB_USER,
-            password=MYSQL_DB_PASSWORD,
-        )
+        conn = get_mysql_connection()
         cursor = conn.cursor()
 
         for customer in customers:
@@ -568,12 +577,7 @@ def process_incoming_message(message, metadata):
         mysql_conn = None
         mysql_cursor = None
         try:
-            mysql_conn = mysql.connector.connect(
-                host=MYSQL_DB_HOST,
-                database=MYSQL_DB_NAME,
-                user=MYSQL_DB_USER,
-                password=MYSQL_DB_PASSWORD,
-            )
+            mysql_conn = get_mysql_connection()
             app.logger.info("MySQL connection opened mobile=%s", mobile)
             mysql_cursor = mysql_conn.cursor(dictionary=True)
             mysql_conn.start_transaction()
@@ -784,12 +788,7 @@ def process_incoming_message(message, metadata):
                             ai_db_conn = None
                             ai_db_cursor = None
                             try:
-                                ai_db_conn = mysql.connector.connect(
-                                    host=MYSQL_DB_HOST,
-                                    database=MYSQL_DB_NAME,
-                                    user=MYSQL_DB_USER,
-                                    password=MYSQL_DB_PASSWORD,
-                                )
+                                ai_db_conn = get_mysql_connection()
                                 ai_db_cursor = ai_db_conn.cursor(dictionary=True)
                                 ai_db_conn.start_transaction()
                                 ai_db_cursor.execute(
@@ -876,12 +875,7 @@ def process_incoming_message(message, metadata):
                         fallback_conn = None
                         fallback_cursor = None
                         try:
-                            fallback_conn = mysql.connector.connect(
-                                host=MYSQL_DB_HOST,
-                                database=MYSQL_DB_NAME,
-                                user=MYSQL_DB_USER,
-                                password=MYSQL_DB_PASSWORD,
-                            )
+                            fallback_conn = get_mysql_connection()
                             fallback_cursor = fallback_conn.cursor()
                             fallback_conn.start_transaction()
                             fallback_cursor.execute(
@@ -1058,12 +1052,7 @@ def process_message_status_event(status_event):
     mysql_conn = None
     mysql_cursor = None
     try:
-        mysql_conn = mysql.connector.connect(
-            host=MYSQL_DB_HOST,
-            database=MYSQL_DB_NAME,
-            user=MYSQL_DB_USER,
-            password=MYSQL_DB_PASSWORD,
-        )
+        mysql_conn = get_mysql_connection()
         mysql_cursor = mysql_conn.cursor()
         mysql_cursor.execute(
             """
@@ -1257,12 +1246,7 @@ def setup_mysql_whatsapp_indexes():
     mysql_cursor = None
 
     try:
-        mysql_conn = mysql.connector.connect(
-            host=MYSQL_DB_HOST,
-            database=MYSQL_DB_NAME,
-            user=MYSQL_DB_USER,
-            password=MYSQL_DB_PASSWORD,
-        )
+        mysql_conn = get_mysql_connection()
 
         mysql_cursor = mysql_conn.cursor(dictionary=True)
         mysql_conn.start_transaction()
@@ -2605,12 +2589,7 @@ def whatsapp_complaints():
     mysql_conn = None
     mysql_cursor = None
     try:
-        mysql_conn = mysql.connector.connect(
-            host=MYSQL_DB_HOST,
-            database=MYSQL_DB_NAME,
-            user=MYSQL_DB_USER,
-            password=MYSQL_DB_PASSWORD,
-        )
+        mysql_conn = get_mysql_connection()
         mysql_cursor = mysql_conn.cursor(dictionary=True)
 
         conversations = load_mysql_conversations(mysql_cursor)
@@ -2728,12 +2707,7 @@ def whatsapp_messages_api():
         # MYSQL AI CRM MODE
         # =========================
 
-        mysql_conn = mysql.connector.connect(
-            host=MYSQL_DB_HOST,
-            database=MYSQL_DB_NAME,
-            user=MYSQL_DB_USER,
-            password=MYSQL_DB_PASSWORD,
-        )
+        mysql_conn = get_mysql_connection()
 
         mysql_cursor = mysql_conn.cursor(dictionary=True)
 
@@ -2966,12 +2940,7 @@ def api_whatsapp_logs():
         params.append(status_filter)
 
     try:
-        conn = mysql.connector.connect(
-            host=MYSQL_DB_HOST,
-            database=MYSQL_DB_NAME,
-            user=MYSQL_DB_USER,
-            password=MYSQL_DB_PASSWORD,
-        )
+        conn = get_mysql_connection()
 
         cursor = conn.cursor(dictionary=True)
 
@@ -3083,12 +3052,7 @@ def send_whatsapp():
     mysql_conn = None
     mysql_cursor = None
     try:
-        mysql_conn = mysql.connector.connect(
-            host=MYSQL_DB_HOST,
-            database=MYSQL_DB_NAME,
-            user=MYSQL_DB_USER,
-            password=MYSQL_DB_PASSWORD,
-        )
+        mysql_conn = get_mysql_connection()
         mysql_cursor = mysql_conn.cursor(dictionary=True)
 
         mysql_cursor.execute(
@@ -3254,12 +3218,7 @@ def mark_whatsapp_conversation_open():
     mysql_conn = None
     mysql_cursor = None
     try:
-        mysql_conn = mysql.connector.connect(
-            host=MYSQL_DB_HOST,
-            database=MYSQL_DB_NAME,
-            user=MYSQL_DB_USER,
-            password=MYSQL_DB_PASSWORD,
-        )
+        mysql_conn = get_mysql_connection()
         mysql_cursor = mysql_conn.cursor(dictionary=True)
         mysql_cursor.execute(
             """
@@ -3401,12 +3360,7 @@ def check_availability():
     mysql_conn = None
     mysql_cursor = None
     try:
-        mysql_conn = mysql.connector.connect(
-            host=MYSQL_DB_HOST,
-            database=MYSQL_DB_NAME,
-            user=MYSQL_DB_USER,
-            password=MYSQL_DB_PASSWORD,
-        )
+        mysql_conn = get_mysql_connection()
         mysql_cursor = mysql_conn.cursor(dictionary=True)
 
         # Find or create conversation
@@ -3513,12 +3467,7 @@ def send_whatsapp_template_api():
     mysql_conn = None
     mysql_cursor = None
     try:
-        mysql_conn = mysql.connector.connect(
-            host=MYSQL_DB_HOST,
-            database=MYSQL_DB_NAME,
-            user=MYSQL_DB_USER,
-            password=MYSQL_DB_PASSWORD,
-        )
+        mysql_conn = get_mysql_connection()
         mysql_cursor = mysql_conn.cursor(dictionary=True)
 
         # Find or create conversation
@@ -3737,12 +3686,7 @@ def send_whatsapp_interactive_api():
     mysql_conn = None
     mysql_cursor = None
     try:
-        mysql_conn = mysql.connector.connect(
-            host=MYSQL_DB_HOST,
-            database=MYSQL_DB_NAME,
-            user=MYSQL_DB_USER,
-            password=MYSQL_DB_PASSWORD,
-        )
+        mysql_conn = get_mysql_connection()
         mysql_cursor = mysql_conn.cursor(dictionary=True)
 
         # Find or create conversation
@@ -4125,12 +4069,7 @@ def invoices():
     cursor = None
 
     try:
-        conn = mysql.connector.connect(
-            host=MYSQL_DB_HOST,
-            database=MYSQL_DB_NAME,
-            user=MYSQL_DB_USER,
-            password=MYSQL_DB_PASSWORD,
-        )
+        conn = get_mysql_connection()
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
             """
@@ -4312,12 +4251,7 @@ def send_invoice_whatsapp():
         except (TypeError, ValueError):
             total_amount = None
 
-        conn = mysql.connector.connect(
-            host=MYSQL_DB_HOST,
-            database=MYSQL_DB_NAME,
-            user=MYSQL_DB_USER,
-            password=MYSQL_DB_PASSWORD,
-        )
+        conn = get_mysql_connection()
         cursor = conn.cursor(dictionary=True)
         log_invoice_whatsapp_attempt(
             cursor=cursor,
@@ -4337,12 +4271,7 @@ def send_invoice_whatsapp():
         app.logger.error("WhatsApp API error for invoice_id=%s: %s", invoice_id, exc)
         error_text = str(exc)
         try:
-            conn = mysql.connector.connect(
-                host=MYSQL_DB_HOST,
-                database=MYSQL_DB_NAME,
-                user=MYSQL_DB_USER,
-                password=MYSQL_DB_PASSWORD,
-            )
+            conn = get_mysql_connection()
             cursor = conn.cursor(dictionary=True)
             log_invoice_whatsapp_attempt(
                 cursor=cursor,
@@ -4390,12 +4319,7 @@ def send_bulk_invoice_whatsapp():
     cursor = None
 
     try:
-        conn = mysql.connector.connect(
-            host=MYSQL_DB_HOST,
-            database=MYSQL_DB_NAME,
-            user=MYSQL_DB_USER,
-            password=MYSQL_DB_PASSWORD,
-        )
+        conn = get_mysql_connection()
         cursor = conn.cursor(dictionary=True)
         placeholders = ','.join(['%s'] * len(cleaned_ids))
         cursor.execute(
@@ -4501,12 +4425,7 @@ def check_invoice_sent_status(invoice_id):
     conn = None
     cursor = None
     try:
-        conn = mysql.connector.connect(
-            host=MYSQL_DB_HOST,
-            database=MYSQL_DB_NAME,
-            user=MYSQL_DB_USER,
-            password=MYSQL_DB_PASSWORD,
-        )
+        conn = get_mysql_connection()
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
             """
@@ -4546,12 +4465,7 @@ def toggle_whatsapp_ai():
                 'error': 'Phone is required'
             }), 400
 
-        conn = mysql.connector.connect(
-            host=MYSQL_DB_HOST,
-            database=MYSQL_DB_NAME,
-            user=MYSQL_DB_USER,
-            password=MYSQL_DB_PASSWORD,
-        )
+        conn = get_mysql_connection()
 
         cursor = conn.cursor()
 
