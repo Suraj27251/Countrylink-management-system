@@ -136,6 +136,7 @@ def get_mysql_connection():
         charset='utf8mb4',
         collation='utf8mb4_unicode_ci',
         use_unicode=True,
+        time_zone='+05:30',
     )
 
 
