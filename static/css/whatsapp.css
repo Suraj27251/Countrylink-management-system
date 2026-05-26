@@ -1537,20 +1537,126 @@ kbd {
 }
 
 @media (max-width: 680px) {
+  .wa-shell { flex-direction: column; position: relative; }
   .wa-rail { display: none; }
-  .wa-sidebar { width: 100%; position: absolute; z-index: 20; height: 100%; transform: translateX(-100%); transition: transform .25s; }
-  .wa-sidebar.mob-open { transform: translateX(0); }
-  .msg-bubble { max-width: 80%; }
+
+  /* Sidebar: full screen, shown by default, hidden when chat is open */
+  .wa-sidebar {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0; left: 0;
+    z-index: 20;
+    transform: translateX(0);
+    transition: transform .25s ease;
+  }
+
+  /* When a chat is active, hide sidebar */
+  .wa-sidebar.mob-chat-active {
+    transform: translateX(-100%);
+  }
+
+  /* Main chat: full screen */
+  .wa-main {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0; left: 0;
+  }
+
+  /* Chat header: add back button */
+  .chat-header {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .mob-back-btn {
+    display: flex;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--text-2);
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .mob-back-btn:active { background: var(--surface-3); }
+
+  .chat-header-left { gap: 8px; }
+  .chat-header-left .conv-avatar { width: 36px; height: 36px; font-size: 13px; border-radius: 10px; }
+  .chat-header-info h3 { font-size: 14px; }
+  .chat-header-info p { font-size: 11px; }
+  .chat-header-actions { gap: 2px; }
+  .hdr-btn { padding: 6px; font-size: 13px; }
+  .hdr-btn span { display: none; }
+
+  /* Chat body */
+  .chat-body { padding: 10px 8px; }
+  .msg-bubble { max-width: 85%; padding: 8px 12px 5px; }
+  .msg-text { font-size: 13px; }
+
+  /* Compose area — fixed at bottom, compact */
+  .chat-compose {
+    padding: 6px 8px 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .compose-chips {
+    padding: 6px 0 4px;
+    gap: 4px;
+  }
+
+  .compose-chip {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+
+  .compose-row {
+    gap: 6px;
+    align-items: center;
+  }
+
+  .compose-action {
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
+  }
+
+  .compose-box {
+    padding: 8px 12px;
+    border-radius: 20px;
+  }
+
+  .compose-box textarea {
+    font-size: 14px;
+    max-height: 80px;
+  }
+
+  .compose-send {
+    width: 38px;
+    height: 38px;
+    font-size: 15px;
+  }
+
+  /* Scroll button */
+  .scroll-btn { bottom: 80px; right: 12px; width: 34px; height: 34px; }
+
+  /* AI toggle in compose */
+  .ai-toggle-wrap { display: none; }
+
+  /* Workspace panels */
+  .workspace-switcher { display: none; }
+  #inboxPanel { height: 100vh; }
 }
 
-@media (max-width: 680px) {
-  .chat-header { padding: 10px 12px; }
-  .chat-header-actions { gap: 4px; }
-  .chat-body { padding: 14px 12px; }
-  .chat-compose { padding: 0 10px 10px; }
-  .compose-row { gap: 6px; }
-  .compose-action { width: 34px; height: 34px; }
-  .compose-send { width: 36px; height: 36px; }
+/* Desktop: hide back button */
+@media (min-width: 681px) {
+  .mob-back-btn { display: none; }
 }
 /* ── Template table dark mode ───────────────────────────── */
 .tpl-badge-approved {

@@ -6,7 +6,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/whatsapp.css') }}?v=15">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/whatsapp.css') }}?v=16">
 {% endblock %}
 
 {% block tabs %}{% endblock %}
@@ -221,6 +221,9 @@
     <!-- Chat Header - IMPROVED: Simplified with dropdown -->
     <header class="chat-header">
       <div class="chat-header-left">
+        <button class="mob-back-btn" id="mobBackBtn" title="Back to chats">
+          <i class="fas fa-arrow-left"></i>
+        </button>
         <div class="conv-avatar {% if loop is defined %}{{ avatar_classes[0] }}{% endif %}" style="width:44px;height:44px;border-radius:12px;font-size:16px;">
           {{ (active_name or '?')[:1]|upper }}
         </div>
@@ -634,11 +637,11 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/state.js') }}?v=15"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/utils.js') }}?v=15"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}?v=15"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/render.js') }}?v=15"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/events.js') }}?v=15"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/state.js') }}?v=16"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/utils.js') }}?v=16"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}?v=16"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/render.js') }}?v=16"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/events.js') }}?v=16"></script>
 <script>
 (() => {
 'use strict';
@@ -995,6 +998,42 @@ window.eventsEngine.resizeInput();
 if (msgInput && !msgInput.disabled) msgInput.focus();
 // Scroll to bottom after DOM is fully rendered
 setTimeout(() => { const el = document.getElementById('chatBody'); if (el) el.scrollTop = el.scrollHeight; }, 100);
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE NAVIGATION
+   ═══════════════════════════════════════════════════════════ */
+(function initMobileNav() {
+  const isMobile = window.innerWidth <= 680;
+  const sidebar = document.getElementById('waSidebar');
+  const backBtn = document.getElementById('mobBackBtn');
+
+  if (!sidebar) return;
+
+  // On mobile, if there's an active chat, show chat (hide sidebar)
+  if (isMobile && window.inboxState.activeMobile) {
+    sidebar.classList.add('mob-chat-active');
+  }
+
+  // Back button → show sidebar
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      sidebar.classList.remove('mob-chat-active');
+    });
+  }
+
+  // When clicking a contact on mobile → hide sidebar to show chat
+  const convList = document.getElementById('convList');
+  if (convList && isMobile) {
+    convList.addEventListener('click', (e) => {
+      if (e.target.closest('.conv-item[data-mobile]')) {
+        // Small delay to let the chat switch handler run first
+        setTimeout(() => sidebar.classList.add('mob-chat-active'), 50);
+      }
+    });
+  }
+
+  console.debug('[MOBILE] Nav initialized, isMobile:', isMobile);
+})();
 
 /* ═══════════════════════════════════════════════════════════
    SIMPLE REAL-TIME POLLER — independent of pollingEngine
