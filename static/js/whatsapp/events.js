@@ -287,23 +287,19 @@ window.__eventsEngineInitDone = true;
     window.inboxState.audio = { soft: audioSoft, newConversation: audioStrong };
 
     const unlockAudio = () => {
-      // Only unlock if sound is enabled — don't play anything when muted
-      if (!window.inboxState.ui.soundEnabled) return;
-
+      // Always unlock audio (at volume 0) so it's ready when needed
       const audioEntries = Object.entries(window.inboxState.audio || {});
       audioEntries.forEach(([label, audio]) => {
         if (!audio) return;
-        // Set volume to 0 during unlock so user hears nothing
         const originalVolume = audio.volume;
         audio.volume = 0;
         audio.play().then(() => {
           audio.pause();
           audio.currentTime = 0;
           audio.volume = originalVolume;
-          console.debug(`[AUDIO] ${label} audio unlocked silently`);
+          console.debug(`[AUDIO] ${label} unlocked`);
         }).catch(err => {
           audio.volume = originalVolume;
-          console.debug(`[AUDIO] ${label} audio unlock blocked:`, err?.name || err);
         });
       });
     };
@@ -557,8 +553,13 @@ window.__eventsEngineInitDone = true;
       const mobile = link.dataset.mobile;
       if (mobile === window.inboxState.activeMobile) return;
 
-      // Highlight clicked contact immediately
-      $all('.conv-item').forEach(el => el.classList.toggle('active', el.dataset.mobile === mobile));
+      // Highlight clicked contact immediately and clear green dot
+      $all('.conv-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.mobile === mobile);
+        if (el.dataset.mobile === mobile) {
+          el.classList.remove('has-new');
+        }
+      });
 
       // Update URL without reload
       history.pushState({}, '', `${PAGE_URL}?mobile=${encodeURIComponent(mobile)}`);
@@ -603,6 +604,14 @@ window.__eventsEngineInitDone = true;
       if (dom.msgInput) dom.msgInput.disabled = false;
       const sendBtn = document.getElementById('sendBtn');
       if (sendBtn) sendBtn.disabled = false;
+
+      // Mark conversation as opened (clears unread_count in DB)
+      fetch('/api/whatsapp/conversations/open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ mobile })
+      }).catch(() => {});
 
       // Fetch messages via AJAX
       try {
@@ -741,16 +750,24 @@ window.__eventsEngineInitDone = true;
      ═══════════════════════════════════════════════════════════ */
 
   const initScrollButton = () => {
-    dom.chatBody?.addEventListener('scroll', () => {
-      if (!dom.scrollBtn) return;
-      dom.scrollBtn.classList.toggle('show', !(nearBottom ? nearBottom() : true));
-    }, { passive: true });
+    const chatEl = document.getElementById('chatBody');
+    const btnEl = document.getElementById('scrollBtn');
 
-    dom.scrollBtn?.addEventListener('click', () => {
-      if (scrollBottom) scrollBottom();
-    });
+    if (chatEl) {
+      chatEl.addEventListener('scroll', () => {
+        if (!btnEl) return;
+        const isNearBottom = chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight < 160;
+        btnEl.classList.toggle('show', !isNearBottom);
+      }, { passive: true });
+    }
 
-    console.debug('[EVENT_BIND] Scroll button + chat scroll listeners registered');
+    if (btnEl) {
+      btnEl.addEventListener('click', () => {
+        const el = document.getElementById('chatBody');
+        if (el) el.scrollTop = el.scrollHeight;
+      });
+    }
+
     console.debug('[EVENT] Scroll button initialized');
   };
 

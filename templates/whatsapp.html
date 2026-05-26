@@ -633,11 +633,11 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/state.js') }}?v=10"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/utils.js') }}?v=10"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}?v=10"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/render.js') }}?v=10"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/events.js') }}?v=10"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/state.js') }}?v=11"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/utils.js') }}?v=11"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}?v=11"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/render.js') }}?v=11"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/events.js') }}?v=11"></script>
 <script>
 (() => {
 'use strict';
@@ -1034,10 +1034,10 @@ setTimeout(() => { const el = document.getElementById('chatBody'); if (el) el.sc
 
       // ── Update sidebar contacts ──
       if (data.contacts && data.contacts.length > 0) {
-        // Update sidebar previews and reorder
         const convList = document.getElementById('convList');
         if (convList) {
           data.contacts.forEach(c => {
+            const isActiveChat = c.mobile === mobile;
             const el = convList.querySelector(`[data-mobile="${CSS.escape(c.mobile)}"]`);
             if (el) {
               const previewEl = el.querySelector('.conv-preview');
@@ -1047,15 +1047,23 @@ setTimeout(() => { const el = document.getElementById('chatBody'); if (el) el.sc
                 const t = c.created_at.includes(' ') ? c.created_at.split(' ')[1].slice(0,5) : c.created_at.slice(0,5);
                 timeEl.textContent = t;
               }
-              // Update unread
-              if (c.mobile !== mobile && c.unread_count > 0) {
-                el.classList.add('has-new');
+              // Green dot: show for unread chats that are NOT the active one
+              if (!isActiveChat && c.unread_count > 0) {
+                if (!el.classList.contains('has-new')) {
+                  el.classList.add('has-new');
+                  // Play notification sound for new unread messages in other chats
+                  window.eventsEngine.beep(c.mobile);
+                }
+              } else if (isActiveChat) {
+                // Active chat — always remove green dot
+                el.classList.remove('has-new');
               }
             } else {
-              // New conversation — add to sidebar
+              // New conversation — add to sidebar with green dot
               const initial = (c.name || c.mobile || '?')[0].toUpperCase();
               const time = c.created_at ? (c.created_at.includes(' ') ? c.created_at.split(' ')[1].slice(0,5) : c.created_at.slice(0,5)) : '';
-              const html = `<a class="conv-item" href="${PAGE_URL}?mobile=${encodeURIComponent(c.mobile)}" data-mobile="${c.mobile}" data-name="${(c.name||'').toLowerCase()}">
+              const hasNew = !isActiveChat && c.unread_count > 0;
+              const html = `<a class="conv-item ${hasNew ? 'has-new' : ''}" href="${PAGE_URL}?mobile=${encodeURIComponent(c.mobile)}" data-mobile="${c.mobile}" data-name="${(c.name||'').toLowerCase()}">
                 <div class="conv-avatar">${initial}</div>
                 <div class="conv-meta">
                   <div class="conv-row1"><div class="conv-name">${c.name || c.mobile}</div><div class="conv-time">${time}</div></div>
@@ -1063,6 +1071,8 @@ setTimeout(() => { const el = document.getElementById('chatBody'); if (el) el.sc
                 </div>
               </a>`;
               convList.insertAdjacentHTML('afterbegin', html);
+              // Play sound for new conversation
+              if (hasNew) window.eventsEngine.beep(c.mobile);
             }
           });
         }
