@@ -561,6 +561,9 @@ window.__eventsEngineInitDone = true;
         }
       });
 
+      // Track this chat as opened so green dot never comes back
+      if (window._openedChats) window._openedChats.add(mobile);
+
       // Update URL without reload
       history.pushState({}, '', `${PAGE_URL}?mobile=${encodeURIComponent(mobile)}`);
 
