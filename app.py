@@ -1252,6 +1252,18 @@ def setup_mysql_whatsapp_indexes():
         mysql_conn.start_transaction()
 
         # ---------------------------------------------------
+        # Convert tables to utf8mb4 for Hindi/Marathi support
+        # ---------------------------------------------------
+        for table_name in ('whatsapp_messages', 'whatsapp_conversations'):
+            try:
+                mysql_cursor.execute(
+                    f"ALTER TABLE {table_name} CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+                )
+                app.logger.info(f"Converted {table_name} to utf8mb4")
+            except Exception as charset_err:
+                app.logger.warning(f"Could not convert {table_name} charset: {charset_err}")
+
+        # ---------------------------------------------------
         # whatsapp_messages indexes
         # ---------------------------------------------------
 
