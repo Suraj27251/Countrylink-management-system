@@ -160,21 +160,30 @@
         .charts-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 24px;
+            gap: 20px;
         }
         @media (max-width: 768px) { .charts-grid { grid-template-columns: 1fr; } }
         .chart-box {
-            padding: 24px;
-            min-height: 320px;
+            padding: 20px;
             display: flex;
             flex-direction: column;
         }
-        .chart-box canvas { flex: 1; }
+        .chart-canvas-wrap {
+            position: relative;
+            width: 100%;
+            height: 220px;
+        }
+        .chart-canvas-wrap canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100% !important;
+            height: 100% !important;
+        }
         .chart-title {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 700;
             color: #1e293b;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
 
         /* ── Table Section ────────────────────────────────────────── */
@@ -355,11 +364,15 @@
     <section class="charts-grid dash-animate dash-animate-delay-3">
         <div class="glass-card chart-box">
             <div class="chart-title"><i class="fas fa-chart-pie" style="color:#764ba2;margin-right:8px;"></i>Complaint Status</div>
-            <canvas id="statusDoughnut"></canvas>
+            <div class="chart-canvas-wrap">
+                <canvas id="statusDoughnut"></canvas>
+            </div>
         </div>
         <div class="glass-card chart-box">
             <div class="chart-title"><i class="fas fa-chart-area" style="color:#4facfe;margin-right:8px;"></i>Stock Overview</div>
-            <canvas id="stockChart"></canvas>
+            <div class="chart-canvas-wrap">
+                <canvas id="stockChart"></canvas>
+            </div>
         </div>
     </section>
 
@@ -649,17 +662,17 @@ new Chart(doughnutCtx, {
             data: [{{ pending }}, {{ resolved }}],
             backgroundColor: ['#f5576c', '#4facfe'],
             borderWidth: 0,
-            hoverOffset: 12
+            hoverOffset: 8
         }]
     },
     options: {
         responsive: true,
         maintainAspectRatio: false,
-        cutout: '70%',
+        cutout: '68%',
         plugins: {
-            legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true } }
+            legend: { position: 'bottom', labels: { padding: 14, usePointStyle: true, font: { size: 12 } } }
         },
-        animation: { animateRotate: true, duration: 1500 }
+        animation: { animateRotate: true, duration: 1200 }
     }
 });
 
@@ -675,20 +688,20 @@ new Chart(stockCtx, {
     data: {
         labels: stockLabels,
         datasets: [
-            { label: 'Total', data: stockTotal, backgroundColor: '#667eea', borderRadius: 6 },
-            { label: 'Issued', data: stockIssued, backgroundColor: '#f5576c', borderRadius: 6 },
-            { label: 'Available', data: stockAvail, backgroundColor: '#43e97b', borderRadius: 6 }
+            { label: 'Total', data: stockTotal, backgroundColor: '#667eea', borderRadius: 4 },
+            { label: 'Issued', data: stockIssued, backgroundColor: '#f5576c', borderRadius: 4 },
+            { label: 'Available', data: stockAvail, backgroundColor: '#43e97b', borderRadius: 4 }
         ]
     },
     options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom', labels: { usePointStyle: true } } },
+        plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, font: { size: 12 } } } },
         scales: {
             x: { grid: { display: false } },
-            y: { beginAtZero: true, grid: { color: '#f1f5f9' } }
+            y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { stepSize: 5 } }
         },
-        animation: { duration: 1200, easing: 'easeOutQuart' }
+        animation: { duration: 1000, easing: 'easeOutQuart' }
     }
 });
 
