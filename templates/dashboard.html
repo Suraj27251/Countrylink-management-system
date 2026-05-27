@@ -1,13 +1,263 @@
 {% extends 'layout.html' %}
-{% block title %}Complaint Dashboard{% endblock %}
+{% block title %}Dashboard — Countrylink{% endblock %}
 {% block extra_head %}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <style>
+        /* ── Dashboard Animations ─────────────────────────────────── */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideInLeft {
+            from { opacity: 0; transform: translateX(-30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.9); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        @keyframes countUp {
+            from { opacity: 0; transform: scale(0.5); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .dash-animate { animation: fadeInUp 0.6s ease both; }
+        .dash-animate-delay-1 { animation-delay: 0.1s; }
+        .dash-animate-delay-2 { animation-delay: 0.2s; }
+        .dash-animate-delay-3 { animation-delay: 0.3s; }
+        .dash-animate-delay-4 { animation-delay: 0.4s; }
+        .dash-animate-delay-5 { animation-delay: 0.5s; }
+
+        /* ── Glass Cards ──────────────────────────────────────────── */
+        .glass-card {
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.4);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(15,23,42,0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .glass-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 48px rgba(15,23,42,0.12);
+        }
+
+        /* ── Stat Cards ───────────────────────────────────────────── */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+        }
+
+        .kpi-card {
+            position: relative;
+            padding: 24px;
+            border-radius: 16px;
+            overflow: hidden;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -30%;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.12);
+        }
+        .kpi-card::after {
+            content: '';
+            position: absolute;
+            bottom: -40%;
+            left: -20%;
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+        }
+        .kpi-card .kpi-info { position: relative; z-index: 1; }
+        .kpi-card .kpi-label {
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.9;
+            margin-bottom: 6px;
+        }
+        .kpi-card .kpi-value {
+            font-size: 36px;
+            font-weight: 800;
+            line-height: 1;
+            animation: countUp 0.8s ease both;
+        }
+        .kpi-card .kpi-sub {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 8px;
+        }
+        .kpi-card .kpi-icon {
+            position: relative;
+            z-index: 1;
+            font-size: 40px;
+            opacity: 0.3;
+            animation: float 3s ease-in-out infinite;
+        }
+        .kpi-total { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .kpi-pending { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .kpi-resolved { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .kpi-connections { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+
+        /* ── Network Status ───────────────────────────────────────── */
+        .network-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        .net-card {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px 20px;
+            border-radius: 12px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        .net-card:hover { background: #f1f5f9; transform: scale(1.02); }
+        .net-dot {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: #94a3b8;
+            position: relative;
+        }
+        .net-dot.online { background: #22c55e; }
+        .net-dot.online::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            border: 2px solid #22c55e;
+            animation: pulse-ring 1.5s ease-out infinite;
+        }
+        .net-dot.offline { background: #ef4444; }
+        .net-name { font-weight: 600; color: #1e293b; font-size: 14px; }
+        .net-meta { font-size: 12px; color: #64748b; }
+
+        /* ── Charts Section ───────────────────────────────────────── */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        @media (max-width: 768px) { .charts-grid { grid-template-columns: 1fr; } }
+        .chart-box {
+            padding: 24px;
+            min-height: 320px;
+            display: flex;
+            flex-direction: column;
+        }
+        .chart-box canvas { flex: 1; }
+        .chart-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 16px;
+        }
+
+        /* ── Table Section ────────────────────────────────────────── */
+        .dash-table-wrap {
+            padding: 24px;
+            overflow-x: auto;
+        }
+        .dash-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 14px;
+        }
+        .dash-table thead th {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            padding: 14px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .dash-table thead th:first-child { border-radius: 10px 0 0 0; }
+        .dash-table thead th:last-child { border-radius: 0 10px 0 0; }
+        .dash-table tbody tr {
+            transition: background 0.2s ease;
+        }
+        .dash-table tbody tr:hover { background: #f8fafc; }
+        .dash-table tbody td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #334155;
+        }
+        .dash-table .td-complaint {
+            max-width: 280px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .pill-open { background: #fef3c7; color: #92400e; }
+        .pill-resolved { background: #d1fae5; color: #065f46; }
+        .pill-high { background: #fee2e2; color: #991b1b; }
+        .pill-medium { background: #fef3c7; color: #92400e; }
+        .pill-low { background: #e0f2fe; color: #075985; }
+        .pill-whatsapp { background: #dcfce7; color: #166534; }
+        .pill-web { background: #dbeafe; color: #1e40af; }
+
+        /* ── WhatsApp Analytics ────────────────────────────────────── */
+        .wa-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .wa-mini-card {
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+        }
+        .wa-mini-card .wa-num {
+            font-size: 28px;
+            font-weight: 800;
+            color: #1e293b;
+        }
+        .wa-mini-card .wa-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+    </style>
 {% endblock %}
 {% block header_actions %}
-    <select>
-        <option value="en">ENGLISH</option>
-        <option value="hi">HINDI</option>
-    </select>
     <div class="theme-toggle" style="margin-left:15px;">
         <label class="switch">
             <input type="checkbox" id="themeToggle">
@@ -21,9 +271,6 @@
     </a>
 {% endblock %}
 {% block tabs %}
-    <div class="sidebar-chart-container">
-        <canvas id="sidebarChart"></canvas>
-    </div>
     <div class="tab active"><a href="{{ url_for('dashboard') }}"><i class="fas fa-gauge"></i> Dashboard</a></div>
     <div class="tab"><a href="{{ url_for('complaints_page') }}"><i class="fas fa-code-branch"></i> Complaints</a></div>
     <div class="tab"><a href="{{ url_for('new_connections') }}"><i class="fas fa-user-plus"></i> New Connections</a></div>
@@ -32,503 +279,484 @@
     <div class="tab"><a href="{{ url_for('whatsapp_complaints') }}"><i class="fab fa-whatsapp"></i> WhatsApp Inbox</a></div>
 {% endblock %}
 {% block content %}
-    <div class="dashboard-wrapper">
-        <section class="section-card">
-            <div class="section-header">
-                <div>
-                    <h2 class="section-title">Network Status</h2>
-                    <p class="section-meta">Auto-refreshes every 5 seconds with live availability.</p>
-                </div>
-                <span class="status-pill"><i class="fas fa-signal"></i> Live</span>
-            </div>
-            <div class="flex flex-col sm:flex-row sm:items-start sm:space-x-8">
-                <div id="ip-status-list" class="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1">
-                    <div data-ip="103.149.126.10" class="network-card">
-                        <div class="network-card__info">
-                            <i class="fas fa-server"></i>
-                            <div>
-                                <span class="network-card__name">Vishrantwadi</span>
-                                <span class="network-card__meta">Core router</span>
-                            </div>
-                        </div>
-                        <i class="status-icon fas fa-circle-notch fa-spin text-gray-400"></i>
-                    </div>
-                    <div data-ip="36.50.163.244" class="network-card">
-                        <div class="network-card__info">
-                            <i class="fas fa-server"></i>
-                            <div>
-                                <span class="network-card__name">Dhanori</span>
-                                <span class="network-card__meta">Distribution hub</span>
-                            </div>
-                        </div>
-                        <i class="status-icon fas fa-circle-notch fa-spin text-gray-400"></i>
-                    </div>
-                    <div data-ip="154.84.251.178" class="network-card">
-                        <div class="network-card__info">
-                            <i class="fas fa-server"></i>
-                            <div>
-                                <span class="network-card__name">Tingrenagar</span>
-                                <span class="network-card__meta">Access gateway</span>
-                            </div>
-                        </div>
-                        <i class="status-icon fas fa-circle-notch fa-spin text-gray-400"></i>
-                    </div>
-                </div>
-            </div>
-        </section>
+<div class="dashboard-wrapper">
 
-        <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="stat-card bg-blue-500 text-white">
-                <div class="stat-text">
-                    <div class="label">Total Complaints</div>
-                    <div class="value">{{ total }}</div>
-                    <div class="stat-subtext">All sources combined</div>
-                </div>
-                <div class="stat-icon"><i class="fas fa-inbox"></i></div>
+    <!-- ═══════════ KPI CARDS ═══════════ -->
+    <section class="kpi-grid dash-animate">
+        <div class="kpi-card kpi-total dash-animate dash-animate-delay-1">
+            <div class="kpi-info">
+                <div class="kpi-label">Total Complaints</div>
+                <div class="kpi-value" data-count="{{ total }}">0</div>
+                <div class="kpi-sub">All sources combined</div>
             </div>
-            <div class="stat-card bg-yellow-500 text-white">
-                <div class="stat-text">
-                    <div class="label">Pending</div>
-                    <div class="value">{{ pending }}</div>
-                    <div class="stat-subtext">Needs attention</div>
-                </div>
-                <div class="stat-icon"><i class="fas fa-hourglass-half"></i></div>
+            <div class="kpi-icon"><i class="fas fa-layer-group"></i></div>
+        </div>
+        <div class="kpi-card kpi-pending dash-animate dash-animate-delay-2">
+            <div class="kpi-info">
+                <div class="kpi-label">Pending</div>
+                <div class="kpi-value" data-count="{{ pending }}">0</div>
+                <div class="kpi-sub">Needs attention</div>
             </div>
-            <div class="stat-card bg-green-500 text-white">
-                <div class="stat-text">
-                    <div class="label">Resolved</div>
-                    <div class="value">{{ resolved }}</div>
-                    <div class="stat-subtext">Completed updates</div>
-                </div>
-                <div class="stat-icon"><i class="fas fa-circle-check"></i></div>
+            <div class="kpi-icon"><i class="fas fa-clock"></i></div>
+        </div>
+        <div class="kpi-card kpi-resolved dash-animate dash-animate-delay-3">
+            <div class="kpi-info">
+                <div class="kpi-label">Resolved</div>
+                <div class="kpi-value" data-count="{{ resolved }}">0</div>
+                <div class="kpi-sub">Successfully closed</div>
             </div>
-        </section>
+            <div class="kpi-icon"><i class="fas fa-check-double"></i></div>
+        </div>
+        <div class="kpi-card kpi-connections dash-animate dash-animate-delay-4">
+            <div class="kpi-info">
+                <div class="kpi-label">Pending Connections</div>
+                <div class="kpi-value" data-count="{{ pending_connection_count }}">0</div>
+                <div class="kpi-sub">Awaiting survey</div>
+            </div>
+            <div class="kpi-icon"><i class="fas fa-wifi"></i></div>
+        </div>
+    </section>
 
-        <section class="section-card">
-            <div class="section-header">
+    <!-- ═══════════ NETWORK STATUS ═══════════ -->
+    <section class="glass-card dash-animate dash-animate-delay-2" style="padding:24px;">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title"><i class="fas fa-signal" style="color:#667eea;margin-right:8px;"></i>Network Status</h2>
+                <p class="section-meta">Live server availability — auto-refreshes every 5s</p>
+            </div>
+            <span class="status-pill"><i class="fas fa-circle" style="color:#22c55e;font-size:8px;"></i> Live</span>
+        </div>
+        <div class="network-grid" id="ip-status-list">
+            <div class="net-card" data-ip="103.149.126.10">
+                <div class="net-dot" id="dot-103-149-126-10"></div>
                 <div>
-                    <h2 class="section-title">Status Breakdown</h2>
-                    <p class="section-meta">Monitor resolution performance at a glance.</p>
+                    <div class="net-name">Vishrantwadi</div>
+                    <div class="net-meta">Core Router</div>
                 </div>
             </div>
-            <div class="chart-container" style="height:300px;">
-                <canvas id="statusChart"></canvas>
+            <div class="net-card" data-ip="36.50.163.244">
+                <div class="net-dot" id="dot-36-50-163-244"></div>
+                <div>
+                    <div class="net-name">Dhanori</div>
+                    <div class="net-meta">Distribution Hub</div>
+                </div>
             </div>
-        </section>
+            <div class="net-card" data-ip="154.84.251.178">
+                <div class="net-dot" id="dot-154-84-251-178"></div>
+                <div>
+                    <div class="net-name">Tingrenagar</div>
+                    <div class="net-meta">Access Gateway</div>
+                </div>
+            </div>
+        </div>
+    </section>
 
-        <div class="table-section centered-card recent-complaints-card w-full">
-            <div class="recent-complaints-header">
-                <div>
-                    <h2 class="section-title">Recent Complaints</h2>
-                    <p class="section-meta">Filter quickly to triage incoming issues.</p>
-                </div>
-                <div class="category-filters">
-                    <button type="button" class="button filter-btn" data-category="All">All</button>
-                    {% for cat in categories %}
-                    <button type="button" class="button filter-btn" data-category="{{ cat }}">{{ cat }}</button>
+    <!-- ═══════════ CHARTS ═══════════ -->
+    <section class="charts-grid dash-animate dash-animate-delay-3">
+        <div class="glass-card chart-box">
+            <div class="chart-title"><i class="fas fa-chart-pie" style="color:#764ba2;margin-right:8px;"></i>Complaint Status</div>
+            <canvas id="statusDoughnut"></canvas>
+        </div>
+        <div class="glass-card chart-box">
+            <div class="chart-title"><i class="fas fa-chart-area" style="color:#4facfe;margin-right:8px;"></i>Stock Overview</div>
+            <canvas id="stockChart"></canvas>
+        </div>
+    </section>
+
+    <!-- ═══════════ RECENT COMPLAINTS TABLE ═══════════ -->
+    <section class="glass-card dash-table-wrap dash-animate dash-animate-delay-4">
+        <div class="section-header" style="margin-bottom:16px;">
+            <div>
+                <h2 class="section-title"><i class="fas fa-list-check" style="color:#f5576c;margin-right:8px;"></i>Recent Complaints</h2>
+                <p class="section-meta">Latest issues across all channels</p>
+            </div>
+            <div class="category-filters">
+                <button type="button" class="button filter-btn active" data-category="All">All</button>
+                {% for cat in categories %}
+                <button type="button" class="button filter-btn" data-category="{{ cat }}">{{ cat }}</button>
+                {% endfor %}
+            </div>
+        </div>
+        <form id="bulkActionForm" method="POST">
+            <div class="bulk-buttons" style="justify-content:flex-start;margin-bottom:12px;">
+                <button type="submit" class="button bulk animated-button btn-resolve pulse-on-hover"
+                        formaction="{{ url_for('update_complaints_bulk') }}" name="action" value="resolve">
+                    <i class="fas fa-check"></i> Resolve Selected
+                </button>
+                <button type="submit" class="button bulk danger animated-button pulse-on-hover"
+                        formaction="{{ url_for('update_complaints_bulk') }}" name="action" value="delete"
+                        onclick="return confirm('Delete selected complaints?')">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+            <table class="dash-table">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="selectAll"></th>
+                        <th>Complaint ID</th>
+                        <th>Customer</th>
+                        <th>Mobile</th>
+                        <th>Issue</th>
+                        <th>Category</th>
+                        <th>Status</th>
+                        <th>Priority</th>
+                        <th>Source</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for comp in recent_complaints %}
+                    <tr data-category="{{ comp['category'] }}">
+                        <td><input type="checkbox" name="selected_ids[]" value="{{ comp['id'] }}"></td>
+                        <td><span class="pill pill-low">{{ comp['complaint_id'] or '#' ~ comp['id'] }}</span></td>
+                        <td style="font-weight:600;">{{ comp['name'] }}</td>
+                        <td>{{ comp['mobile'] }}</td>
+                        <td class="td-complaint" title="{{ comp['complaint'] }}">{{ comp['complaint'] }}</td>
+                        <td><span class="pill" style="background:#f3e8ff;color:#7c3aed;">{{ comp['category'] }}</span></td>
+                        <td>
+                            {% if comp['status'] == 'Resolved' or comp['status'] == 'resolved' %}
+                            <span class="pill pill-resolved">Resolved</span>
+                            {% else %}
+                            <span class="pill pill-open">{{ comp['status'] }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if comp['priority'] == 'High' %}
+                            <span class="pill pill-high">High</span>
+                            {% elif comp['priority'] == 'Medium' %}
+                            <span class="pill pill-medium">Medium</span>
+                            {% else %}
+                            <span class="pill pill-low">Low</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if comp['source'] == 'WhatsApp' %}
+                            <span class="pill pill-whatsapp"><i class="fab fa-whatsapp"></i> WA</span>
+                            {% else %}
+                            <span class="pill pill-web"><i class="fas fa-globe"></i> Web</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if comp['status'] != 'Resolved' and comp['status'] != 'resolved' %}
+                            <a href="{{ url_for('update_status', complaint_id=comp['id'], status='Resolved') }}"
+                               class="pill pill-resolved" style="text-decoration:none;">✓ Resolve</a>
+                            {% else %}
+                            <span style="color:#22c55e;font-weight:600;">✔ Done</span>
+                            {% endif %}
+                        </td>
+                    </tr>
                     {% endfor %}
-                </div>
-            </div>
-        <form id="bulkActionForm" method="POST" class="w-full">
-            <div class="bulk-buttons recent-complaints-actions">
-                <button type="submit"
-                        class="button bulk animated-button btn-resolve pulse-on-hover"
-                        formaction="{{ url_for('update_complaints_bulk') }}"
-                        name="action" value="resolve">
-                    Mark Resolved
-                </button>
-                <button type="submit"
-                        class="button bulk danger animated-button btn-delete pulse-on-hover"
-                        formaction="{{ url_for('update_complaints_bulk') }}"
-                        name="action" value="delete"
-                        onclick="return confirm('Are you sure to delete selected complaints?')">
-                    Delete
-                </button>
-            </div>
-            <div class="table-responsive w-full">
-                <table class="data-table recent-complaints-table">
-                    <colgroup>
-                        <col style="width:40px;">
-                        <col style="width:50px;">
-                        <col style="width:100px;">
-                        <col style="width:120px;">
-                        <col style="width:130px;">
-                        <col style="width:240px;">
-                        <col style="width:110px;">
-                        <col style="width:100px;">
-                        <col style="width:80px;">
-                        <col style="width:90px;">
-                        <col style="width:110px;">
-                    </colgroup>
-                    <thead>
-                        <tr>
-                            <th><input type="checkbox" id="selectAll"></th>
-                            <th>ID</th>
-                            <th>Complaint ID</th>
-                            <th>Name</th>
-                            <th>Mobile</th>
-                            <th>Complaint</th>
-                            <th>Category</th>
-                            <th>Status</th>
-                            <th>Priority</th>
-                            <th>Source</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for comp in recent_complaints %}
-                        {% set src = comp['source'] %}
-                        <tr data-category="{{ comp['category'] }}">
-                            <td><input type="checkbox" name="selected_ids[]" value="{{ comp['id'] }}"></td>
-                            <td>{{ comp['id'] }}</td>
-                            <td><span class="badge" style="font-size:0.7rem;">{{ comp['complaint_id'] or '-' }}</span></td>
-                            <td>{{ comp['name'] }}</td>
-                            <td>{{ comp['mobile'] }}</td>
-                            <td class="td-complaint" title="{{ comp['complaint'] }}">{{ comp['complaint'] }}</td>
-                            <td>
-                                <span class="badge category-{{ comp['category']|lower|replace(' ', '-') }}">{{ comp['category'] }}</span>
-                            </td>
-                            <td>{{ comp['status'] }}</td>
-                            <td>{{ comp['priority'] }}</td>
-                            <td>
-                                {% if src == 'WhatsApp' %}
-                                <span class="badge source-badge">
-                                    <i class="fab fa-whatsapp"></i> <span>WhatsApp</span>
-                                </span>
-                                {% else %}
-                                <span class="badge source-badge web">
-                                    <i class="fas fa-globe"></i> <span>{{ src or 'Web' }}</span>
-                                </span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if comp['status'] != 'Resolved' %}
-                                <a class="btn small animated-button btn-resolve pulse-on-hover"
-                                   href="{{ url_for('update_status', complaint_id=comp['id'], status='Resolved') }}">
-                                   Mark Resolved
-                                </a>
-                                {% else %}
-                                <span style="color: green;">✔ Done</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                </tbody>
+            </table>
         </form>
+    </section>
+
+    <!-- ═══════════ PENDING CONNECTIONS ═══════════ -->
+    {% if pending_connections %}
+    <section class="glass-card dash-table-wrap dash-animate dash-animate-delay-5">
+        <div class="section-header" style="margin-bottom:16px;">
+            <div>
+                <h2 class="section-title"><i class="fas fa-user-plus" style="color:#43e97b;margin-right:8px;"></i>Pending Connection Requests</h2>
+                <p class="section-meta">New customers waiting for installation</p>
+            </div>
+            <a href="{{ url_for('new_connections') }}" class="button outline-button" style="margin-top:0;">View All →</a>
+        </div>
+        <table class="dash-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Mobile</th>
+                    <th>Area</th>
+                    <th>Status</th>
+                    <th>Requested</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for conn in pending_connections %}
+                <tr>
+                    <td>{{ conn[0] }}</td>
+                    <td style="font-weight:600;">{{ conn[1] }}</td>
+                    <td>{{ conn[2] }}</td>
+                    <td>{{ conn[3] }}</td>
+                    <td><span class="pill pill-open">{{ conn[4] }}</span></td>
+                    <td>{{ conn[5] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+
+    <!-- ═══════════ WHATSAPP ANALYTICS ═══════════ -->
+    <section class="glass-card dash-animate dash-animate-delay-5" style="padding:24px;">
+        <div class="section-header" style="margin-bottom:16px;">
+            <div>
+                <h2 class="section-title"><i class="fab fa-whatsapp" style="color:#25d366;margin-right:8px;"></i>WhatsApp Notification Analytics</h2>
+                <p class="section-meta">Invoice reminder delivery tracking</p>
+            </div>
+            <a href="https://countrylinks.in/zoho/invoices_dashboard.php" target="_blank" class="button outline-button" style="margin-top:0;">
+                <i class="fas fa-file-invoice"></i> Invoice Dashboard
+            </a>
         </div>
 
-        {% if pending_connections %}
-        <section class="section-card table-card">
-            <div class="section-header">
-                <div>
-                    <h2 class="section-title">Recent Connection Requests</h2>
-                    <p class="section-meta">Pending requests waiting for approval.</p>
-                </div>
-                <a href="{{ url_for('new_connections') }}" class="button outline-button">View all</a>
+        <div class="wa-stats-grid">
+            <div class="wa-mini-card">
+                <div class="wa-num" id="wa-total-sent">0</div>
+                <div class="wa-label"><i class="fab fa-whatsapp" style="color:#25d366;"></i> Sent Today</div>
             </div>
-            <div class="table-responsive">
-                <table class="data-table compact-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Name</th>
-                            <th>Mobile</th>
-                            <th>Area</th>
-                            <th>Status</th>
-                            <th>Requested At</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for conn in pending_connections %}
-                        <tr>
-                            <td>{{ conn[0] }}</td>
-                            <td>{{ conn[1] }}</td>
-                            <td>{{ conn[2] }}</td>
-                            <td>{{ conn[3] }}</td>
-                            <td><span class="status-badge pending">{{ conn[4] }}</span></td>
-                            <td>{{ conn[5] }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div class="wa-mini-card">
+                <div class="wa-num" id="wa-delivered" style="color:#22c55e;">0</div>
+                <div class="wa-label"><i class="fas fa-check" style="color:#22c55e;"></i> Delivered</div>
             </div>
-        </section>
-        {% endif %}
+            <div class="wa-mini-card">
+                <div class="wa-num" id="wa-read" style="color:#3b82f6;">0</div>
+                <div class="wa-label"><i class="fas fa-eye" style="color:#3b82f6;"></i> Read</div>
+            </div>
+            <div class="wa-mini-card">
+                <div class="wa-num" id="wa-failed" style="color:#ef4444;">0</div>
+                <div class="wa-label"><i class="fas fa-xmark" style="color:#ef4444;"></i> Failed</div>
+            </div>
+        </div>
 
-        <section class="section-card table-card">
-            <div class="section-header">
-                <div>
-                    <h2 class="section-title">Current Stock Summary</h2>
-                    <p class="section-meta">Quick snapshot of available inventory.</p>
-                </div>
-            </div>
-            <div class="table-responsive">
-                <table class="data-table compact-table">
-                    <thead>
-                        <tr>
-                            <th>Device</th>
-                            <th>Total Stock</th>
-                            <th>Issued</th>
-                            <th>Available</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for device, summary in stock_summary.items() %}
-                        <tr>
-                            <td>{{ device }}</td>
-                            <td>{{ summary.stock }}</td>
-                            <td>{{ summary.issued }}</td>
-                            <td>{{ summary.available }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </section>
+        <div class="flex flex-wrap gap-3 mb-4">
+            <select id="wa-date-filter" class="button outline-button" style="margin-top:0;">
+                <option value="today">Today</option>
+                <option value="last7days">Last 7 days</option>
+            </select>
+            <select id="wa-status-filter" class="button outline-button" style="margin-top:0;">
+                <option value="all">All Statuses</option>
+                <option value="sent">Sent</option>
+                <option value="delivered">Delivered</option>
+                <option value="read">Read</option>
+                <option value="failed">Failed</option>
+            </select>
+            <button type="button" id="wa-refresh" class="button" style="margin-top:0;">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
 
-        <section class="section-card">
-            <div class="section-header">
-                <div>
-                    <h2 class="section-title">WhatsApp Notification Analytics</h2>
-                    <p class="section-meta">Track overdue invoice reminders and delivery outcomes.</p>
-                </div>
-                <a href="https://countrylinks.in/zoho/invoices_dashboard.php" target="_blank">
-                    <i class="fas fa-file-invoice"></i> Open Invoice Dashboard
-                </a>
-            </div>
+        <div style="overflow-x:auto;">
+            <table class="dash-table">
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Invoice</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Sent At</th>
+                    </tr>
+                </thead>
+                <tbody id="wa-log-rows">
+                    <tr><td colspan="5" style="text-align:center;color:#94a3b8;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                <div class="stat-card bg-blue-500 text-white">
-                    <div class="stat-text">
-                        <div class="label">Total Sent Today</div>
-                        <div class="value" id="wa-total-sent">0</div>
-                    </div>
-                    <div class="stat-icon"><i class="fab fa-whatsapp"></i></div>
-                </div>
-                <div class="stat-card bg-green-500 text-white">
-                    <div class="stat-text">
-                        <div class="label">Delivered</div>
-                        <div class="value" id="wa-delivered">0</div>
-                    </div>
-                    <div class="stat-icon"><i class="fas fa-check"></i></div>
-                </div>
-                <div class="stat-card bg-yellow-500 text-white">
-                    <div class="stat-text">
-                        <div class="label">Read</div>
-                        <div class="value" id="wa-read">0</div>
-                    </div>
-                    <div class="stat-icon"><i class="fas fa-eye"></i></div>
-                </div>
-                <div class="stat-card bg-red-500 text-white">
-                    <div class="stat-text">
-                        <div class="label">Failed</div>
-                        <div class="value" id="wa-failed">0</div>
-                    </div>
-                    <div class="stat-icon"><i class="fas fa-triangle-exclamation"></i></div>
-                </div>
+    <!-- ═══════════ STOCK SUMMARY ═══════════ -->
+    <section class="glass-card dash-table-wrap dash-animate dash-animate-delay-5">
+        <div class="section-header" style="margin-bottom:16px;">
+            <div>
+                <h2 class="section-title"><i class="fas fa-boxes-stacked" style="color:#f59e0b;margin-right:8px;"></i>Stock Summary</h2>
+                <p class="section-meta">Current inventory snapshot</p>
             </div>
+        </div>
+        <table class="dash-table">
+            <thead>
+                <tr>
+                    <th>Device</th>
+                    <th>Total Stock</th>
+                    <th>Issued</th>
+                    <th>Available</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for device, summary in stock_summary.items() %}
+                <tr>
+                    <td style="font-weight:600;">{{ device }}</td>
+                    <td>{{ summary.stock }}</td>
+                    <td>{{ summary.issued }}</td>
+                    <td>
+                        {% if summary.available <= 5 %}
+                        <span class="pill pill-high">{{ summary.available }}</span>
+                        {% else %}
+                        <span class="pill pill-resolved">{{ summary.available }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
 
-            <div class="flex flex-col sm:flex-row gap-3 mb-4">
-                <select id="wa-date-filter" class="button outline-button">
-                    <option value="today">Today</option>
-                    <option value="last7days">Last 7 days</option>
-                </select>
-                <select id="wa-status-filter" class="button outline-button">
-                    <option value="all">All Statuses</option>
-                    <option value="sent">Sent</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="read">Read</option>
-                    <option value="failed">Failed</option>
-                </select>
-                <button type="button" id="wa-refresh" class="button">Refresh</button>
-            </div>
-
-            <div class="table-responsive">
-                <table class="data-table compact-table">
-                    <thead>
-                        <tr>
-                            <th>Customer Name</th>
-                            <th>Invoice Number</th>
-                            <th>Amount</th>
-                            <th>Status</th>
-                            <th>Sent Time</th>
-                        </tr>
-                    </thead>
-                    <tbody id="wa-log-rows">
-                        <tr><td colspan="5">Loading WhatsApp analytics...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-    </div>
+</div>
 {% endblock %}
 {% block extra_scripts %}
 <script>
-    const ctx = document.getElementById('statusChart').getContext('2d');
-    const statusChart = new Chart(ctx, {
-        type: 'pie',
-        data: {
-            labels: ['Pending', 'Resolved'],
-            datasets: [{
-                label: 'Complaint Status',
-                data: [{{ pending }}, {{ resolved }}],
-                backgroundColor: ['#FF6384', '#36A2EB'],
-                borderColor: ['#fff', '#fff'],
-                borderWidth: 1
-            }]
+// ── Animated Counter ─────────────────────────────────────────────────────────
+document.querySelectorAll('.kpi-value[data-count]').forEach(el => {
+    const target = parseInt(el.dataset.count) || 0;
+    const duration = 1200;
+    const start = performance.now();
+    function tick(now) {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        el.textContent = Math.floor(eased * target);
+        if (progress < 1) requestAnimationFrame(tick);
+        else el.textContent = target;
+    }
+    requestAnimationFrame(tick);
+});
+
+// ── Theme Toggle ─────────────────────────────────────────────────────────────
+const toggle = document.getElementById('themeToggle');
+const body = document.body;
+if (localStorage.getItem('theme') === 'dark') {
+    body.classList.add('dark-mode');
+    toggle.checked = true;
+}
+toggle.addEventListener('change', () => {
+    body.classList.toggle('dark-mode');
+    localStorage.setItem('theme', body.classList.contains('dark-mode') ? 'dark' : 'light');
+});
+
+// ── Select All Checkbox ──────────────────────────────────────────────────────
+document.getElementById('selectAll').addEventListener('click', function() {
+    document.querySelectorAll('input[name="selected_ids[]"]').forEach(cb => cb.checked = this.checked);
+});
+
+// ── Category Filter ──────────────────────────────────────────────────────────
+const filterButtons = document.querySelectorAll('.filter-btn');
+filterButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+        const category = btn.dataset.category;
+        filterButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.dash-table tbody tr[data-category]').forEach(row => {
+            row.style.display = (category === 'All' || row.dataset.category === category) ? '' : 'none';
+        });
+    });
+});
+
+// ── Doughnut Chart ───────────────────────────────────────────────────────────
+const doughnutCtx = document.getElementById('statusDoughnut').getContext('2d');
+new Chart(doughnutCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Pending', 'Resolved'],
+        datasets: [{
+            data: [{{ pending }}, {{ resolved }}],
+            backgroundColor: ['#f5576c', '#4facfe'],
+            borderWidth: 0,
+            hoverOffset: 12
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '70%',
+        plugins: {
+            legend: { position: 'bottom', labels: { padding: 20, usePointStyle: true } }
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false
-        }
-    });
+        animation: { animateRotate: true, duration: 1500 }
+    }
+});
 
-    const sidebarCtx = document.getElementById('sidebarChart');
-    if (sidebarCtx) {
-        new Chart(sidebarCtx, {
-            type: 'bar',
-            data: {
-                labels: ['Pending', 'Resolved'],
-                datasets: [{
-                    data: [{{ pending }}, {{ resolved }}],
-                    backgroundColor: ['#FF6384', '#36A2EB']
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: { display: false },
-                    y: { display: false }
-                }
-            }
+// ── Stock Bar Chart ──────────────────────────────────────────────────────────
+const stockCtx = document.getElementById('stockChart').getContext('2d');
+const stockLabels = [{% for d in stock_summary %}'{{ d }}',{% endfor %}];
+const stockTotal = [{% for d, s in stock_summary.items() %}{{ s.stock }},{% endfor %}];
+const stockIssued = [{% for d, s in stock_summary.items() %}{{ s.issued }},{% endfor %}];
+const stockAvail = [{% for d, s in stock_summary.items() %}{{ s.available }},{% endfor %}];
+
+new Chart(stockCtx, {
+    type: 'bar',
+    data: {
+        labels: stockLabels,
+        datasets: [
+            { label: 'Total', data: stockTotal, backgroundColor: '#667eea', borderRadius: 6 },
+            { label: 'Issued', data: stockIssued, backgroundColor: '#f5576c', borderRadius: 6 },
+            { label: 'Available', data: stockAvail, backgroundColor: '#43e97b', borderRadius: 6 }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { usePointStyle: true } } },
+        scales: {
+            x: { grid: { display: false } },
+            y: { beginAtZero: true, grid: { color: '#f1f5f9' } }
+        },
+        animation: { duration: 1200, easing: 'easeOutQuart' }
+    }
+});
+
+// ── Network Status Polling ───────────────────────────────────────────────────
+async function updateIpStatus() {
+    try {
+        const res = await fetch('{{ url_for("ping_status") }}');
+        const data = await res.json();
+        Object.entries(data).forEach(([ip, isUp]) => {
+            const dotId = 'dot-' + ip.replace(/\./g, '-');
+            const dot = document.getElementById(dotId);
+            if (!dot) return;
+            dot.className = isUp ? 'net-dot online' : 'net-dot offline';
         });
-    }
+    } catch(e) { console.error('Network status fetch failed', e); }
+}
+updateIpStatus();
+setInterval(updateIpStatus, 5000);
 
-    const toggle = document.getElementById('themeToggle');
-    const body = document.body;
-    const theme = localStorage.getItem('theme');
-    if (theme === 'dark') {
-        body.classList.add('dark-mode');
-        toggle.checked = true;
-    }
-    toggle.addEventListener('change', () => {
-        body.classList.toggle('dark-mode');
-        localStorage.setItem('theme', body.classList.contains('dark-mode') ? 'dark' : 'light');
-    });
-    document.getElementById('selectAll').addEventListener('click', function () {
-        const checkboxes = document.querySelectorAll('input[name="selected_ids[]"]');
-        checkboxes.forEach(cb => cb.checked = this.checked);
-    });
-    const filterButtons = document.querySelectorAll('.filter-btn');
-    if (filterButtons.length) {
-        filterButtons[0].classList.add('active');
-        filterButtons[0].setAttribute('aria-pressed', 'true');
-    }
-    filterButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const category = btn.getAttribute('data-category');
-            filterButtons.forEach(button => {
-                button.classList.remove('active');
-                button.setAttribute('aria-pressed', 'false');
-            });
-            btn.classList.add('active');
-            btn.setAttribute('aria-pressed', 'true');
-            document.querySelectorAll('.recent-complaints-table tbody tr').forEach(row => {
-                const rowCat = row.getAttribute('data-category');
-                if (category === 'All' || rowCat === category) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-        });
-    });
+// ── WhatsApp Analytics ───────────────────────────────────────────────────────
+const waRows = document.getElementById('wa-log-rows');
+const waDateFilter = document.getElementById('wa-date-filter');
+const waStatusFilter = document.getElementById('wa-status-filter');
+const waRefreshBtn = document.getElementById('wa-refresh');
 
-    async function updateIpStatus() {
-        try {
-            const res = await fetch('{{ url_for('ping_status') }}');
-            const data = await res.json();
-            Object.entries(data).forEach(([ip, isUp]) => {
-                const icon = document.querySelector(`#ip-status-list [data-ip="${ip}"] .status-icon`);
-                if (!icon) return;
-                if (isUp) {
-                    icon.className = 'status-icon fas fa-check-circle text-green-500';
-                } else {
-                    icon.className = 'status-icon fas fa-times-circle text-red-500';
-                }
-            });
-        } catch (err) {
-            console.error('Failed to update IP status', err);
+function statusBadge(status) {
+    const s = String(status || '').toLowerCase();
+    const colors = { sent:'#3b82f6', delivered:'#22c55e', read:'#f59e0b', failed:'#ef4444' };
+    const bg = colors[s] || '#94a3b8';
+    return `<span class="pill" style="background:${bg};color:#fff;">${s || 'unknown'}</span>`;
+}
+
+async function loadWhatsAppAnalytics() {
+    const date = encodeURIComponent(waDateFilter.value);
+    const status = encodeURIComponent(waStatusFilter.value);
+    try {
+        const response = await fetch(`{{ url_for('api_whatsapp_logs') }}?date=${date}&status=${status}`);
+        if (!response.ok) throw new Error('Failed');
+        const data = await response.json();
+        const summary = data.summary || {};
+        const rows = data.rows || [];
+
+        document.getElementById('wa-total-sent').textContent = summary.total_sent_today || 0;
+        document.getElementById('wa-delivered').textContent = summary.delivered || 0;
+        document.getElementById('wa-read').textContent = summary.read || 0;
+        document.getElementById('wa-failed').textContent = summary.failed || 0;
+
+        if (!rows.length) {
+            waRows.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;">No logs found</td></tr>';
+            return;
         }
+        waRows.innerHTML = rows.map(r => `
+            <tr>
+                <td>${r.customer_name || '-'}</td>
+                <td>${r.invoice_number || r.invoice_id || '-'}</td>
+                <td>${r.total ?? '-'}</td>
+                <td>${statusBadge(r.status)}</td>
+                <td>${r.sent_at || '-'}</td>
+            </tr>
+        `).join('');
+    } catch(e) {
+        waRows.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#ef4444;">Failed to load</td></tr>';
     }
-    updateIpStatus();
-    setInterval(updateIpStatus, 5000);
+}
 
-    const waRows = document.getElementById('wa-log-rows');
-    const waDateFilter = document.getElementById('wa-date-filter');
-    const waStatusFilter = document.getElementById('wa-status-filter');
-    const waRefreshBtn = document.getElementById('wa-refresh');
-
-    function statusBadge(status) {
-        const normalized = String(status || '').toLowerCase();
-        const colorMap = {
-            sent: '#3b82f6',
-            delivered: '#22c55e',
-            read: '#f59e0b',
-            failed: '#ef4444'
-        };
-        const bg = colorMap[normalized] || '#6b7280';
-        return `<span style="padding:4px 10px;border-radius:999px;color:#fff;background:${bg};font-size:12px;text-transform:capitalize;">${normalized || 'unknown'}</span>`;
-    }
-
-    async function loadWhatsAppAnalytics() {
-        const date = encodeURIComponent(waDateFilter.value);
-        const status = encodeURIComponent(waStatusFilter.value);
-
-        try {
-            const response = await fetch(`{{ url_for('api_whatsapp_logs') }}?date=${date}&status=${status}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch logs');
-            }
-
-            const data = await response.json();
-            const summary = data.summary || {};
-            const rows = data.rows || [];
-
-            document.getElementById('wa-total-sent').textContent = summary.total_sent_today || 0;
-            document.getElementById('wa-delivered').textContent = summary.delivered || 0;
-            document.getElementById('wa-read').textContent = summary.read || 0;
-            document.getElementById('wa-failed').textContent = summary.failed || 0;
-
-            if (!rows.length) {
-                waRows.innerHTML = '<tr><td colspan="5">No logs found for selected filters.</td></tr>';
-                return;
-            }
-
-            waRows.innerHTML = rows.map((row) => `
-                <tr>
-                    <td>${row.customer_name || '-'}</td>
-                    <td>${row.invoice_number || row.invoice_id || '-'}</td>
-                    <td>${row.total ?? '-'}</td>
-                    <td>${statusBadge(row.status)}</td>
-                    <td>${row.sent_at || '-'}</td>
-                </tr>
-            `).join('');
-        } catch (error) {
-            console.error(error);
-            waRows.innerHTML = '<tr><td colspan="5">Failed to load WhatsApp analytics.</td></tr>';
-        }
-    }
-
-    waDateFilter.addEventListener('change', loadWhatsAppAnalytics);
-    waStatusFilter.addEventListener('change', loadWhatsAppAnalytics);
-    waRefreshBtn.addEventListener('click', loadWhatsAppAnalytics);
-    loadWhatsAppAnalytics();
+waDateFilter.addEventListener('change', loadWhatsAppAnalytics);
+waStatusFilter.addEventListener('change', loadWhatsAppAnalytics);
+waRefreshBtn.addEventListener('click', loadWhatsAppAnalytics);
+loadWhatsAppAnalytics();
 </script>
 {% endblock %}
