@@ -171,6 +171,7 @@
         <tr>
           <th><input type="checkbox" id="selectAll"></th>
           <th>ID</th>
+          <th>Complaint ID</th>
           <th>Name</th>
           <th>Mobile</th>
           <th>Complaint</th>
@@ -187,17 +188,21 @@
         <tr id="row-{{ c.id }}">
           <td><input type="checkbox" class="selectComplaint" value="{{ c.id }}"></td>
           <td>{{ c.id }}</td>
-          <td>
-            {% set source = c.source or 'Web' %}
-            {{ c.name }}
-          </td>
+          <td><span class="badge bg-secondary" style="font-size:0.75rem;">{{ c.complaint_id or '-' }}</span></td>
+          <td>{{ c.name }}</td>
           <td>{{ c.mobile }}</td>
           <td>{{ c.complaint }}</td>
           <td><span class="badge badge-status status-{{ c.status }}" id="status-{{ c.id }}">{{ c.status }}</span></td>
           <td><span class="badge risk-badge risk-{{ c.risk_level }}">{{ c.risk_level }}</span></td>
           <td class="trend-{{ c.trend }}">{{ c.trend }}</td>
           <td>{{ c.created_at }}</td>
-          <td>{{ source }}</td>
+          <td>
+            {% if c.source == 'WhatsApp' %}
+            <span class="badge bg-success"><i class="fab fa-whatsapp"></i> WhatsApp</span>
+            {% else %}
+            <span class="badge bg-primary"><i class="fas fa-globe"></i> {{ c.source or 'Web' }}</span>
+            {% endif %}
+          </td>
           <td>
             <span class="action-btn resolve-btn" title="Mark as Resolved" onclick="markResolved({{ c.id }})">✔️</span>
             <span class="action-btn delete-btn" title="Delete Complaint" onclick="deleteComplaint({{ c.id }})">🗑️</span>

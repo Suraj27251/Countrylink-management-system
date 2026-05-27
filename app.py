@@ -2074,64 +2074,75 @@ def dashboard():
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    complaint_columns = {row[1] for row in c.execute("PRAGMA table_info(complaints)").fetchall()}
     connection_columns = {row[1] for row in c.execute("PRAGMA table_info(connection_requests)").fetchall()}
 
-    c.execute('SELECT COUNT(*) FROM complaints')
-    total = c.fetchone()[0]
-
-    c.execute("SELECT COUNT(*) FROM complaints WHERE status = 'Pending'")
-    pending = c.fetchone()[0]
-
-    c.execute("SELECT COUNT(*) FROM complaints WHERE status = 'Resolved'")
-    resolved = c.fetchone()[0]
-
-    has_mobile = "mobile" in complaint_columns
-    has_created_at = "created_at" in complaint_columns
-
-    if has_mobile and has_created_at:
-        c.execute('''
-        SELECT * FROM (
-            SELECT * FROM complaints
-            ORDER BY created_at DESC
-        )
-        GROUP BY mobile
-        ORDER BY created_at DESC
-        LIMIT 50
-    ''')
-        recent_complaints_raw = c.fetchall()
-    elif has_mobile:
-        c.execute('''
-        SELECT * FROM (
-            SELECT * FROM complaints
-            ORDER BY id DESC
-        )
-        GROUP BY mobile
-        ORDER BY id DESC
-        LIMIT 50
-    ''')
-        recent_complaints_raw = c.fetchall()
-    else:
-        order_column = "created_at" if has_created_at else "id"
-        c.execute(f"SELECT * FROM complaints ORDER BY {order_column} DESC LIMIT 50")
-        recent_complaints_raw = c.fetchall()
-
+    # ── Complaints from MySQL ─────────────────────────────────────────────────
+    mysql_conn = None
+    mysql_cursor = None
+    total = 0
+    pending = 0
+    resolved = 0
     priority_complaints = []
-    for comp in recent_complaints_raw:
-        mobile = comp['mobile'] if has_mobile else None
-        if mobile and has_created_at:
-            c.execute("""
-                SELECT COUNT(*) FROM complaints
-                WHERE mobile = ? AND date(created_at) >= date('now', '-30 day')
-            """, (mobile,))
-        elif mobile:
-            c.execute("SELECT COUNT(*) FROM complaints WHERE mobile = ?", (mobile,))
-        else:
-            c.execute("SELECT 1")
-        count = c.fetchone()[0]
-        priority = "High" if count >= 3 else "Medium" if count == 2 else "Low"
-        priority_complaints.append(dict(comp) | {'priority': priority})
+    categories_set = set()
 
+    try:
+        mysql_conn = get_mysql_connection()
+        mysql_cursor = mysql_conn.cursor(dictionary=True)
+
+        mysql_cursor.execute("SELECT COUNT(*) AS cnt FROM complaints")
+        total = mysql_cursor.fetchone()["cnt"] or 0
+
+        mysql_cursor.execute("SELECT COUNT(*) AS cnt FROM complaints WHERE status = 'open' OR status = 'Pending'")
+        pending = mysql_cursor.fetchone()["cnt"] or 0
+
+        mysql_cursor.execute("SELECT COUNT(*) AS cnt FROM complaints WHERE status = 'Resolved' OR status = 'resolved'")
+        resolved = mysql_cursor.fetchone()["cnt"] or 0
+
+        mysql_cursor.execute("""
+            SELECT id, complaint_id, customer_name, customer_phone,
+                   complaint_subject, complaint_description, category,
+                   escalation_level, status, created_at
+            FROM complaints
+            ORDER BY created_at DESC
+            LIMIT 50
+        """)
+        recent_complaints_raw = mysql_cursor.fetchall()
+
+        for comp in recent_complaints_raw:
+            mobile = comp.get("customer_phone")
+            if mobile:
+                mysql_cursor.execute("""
+                    SELECT COUNT(*) AS cnt FROM complaints
+                    WHERE customer_phone = %s AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                """, (mobile,))
+                count = mysql_cursor.fetchone()["cnt"] or 0
+            else:
+                count = 0
+            priority = "High" if count >= 3 else "Medium" if count == 2 else "Low"
+            cat = comp.get("category") or "General"
+            categories_set.add(cat)
+            priority_complaints.append({
+                "id": comp["id"],
+                "complaint_id": comp.get("complaint_id") or "",
+                "name": comp.get("customer_name") or "",
+                "mobile": comp.get("customer_phone") or "",
+                "complaint": comp.get("complaint_description") or comp.get("complaint_subject") or "",
+                "category": cat,
+                "status": comp.get("status") or "open",
+                "priority": priority,
+                "escalation_level": comp.get("escalation_level") or "low",
+                "source": "WhatsApp" if comp.get("complaint_id", "").startswith("CMP-") else "Web",
+                "created_at": comp.get("created_at") or "",
+            })
+    except Exception:
+        app.logger.exception("Failed to fetch complaints from MySQL for dashboard")
+    finally:
+        if mysql_cursor:
+            mysql_cursor.close()
+        if mysql_conn and mysql_conn.is_connected():
+            mysql_conn.close()
+
+    # ── Connection Requests from SQLite ───────────────────────────────────────
     pending_connection_order = "created_at" if "created_at" in connection_columns else "id"
     pending_connection_fields = [
         "id",
@@ -2156,6 +2167,7 @@ def dashboard():
         c.execute("SELECT COUNT(*) FROM connection_requests")
     pending_connection_count = c.fetchone()[0]
 
+    # ── Stock from SQLite ─────────────────────────────────────────────────────
     device_types = ['Switch', 'WAN Router', 'ONT Router', 'ONU']
     stock_summary = {}
     for device in device_types:
@@ -2175,7 +2187,7 @@ def dashboard():
         pending_connections=pending_connections,
         pending_connection_count=pending_connection_count,
         stock_summary=stock_summary,
-        categories=CATEGORIES,
+        categories=sorted(categories_set) if categories_set else CATEGORIES,
     )
 
 
@@ -2185,14 +2197,29 @@ def submit():
     mobile = request.form['mobile']
     complaint = request.form['complaint']
     category = predict_category(complaint)
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute(
-        "INSERT INTO complaints (name, mobile, complaint, category, source) VALUES (?, ?, ?, ?, ?)",
-        (name, mobile, complaint, category, 'Web')
-    )
-    conn.commit()
-    conn.close()
+
+    mysql_conn = None
+    mysql_cursor = None
+    try:
+        mysql_conn = get_mysql_connection()
+        mysql_cursor = mysql_conn.cursor()
+        mysql_cursor.execute(
+            """INSERT INTO complaints
+               (customer_name, customer_phone, complaint_subject, complaint_description, category, status, escalation_level, created_at, updated_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW())""",
+            (name, mobile, complaint[:100], complaint, category, 'open', 'low')
+        )
+        mysql_conn.commit()
+    except Exception:
+        if mysql_conn:
+            mysql_conn.rollback()
+        app.logger.exception("Failed to submit complaint via web form")
+    finally:
+        if mysql_cursor:
+            mysql_cursor.close()
+        if mysql_conn and mysql_conn.is_connected():
+            mysql_conn.close()
+
     return redirect(url_for('dashboard'))
 
 
@@ -2205,39 +2232,54 @@ def track():
         mobile = request.form.get('mobile', '').strip()
         name = request.form.get('name', '').strip()
 
-        conn = get_db_connection()
-        c = conn.cursor()
+        mysql_conn = None
+        mysql_cursor = None
+        try:
+            mysql_conn = get_mysql_connection()
+            mysql_cursor = mysql_conn.cursor(dictionary=True)
 
-        if mobile and name:
-            c.execute("""
-                SELECT id, name, mobile, complaint, status, created_at 
-                FROM complaints 
-                WHERE mobile = ? AND name LIKE ? 
-                ORDER BY created_at DESC
-            """, (mobile, f"%{name}%"))
-        elif mobile:
-            c.execute("""
-                SELECT id, name, mobile, complaint, status, created_at 
-                FROM complaints 
-                WHERE mobile = ? 
-                ORDER BY created_at DESC
-            """, (mobile,))
-        elif name:
-            c.execute("""
-                SELECT id, name, mobile, complaint, status, created_at 
-                FROM complaints 
-                WHERE name LIKE ? 
-                ORDER BY created_at DESC
-            """, (f"%{name}%",))
+            if mobile and name:
+                mysql_cursor.execute("""
+                    SELECT id, customer_name, customer_phone, complaint_description, status, created_at
+                    FROM complaints
+                    WHERE customer_phone = %s AND customer_name LIKE %s
+                    ORDER BY created_at DESC
+                """, (mobile, f"%{name}%"))
+            elif mobile:
+                mysql_cursor.execute("""
+                    SELECT id, customer_name, customer_phone, complaint_description, status, created_at
+                    FROM complaints
+                    WHERE customer_phone = %s
+                    ORDER BY created_at DESC
+                """, (mobile,))
+            elif name:
+                mysql_cursor.execute("""
+                    SELECT id, customer_name, customer_phone, complaint_description, status, created_at
+                    FROM complaints
+                    WHERE customer_name LIKE %s
+                    ORDER BY created_at DESC
+                """, (f"%{name}%",))
 
-        complaints = c.fetchall()
+            raw_complaints = mysql_cursor.fetchall()
 
-        status_priority = {"Registered": 0, "Pending": 1, "Assigned": 2, "Complete": 3, "Resolved": 3}
-        if complaints:
-            worst_status_value = max(status_priority.get(comp[4], 0) for comp in complaints)
-            status = [key for key, value in status_priority.items() if value == worst_status_value][0]
+            # Convert to tuples for template compatibility
+            complaints = [
+                (c["id"], c["customer_name"], c["customer_phone"], c["complaint_description"], c["status"], c["created_at"])
+                for c in raw_complaints
+            ]
 
-        conn.close()
+            status_priority = {"Registered": 0, "Pending": 1, "open": 1, "Assigned": 2, "Complete": 3, "Resolved": 3}
+            if complaints:
+                worst_status_value = max(status_priority.get(comp[4], 0) for comp in complaints)
+                status = [key for key, value in status_priority.items() if value == worst_status_value][0]
+
+        except Exception:
+            app.logger.exception("Failed to track complaints")
+        finally:
+            if mysql_cursor:
+                mysql_cursor.close()
+            if mysql_conn and mysql_conn.is_connected():
+                mysql_conn.close()
 
     return render_template('track.html', complaints=complaints, status=status)
 
@@ -2303,11 +2345,25 @@ def verify_payment_signature():
 @app.route('/update_status/<int:complaint_id>/<status>')
 @login_required
 def update_status(complaint_id, status):
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute("UPDATE complaints SET status = ? WHERE id = ?", (status, complaint_id))
-    conn.commit()
-    conn.close()
+    mysql_conn = None
+    mysql_cursor = None
+    try:
+        mysql_conn = get_mysql_connection()
+        mysql_cursor = mysql_conn.cursor()
+        mysql_cursor.execute(
+            "UPDATE complaints SET status = %s, updated_at = NOW() WHERE id = %s",
+            (status, complaint_id)
+        )
+        mysql_conn.commit()
+    except Exception:
+        if mysql_conn:
+            mysql_conn.rollback()
+        app.logger.exception("Failed to update complaint status id=%s", complaint_id)
+    finally:
+        if mysql_cursor:
+            mysql_cursor.close()
+        if mysql_conn and mysql_conn.is_connected():
+            mysql_conn.close()
     return redirect(url_for('dashboard'))
 
 
@@ -2330,29 +2386,40 @@ def update_complaints_bulk():
         flash('No complaints selected.', 'warning')
         return redirect(url_for('dashboard'))
 
-    placeholders = ','.join('?' for _ in valid_ids)
-    conn = get_db_connection()
-    c = conn.cursor()
+    placeholders = ','.join(['%s'] * len(valid_ids))
+    mysql_conn = None
+    mysql_cursor = None
+    try:
+        mysql_conn = get_mysql_connection()
+        mysql_cursor = mysql_conn.cursor()
 
-    if action == 'resolve':
-        c.execute(
-            f"UPDATE complaints SET status = 'Resolved' WHERE id IN ({placeholders})",
-            valid_ids
-        )
-        flash(f"Marked {c.rowcount} complaint(s) as resolved.", 'success')
-    elif action == 'delete':
-        c.execute(
-            f"DELETE FROM complaints WHERE id IN ({placeholders})",
-            valid_ids
-        )
-        flash(f"Deleted {c.rowcount} complaint(s).", 'success')
-    else:
-        conn.close()
-        flash('Invalid bulk action.', 'error')
-        return redirect(url_for('dashboard'))
+        if action == 'resolve':
+            mysql_cursor.execute(
+                f"UPDATE complaints SET status = 'Resolved', updated_at = NOW() WHERE id IN ({placeholders})",
+                valid_ids
+            )
+            mysql_conn.commit()
+            flash(f"Marked {mysql_cursor.rowcount} complaint(s) as resolved.", 'success')
+        elif action == 'delete':
+            mysql_cursor.execute(
+                f"DELETE FROM complaints WHERE id IN ({placeholders})",
+                valid_ids
+            )
+            mysql_conn.commit()
+            flash(f"Deleted {mysql_cursor.rowcount} complaint(s).", 'success')
+        else:
+            flash('Invalid bulk action.', 'error')
+    except Exception:
+        if mysql_conn:
+            mysql_conn.rollback()
+        app.logger.exception("Bulk complaint action failed")
+        flash('Error processing bulk action.', 'error')
+    finally:
+        if mysql_cursor:
+            mysql_cursor.close()
+        if mysql_conn and mysql_conn.is_connected():
+            mysql_conn.close()
 
-    conn.commit()
-    conn.close()
     return redirect(url_for('dashboard'))
 
 
@@ -2476,116 +2543,153 @@ def flow_endpoint():
         return jsonify({"error": error}), 400
 
     category = predict_category(payload["complaint"])
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute(
-        "INSERT INTO complaints (name, mobile, complaint, category) VALUES (?, ?, ?, ?)",
-        (payload["name"], payload["mobile"], payload["complaint"], category)
-    )
-    conn.commit()
-    conn.close()
+
+    mysql_conn = None
+    mysql_cursor = None
+    try:
+        mysql_conn = get_mysql_connection()
+        mysql_cursor = mysql_conn.cursor()
+        mysql_cursor.execute(
+            """INSERT INTO complaints
+               (customer_name, customer_phone, complaint_subject, complaint_description, category, status, escalation_level, created_at, updated_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW())""",
+            (payload["name"], payload["mobile"], payload["complaint"][:100], payload["complaint"], category, 'open', 'low')
+        )
+        mysql_conn.commit()
+    except Exception:
+        if mysql_conn:
+            mysql_conn.rollback()
+        app.logger.exception("Failed to insert complaint via flow-endpoint")
+        return jsonify({"error": "Database error"}), 500
+    finally:
+        if mysql_cursor:
+            mysql_cursor.close()
+        if mysql_conn and mysql_conn.is_connected():
+            mysql_conn.close()
+
     return jsonify({"status": "received"}), 200
 
 
 @app.route('/complaints', endpoint='complaints_page')
 @login_required
 def view_complaints():
-    conn = get_db_connection()
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    c.execute("""
-        SELECT id, name, mobile, complaint, status, created_at, source 
-        FROM complaints 
-        ORDER BY created_at DESC LIMIT 100
-    """)
-    complaints = c.fetchall()
-
-    c.execute("""
-        SELECT
-            mobile,
-            SUM(CASE WHEN date(created_at) >= date('now', '-30 day') THEN 1 ELSE 0 END) AS count_30d,
-            SUM(CASE WHEN date(created_at) >= date('now', '-30 day') AND status != 'Resolved' THEN 1 ELSE 0 END) AS unresolved_30d,
-            SUM(CASE WHEN date(created_at) >= date('now', '-7 day') THEN 1 ELSE 0 END) AS count_7d,
-            SUM(
-                CASE
-                    WHEN date(created_at) >= date('now', '-14 day')
-                         AND date(created_at) < date('now', '-7 day')
-                    THEN 1
-                    ELSE 0
-                END
-            ) AS count_prev_7d,
-            MAX(created_at) AS last_seen
-        FROM complaints
-        GROUP BY mobile
-    """)
-    stats_rows = c.fetchall()
-
-    customer_stats = {}
-    for row in stats_rows:
-        score = (row["count_30d"] or 0) * 2 + (row["unresolved_30d"] or 0) * 3 + (row["count_7d"] or 0) * 2
-        if score >= 12:
-            risk_level = "Highly Disturbed"
-        elif score >= 7:
-            risk_level = "At Risk"
-        else:
-            risk_level = "Normal"
-
-        if (row["count_7d"] or 0) > (row["count_prev_7d"] or 0):
-            trend = "Rising"
-        elif (row["count_7d"] or 0) < (row["count_prev_7d"] or 0):
-            trend = "Falling"
-        else:
-            trend = "Stable"
-
-        customer_stats[row["mobile"]] = {
-            "count_30d": row["count_30d"] or 0,
-            "unresolved_30d": row["unresolved_30d"] or 0,
-            "count_7d": row["count_7d"] or 0,
-            "count_prev_7d": row["count_prev_7d"] or 0,
-            "last_seen": row["last_seen"],
-            "score": score,
-            "risk_level": risk_level,
-            "trend": trend,
-        }
-
+    mysql_conn = None
+    mysql_cursor = None
     complaints_enriched = []
-    for complaint in complaints:
-        mobile = complaint["mobile"]
-        stats = customer_stats.get(mobile, {})
-        complaints_enriched.append({
-            "id": complaint["id"],
-            "name": complaint["name"],
-            "mobile": mobile,
-            "complaint": complaint["complaint"],
-            "status": complaint["status"],
-            "created_at": complaint["created_at"],
-            "source": complaint["source"],
-            "risk_level": stats.get("risk_level", "Normal"),
-            "trend": stats.get("trend", "Stable"),
-            "score": stats.get("score", 0),
-        })
+    high_risk_customers = []
+    high_risk_total = 0
+    at_risk_total = 0
 
-    high_risk_customers = [
-        {
-            "mobile": mobile,
-            "risk_level": stats["risk_level"],
-            "trend": stats["trend"],
-            "score": stats["score"],
-            "count_30d": stats["count_30d"],
-            "unresolved_30d": stats["unresolved_30d"],
-            "last_seen": stats["last_seen"],
-        }
-        for mobile, stats in customer_stats.items()
-        if stats["risk_level"] in {"Highly Disturbed", "At Risk"}
-    ]
-    high_risk_customers.sort(key=lambda item: item["score"], reverse=True)
-    conn.close()
+    try:
+        mysql_conn = get_mysql_connection()
+        mysql_cursor = mysql_conn.cursor(dictionary=True)
+
+        mysql_cursor.execute("""
+            SELECT id, complaint_id, customer_name, customer_phone,
+                   complaint_subject, complaint_description, category,
+                   escalation_level, status, created_at
+            FROM complaints
+            ORDER BY created_at DESC
+            LIMIT 100
+        """)
+        complaints = mysql_cursor.fetchall()
+
+        # Customer risk analysis
+        mysql_cursor.execute("""
+            SELECT
+                customer_phone,
+                SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS count_30d,
+                SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) AND status NOT IN ('Resolved', 'resolved') THEN 1 ELSE 0 END) AS unresolved_30d,
+                SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS count_7d,
+                SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 14 DAY) AND created_at < DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS count_prev_7d,
+                MAX(created_at) AS last_seen
+            FROM complaints
+            GROUP BY customer_phone
+        """)
+        stats_rows = mysql_cursor.fetchall()
+
+        customer_stats = {}
+        for row in stats_rows:
+            count_30d = int(row["count_30d"] or 0)
+            unresolved_30d = int(row["unresolved_30d"] or 0)
+            count_7d = int(row["count_7d"] or 0)
+            count_prev_7d = int(row["count_prev_7d"] or 0)
+
+            score = count_30d * 2 + unresolved_30d * 3 + count_7d * 2
+            if score >= 12:
+                risk_level = "Highly Disturbed"
+            elif score >= 7:
+                risk_level = "At Risk"
+            else:
+                risk_level = "Normal"
+
+            if count_7d > count_prev_7d:
+                trend = "Rising"
+            elif count_7d < count_prev_7d:
+                trend = "Falling"
+            else:
+                trend = "Stable"
+
+            customer_stats[row["customer_phone"]] = {
+                "count_30d": count_30d,
+                "unresolved_30d": unresolved_30d,
+                "count_7d": count_7d,
+                "count_prev_7d": count_prev_7d,
+                "last_seen": row["last_seen"],
+                "score": score,
+                "risk_level": risk_level,
+                "trend": trend,
+            }
+
+        for comp in complaints:
+            mobile = comp.get("customer_phone") or ""
+            stats = customer_stats.get(mobile, {})
+            complaints_enriched.append({
+                "id": comp["id"],
+                "complaint_id": comp.get("complaint_id") or "",
+                "name": comp.get("customer_name") or "",
+                "mobile": mobile,
+                "complaint": comp.get("complaint_description") or comp.get("complaint_subject") or "",
+                "status": comp.get("status") or "open",
+                "created_at": comp.get("created_at") or "",
+                "source": "WhatsApp" if (comp.get("complaint_id") or "").startswith("CMP-") else "Web",
+                "risk_level": stats.get("risk_level", "Normal"),
+                "trend": stats.get("trend", "Stable"),
+                "score": stats.get("score", 0),
+            })
+
+        high_risk_customers = [
+            {
+                "mobile": mobile,
+                "risk_level": stats["risk_level"],
+                "trend": stats["trend"],
+                "score": stats["score"],
+                "count_30d": stats["count_30d"],
+                "unresolved_30d": stats["unresolved_30d"],
+                "last_seen": stats["last_seen"],
+            }
+            for mobile, stats in customer_stats.items()
+            if stats["risk_level"] in {"Highly Disturbed", "At Risk"}
+        ]
+        high_risk_customers.sort(key=lambda item: item["score"], reverse=True)
+
+        high_risk_total = sum(1 for s in customer_stats.values() if s["risk_level"] == "Highly Disturbed")
+        at_risk_total = sum(1 for s in customer_stats.values() if s["risk_level"] == "At Risk")
+
+    except Exception:
+        app.logger.exception("Failed to fetch complaints from MySQL")
+    finally:
+        if mysql_cursor:
+            mysql_cursor.close()
+        if mysql_conn and mysql_conn.is_connected():
+            mysql_conn.close()
+
     return render_template(
         'complaints.html',
         complaints=complaints_enriched,
         high_risk_customers=high_risk_customers[:5],
-        high_risk_total=sum(1 for stats in customer_stats.values() if stats["risk_level"] == "Highly Disturbed"),
-        at_risk_total=sum(1 for stats in customer_stats.values() if stats["risk_level"] == "At Risk"),
+        high_risk_total=high_risk_total,
+        at_risk_total=at_risk_total,
     )
 
 
@@ -3939,12 +4043,24 @@ def staff_attendance_webhook():
 @app.route('/delete_complaint/<int:complaint_id>', methods=['DELETE'])
 @login_required
 def delete_complaint(complaint_id):
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute("DELETE FROM complaints WHERE id=?", (complaint_id,))
-    conn.commit()
-    conn.close()
-    return jsonify({"status": "success"})
+    mysql_conn = None
+    mysql_cursor = None
+    try:
+        mysql_conn = get_mysql_connection()
+        mysql_cursor = mysql_conn.cursor()
+        mysql_cursor.execute("DELETE FROM complaints WHERE id = %s", (complaint_id,))
+        mysql_conn.commit()
+        return jsonify({"status": "success"})
+    except Exception:
+        if mysql_conn:
+            mysql_conn.rollback()
+        app.logger.exception("Failed to delete complaint id=%s", complaint_id)
+        return jsonify({"status": "error"}), 500
+    finally:
+        if mysql_cursor:
+            mysql_cursor.close()
+        if mysql_conn and mysql_conn.is_connected():
+            mysql_conn.close()
 
 
 

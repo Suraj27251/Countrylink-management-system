@@ -150,19 +150,21 @@
                     <colgroup>
                         <col style="width:40px;">
                         <col style="width:50px;">
+                        <col style="width:100px;">
                         <col style="width:120px;">
                         <col style="width:130px;">
-                        <col style="width:260px;">
-                        <col style="width:120px;">
+                        <col style="width:240px;">
                         <col style="width:110px;">
-                        <col style="width:80px;">
                         <col style="width:100px;">
+                        <col style="width:80px;">
+                        <col style="width:90px;">
                         <col style="width:110px;">
                     </colgroup>
                     <thead>
                         <tr>
                             <th><input type="checkbox" id="selectAll"></th>
                             <th>ID</th>
+                            <th>Complaint ID</th>
                             <th>Name</th>
                             <th>Mobile</th>
                             <th>Complaint</th>
@@ -176,10 +178,10 @@
                     <tbody>
                         {% for comp in recent_complaints %}
                         {% set src = comp['source'] %}
-                        {% if src != 'Webhook' %}
                         <tr data-category="{{ comp['category'] }}">
                             <td><input type="checkbox" name="selected_ids[]" value="{{ comp['id'] }}"></td>
                             <td>{{ comp['id'] }}</td>
+                            <td><span class="badge" style="font-size:0.7rem;">{{ comp['complaint_id'] or '-' }}</span></td>
                             <td>{{ comp['name'] }}</td>
                             <td>{{ comp['mobile'] }}</td>
                             <td class="td-complaint" title="{{ comp['complaint'] }}">{{ comp['complaint'] }}</td>
@@ -189,9 +191,15 @@
                             <td>{{ comp['status'] }}</td>
                             <td>{{ comp['priority'] }}</td>
                             <td>
+                                {% if src == 'WhatsApp' %}
+                                <span class="badge source-badge">
+                                    <i class="fab fa-whatsapp"></i> <span>WhatsApp</span>
+                                </span>
+                                {% else %}
                                 <span class="badge source-badge web">
                                     <i class="fas fa-globe"></i> <span>{{ src or 'Web' }}</span>
                                 </span>
+                                {% endif %}
                             </td>
                             <td>
                                 {% if comp['status'] != 'Resolved' %}
@@ -204,7 +212,6 @@
                                 {% endif %}
                             </td>
                         </tr>
-                        {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>

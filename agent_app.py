@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import re
+import uuid
 import pymysql
 import pymysql.cursors
 import fcntl
@@ -267,29 +268,47 @@ def is_new_connection_request(message: str) -> bool:
 # ── API Calls to Repo 1 ──────────────────────────────────────────────────────
 def raise_complaint_via_api(name: str, mobile: str, complaint: str) -> Optional[str]:
     """
-    POST complaint to Repo 1's /flow-endpoint.
-    Returns confirmation message or error message.
+    Insert complaint directly into MySQL complaints table.
+    Returns None on success, error message on failure.
     """
-    url = f"{REPO1_BASE_URL}/flow-endpoint"
-    headers = {
-        "Content-Type": "application/json",
-        "X-Internal-Token": AGENT_INTERNAL_TOKEN
-    }
-    payload = {
-        "name": name,
-        "mobile": mobile,
-        "complaint": complaint
-    }
-
     try:
-        resp = requests.post(url, json=payload, headers=headers, timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        logging.info(f"Complaint raised for {mobile}: {data}")
-        return None  # Success, no error
-    except requests.RequestException as e:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            # Generate a unique complaint ID
+            complaint_id = f"CMP-{uuid.uuid4().hex[:8].upper()}"
+
+            cursor.execute(
+                """
+                INSERT INTO complaints (
+                    complaint_id,
+                    customer_name,
+                    customer_phone,
+                    complaint_subject,
+                    complaint_description,
+                    category,
+                    status,
+                    escalation_level,
+                    created_at,
+                    updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                """,
+                (
+                    complaint_id,
+                    name,
+                    mobile,
+                    complaint[:100],  # Use first 100 chars as subject
+                    complaint,
+                    "General",  # Default category
+                    "open",
+                    "low",
+                )
+            )
+        conn.close()
+        logging.info(f"Complaint {complaint_id} raised for {mobile}")
+        return complaint_id  # Return the complaint ID on success
+    except Exception as e:
         logging.error(f"Failed to raise complaint for {mobile}: {e}")
-        return str(e)
+        return None
 
 
 def raise_new_connection_via_api(name: str, mobile: str, area: str) -> Optional[str]:
@@ -372,7 +391,7 @@ def _handle_complaint_collection(
         set_pending_action(user_id, "complaint", collected)
 
         # All fields collected — submit
-        error = raise_complaint_via_api(
+        complaint_id = raise_complaint_via_api(
             collected["name"],
             collected["mobile"],
             collected["complaint"]
@@ -380,7 +399,7 @@ def _handle_complaint_collection(
 
         clear_pending_action(user_id)
 
-        if error:
+        if not complaint_id:
             return (
                 "Sorry, I couldn't register your complaint right now. "
                 "Please try again or call 9765009850 / 9765005851 for help."
@@ -388,6 +407,7 @@ def _handle_complaint_collection(
 
         return (
             f"✅ Your complaint has been registered successfully!\n\n"
+            f"Complaint ID: {complaint_id}\n"
             f"Name: {collected['name']}\n"
             f"Mobile: {collected['mobile']}\n"
             f"Issue: {collected['complaint']}\n\n"
