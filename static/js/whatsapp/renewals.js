@@ -204,11 +204,23 @@ async function renSendOne(recordId) {
   if (!record || !record.mobile) return;
 
   const template = REN_TEMPLATES[record.category] || 'recharge_reminder';
-  const params = [
-    record.customer_name || 'Customer',
-    record.account_id || '',
-    record.expiry_date || '',
-  ];
+
+  // Build correct params per template
+  // recharge_today1: {{1}}=name, {{2}}=plan_name (2 params)
+  // pack_expiry_alert & recharge_reminder: {{1}}=name, {{2}}=account_id, {{3}}=expiry_date (3 params)
+  let params;
+  if (template === 'recharge_today1') {
+    params = [
+      record.customer_name || 'Customer',
+      record.plan_name || '',
+    ];
+  } else {
+    params = [
+      record.customer_name || 'Customer',
+      record.account_id || '',
+      record.expiry_date || '',
+    ];
+  }
 
   if (!confirm(`Send "${template}" to ${record.customer_name} (${record.mobile})?`)) return;
 
