@@ -40,6 +40,10 @@
         <i class="fas fa-bolt"></i>
         <span class="rail-tooltip">Automation</span>
       </button>
+      <button class="rail-btn workspace-link" data-workspace="renewals" type="button">
+        <i class="fas fa-rotate"></i>
+        <span class="rail-tooltip">Renewals</span>
+      </button>
       <a href="{{ url_for('complaints_page') }}" class="rail-btn" title="">
         <i class="fas fa-ticket"></i>
         <span class="rail-tooltip">Complaints</span>
@@ -87,6 +91,7 @@
       <button class="ws-btn" data-workspace="templates" type="button">Templates</button>
       <button class="ws-btn" data-workspace="campaigns" type="button">Campaigns</button>
       <button class="ws-btn" data-workspace="automation" type="button">Flows</button>
+      <button class="ws-btn" data-workspace="renewals" type="button">Renewals</button>
     </div>
     <!-- Header -->
     <div class="sb-header">
@@ -214,6 +219,79 @@
     </section>
     <section class="workspace-panel" id="automationPanel">
       <div class="workspace-wrap"><h3><i class="fas fa-bolt"></i> Automation & Agent Tools</h3><div class="ws-grid"><div class="ws-card"><h5>Template Trigger Rules</h5><p>Auto-send approved template on ticket created/payment reminder.</p></div><div class="ws-card"><h5>Flow Launcher</h5><p>Map WhatsApp flows to support intents from inbox tags.</p></div><div class="ws-card"><h5>Escalation Bot</h5><p>Escalate unread chats after 5/15/30 minutes to a human queue.</p></div><div class="ws-card"><h5>SLA Watcher</h5><p>Live queue of conversations breaching first response SLA.</p></div></div></div>
+    </section>
+    <section class="workspace-panel" id="renewalsPanel">
+      <div style="padding:16px;display:flex;flex-direction:column;gap:12px;height:100%;overflow:hidden;">
+        <!-- Stats Row -->
+        <div style="display:flex;gap:12px;flex-shrink:0;flex-wrap:wrap;">
+          <div class="renewal-stat-card" style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;">
+            <div style="font-size:22px;font-weight:700;color:var(--text-1);" id="ren-stat-total">0</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;">Total</div>
+          </div>
+          <div class="renewal-stat-card" style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-left:3px solid #dc3545;border-radius:var(--radius-lg);padding:12px 16px;text-align:center;">
+            <div style="font-size:22px;font-weight:700;color:#dc3545;" id="ren-stat-expired">0</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;">Expired</div>
+          </div>
+          <div class="renewal-stat-card" style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-left:3px solid #fd7e14;border-radius:var(--radius-lg);padding:12px 16px;text-align:center;">
+            <div style="font-size:22px;font-weight:700;color:#fd7e14;" id="ren-stat-today">0</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;">Today</div>
+          </div>
+          <div class="renewal-stat-card" style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-left:3px solid #198754;border-radius:var(--radius-lg);padding:12px 16px;text-align:center;">
+            <div style="font-size:22px;font-weight:700;color:#198754;" id="ren-stat-upcoming">0</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;">Upcoming</div>
+          </div>
+          <div class="renewal-stat-card" style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-left:3px solid #0dcaf0;border-radius:var(--radius-lg);padding:12px 16px;text-align:center;">
+            <div style="font-size:22px;font-weight:700;color:#0dcaf0;" id="ren-stat-sent">0</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;">Sent Today</div>
+          </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap;">
+          <div class="btn-group btn-group-sm" id="ren-category-btns">
+            <button class="btn btn-outline-secondary active" data-cat="all">All</button>
+            <button class="btn btn-outline-danger" data-cat="expired">Expired</button>
+            <button class="btn btn-outline-warning" data-cat="today">Today</button>
+            <button class="btn btn-outline-success" data-cat="upcoming">Upcoming</button>
+          </div>
+          <div style="position:relative;flex:1;max-width:220px;">
+            <i class="fas fa-magnifying-glass" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-3);font-size:12px;pointer-events:none;"></i>
+            <input id="ren-search" class="form-control form-control-sm" placeholder="Search name/mobile..." style="padding-left:30px;font-size:12px;">
+          </div>
+          <div style="margin-left:auto;display:flex;gap:6px;">
+            <button class="btn btn-sm btn-outline-secondary" id="ren-sync-btn" title="Sync from IMS"><i class="fas fa-rotate"></i> Sync</button>
+            <button class="btn btn-sm btn-success" id="ren-bulk-btn" disabled><i class="fab fa-whatsapp"></i> Send (<span id="ren-sel-count">0</span>)</button>
+            <a href="/ims" target="_blank" class="btn btn-sm btn-outline-primary" title="Open full dashboard"><i class="fas fa-arrow-up-right-from-square"></i></a>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div style="flex:1;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;" id="ren-table">
+            <thead>
+              <tr>
+                <th style="padding:8px 10px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);width:30px;"><input type="checkbox" id="ren-select-all"></th>
+                <th style="padding:8px 10px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);white-space:nowrap;">Customer</th>
+                <th style="padding:8px 10px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);white-space:nowrap;">Mobile</th>
+                <th style="padding:8px 10px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);white-space:nowrap;">Plan</th>
+                <th style="padding:8px 10px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);white-space:nowrap;">Expiry</th>
+                <th style="padding:8px 10px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);white-space:nowrap;">Days</th>
+                <th style="padding:8px 10px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);white-space:nowrap;">Status</th>
+                <th style="padding:8px 10px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);white-space:nowrap;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="ren-tbody">
+              <tr><td colspan="8" style="padding:40px;text-align:center;color:var(--text-3);">Loading renewals...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+          <small style="color:var(--text-3);" id="ren-page-info">Showing 0 of 0</small>
+          <div class="btn-group btn-group-sm" id="ren-pagination"></div>
+        </div>
+      </div>
     </section>
     <section class="workspace-panel active" id="inboxPanel">
 
@@ -642,6 +720,7 @@
 <script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}?v=16"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/render.js') }}?v=16"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/events.js') }}?v=16"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/renewals.js') }}?v=1"></script>
 <script>
 (() => {
 'use strict';
