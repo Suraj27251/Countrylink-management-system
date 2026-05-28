@@ -1075,12 +1075,13 @@ window.__eventsEngineInitDone = true;
      ═══════════════════════════════════════════════════════════ */
 
   const setWorkspace = async (name = 'inbox') => {
-    ['inbox', 'templates', 'campaigns', 'automation'].forEach(key => {
+    ['inbox', 'templates', 'campaigns', 'automation', 'renewals'].forEach(key => {
       const panel = document.getElementById(`${key}Panel`);
       if (panel) panel.classList.toggle('active', key === name);
     });
     $all('.workspace-link, .ws-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.workspace === name));
     if (name === 'templates') { await loadTemplates(); refreshTemplateCategories(); renderApprovedTemplateRows(); }
+    if (name === 'renewals') { if (typeof initRenewalsPanel === 'function') initRenewalsPanel(); }
     console.debug('[EVENT] Workspace switched to:', name);
   };
 
