@@ -1080,6 +1080,24 @@ window.__eventsEngineInitDone = true;
       if (panel) panel.classList.toggle('active', key === name);
     });
     $all('.workspace-link, .ws-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.workspace === name));
+
+    // Mobile bottom nav sync
+    $all('.mob-nav-item[data-workspace]').forEach(btn => btn.classList.toggle('active', btn.dataset.workspace === name));
+
+    // On mobile, show/hide sidebar vs main panels
+    const sidebar = document.getElementById('waSidebar');
+    if (window.innerWidth <= 680) {
+      if (name === 'inbox') {
+        // Show sidebar (inbox list), remove workspace-active but keep mob-in-chat if in a chat
+        sidebar?.classList.remove('mob-chat-active');
+        sidebar?.classList.remove('mob-in-chat');
+      } else {
+        // Hide sidebar to show workspace panel, but don't mark as "in chat"
+        sidebar?.classList.add('mob-chat-active');
+        sidebar?.classList.remove('mob-in-chat');
+      }
+    }
+
     if (name === 'templates') { await loadTemplates(); refreshTemplateCategories(); renderApprovedTemplateRows(); }
     if (name === 'renewals') { if (typeof initRenewalsPanel === 'function') initRenewalsPanel(); }
     console.debug('[EVENT] Workspace switched to:', name);
@@ -1087,6 +1105,84 @@ window.__eventsEngineInitDone = true;
 
   const initWorkspaceSwitching = () => {
     $all('.workspace-link, .ws-btn').forEach(btn => btn.addEventListener('click', () => setWorkspace(btn.dataset.workspace)));
+
+    // Mobile bottom nav
+    $all('.mob-nav-item[data-workspace]').forEach(btn => {
+      btn.addEventListener('click', () => setWorkspace(btn.dataset.workspace));
+    });
+
+    // Mobile "More" button — show a bottom sheet menu
+    document.getElementById('mobMoreBtn')?.addEventListener('click', () => {
+      // Remove existing sheet if any
+      document.getElementById('mobMoreSheet')?.remove();
+
+      const sheet = document.createElement('div');
+      sheet.id = 'mobMoreSheet';
+      sheet.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;justify-content:flex-end;';
+      sheet.innerHTML = `
+        <div style="flex:1;background:rgba(0,0,0,.4);backdrop-filter:blur(2px);" id="mobMoreOverlay"></div>
+        <div style="background:var(--surface);border-radius:20px 20px 0 0;padding:12px 16px calc(env(safe-area-inset-bottom,8px) + 16px);box-shadow:0 -4px 24px rgba(0,0,0,.12);animation:sheetUp .25s ease;">
+          <div style="width:36px;height:4px;border-radius:2px;background:var(--border-dk);margin:0 auto 16px;"></div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+            <a href="/dashboard" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px;border-radius:12px;text-decoration:none;color:var(--text-2);font-size:11px;font-weight:500;">
+              <div style="width:44px;height:44px;border-radius:12px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text-2);"><i class="fas fa-gauge-high"></i></div>
+              Dashboard
+            </a>
+            <a href="/new-connections" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px;border-radius:12px;text-decoration:none;color:var(--text-2);font-size:11px;font-weight:500;">
+              <div style="width:44px;height:44px;border-radius:12px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text-2);"><i class="fas fa-user-plus"></i></div>
+              Connections
+            </a>
+            <a href="/stock" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px;border-radius:12px;text-decoration:none;color:var(--text-2);font-size:11px;font-weight:500;">
+              <div style="width:44px;height:44px;border-radius:12px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text-2);"><i class="fas fa-boxes-stacked"></i></div>
+              Stock
+            </a>
+            <a href="/invoices" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px;border-radius:12px;text-decoration:none;color:var(--text-2);font-size:11px;font-weight:500;">
+              <div style="width:44px;height:44px;border-radius:12px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text-2);"><i class="fas fa-file-invoice"></i></div>
+              Invoices
+            </a>
+            <a href="/hr" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px;border-radius:12px;text-decoration:none;color:var(--text-2);font-size:11px;font-weight:500;">
+              <div style="width:44px;height:44px;border-radius:12px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text-2);"><i class="fas fa-users"></i></div>
+              HR
+            </a>
+            <button onclick="document.getElementById('mobMoreSheet').remove();window.eventsEngine.setWorkspace('campaigns');" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px;border-radius:12px;border:none;background:none;color:var(--text-2);font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;">
+              <div style="width:44px;height:44px;border-radius:12px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text-2);"><i class="fas fa-bullhorn"></i></div>
+              Campaigns
+            </button>
+            <button onclick="document.getElementById('mobMoreSheet').remove();window.eventsEngine.setWorkspace('automation');" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px;border-radius:12px;border:none;background:none;color:var(--text-2);font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;">
+              <div style="width:44px;height:44px;border-radius:12px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text-2);"><i class="fas fa-bolt"></i></div>
+              Automation
+            </button>
+            <button onclick="document.getElementById('themeToggle')?.click();document.getElementById('mobMoreSheet').remove();" style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px;border-radius:12px;border:none;background:none;color:var(--text-2);font-size:11px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;">
+              <div style="width:44px;height:44px;border-radius:12px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text-2);"><i class="fas fa-moon"></i></div>
+              Theme
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(sheet);
+      document.getElementById('mobMoreOverlay')?.addEventListener('click', () => sheet.remove());
+    });
+
+    // Mobile refresh button
+    document.getElementById('mobRefreshBtn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('mobRefreshBtn');
+      btn?.classList.add('spinning');
+      try {
+        if (window.pollingEngine) {
+          await window.pollingEngine.pollSidebar();
+          if (window.inboxState?.activeMobile) {
+            await window.pollingEngine.pollMessages();
+          }
+        } else {
+          // Fallback: reload the page
+          window.location.reload();
+        }
+      } catch (e) {
+        console.error('[Mobile] Refresh failed:', e);
+      } finally {
+        setTimeout(() => btn?.classList.remove('spinning'), 600);
+      }
+    });
 
     // New chat button
     dom.newChatBtn?.addEventListener('click', async () => {

@@ -6,7 +6,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/whatsapp.css') }}?v=17">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/whatsapp.css') }}?v=18">
 {% endblock %}
 
 {% block tabs %}{% endblock %}
@@ -101,6 +101,9 @@
           <span class="sb-title">Inbox</span>
         </span>
         <div class="sb-actions">
+          <button class="mob-refresh-btn" id="mobRefreshBtn" title="Refresh chats">
+            <i class="fas fa-arrows-rotate"></i>
+          </button>
           <button class="sb-icon-btn" id="notifBellBtn" title="Notifications">
             <i class="fas fa-bell"></i>
           </button>
@@ -167,6 +170,30 @@
       {% endfor %}
     </div>
   </aside>
+
+  <!-- ── MOBILE BOTTOM NAVIGATION ─────────────────────── -->
+  <nav class="mob-bottom-nav" id="mobBottomNav" aria-label="Mobile navigation">
+    <button class="mob-nav-item active" data-workspace="inbox" type="button">
+      <i class="fas fa-inbox"></i>
+      <span>Inbox</span>
+    </button>
+    <button class="mob-nav-item" data-workspace="templates" type="button">
+      <i class="fas fa-file-lines"></i>
+      <span>Templates</span>
+    </button>
+    <a class="mob-nav-item" href="{{ url_for('complaints_page') }}">
+      <i class="fas fa-ticket"></i>
+      <span>Complaints</span>
+    </a>
+    <button class="mob-nav-item" data-workspace="renewals" type="button">
+      <i class="fas fa-rotate"></i>
+      <span>Renewals</span>
+    </button>
+    <button class="mob-nav-item" id="mobMoreBtn" type="button">
+      <i class="fas fa-ellipsis"></i>
+      <span>More</span>
+    </button>
+  </nav>
 
 <!-- ── MAIN CHAT ──────────────────────────────────────── -->
   <main class="wa-main relative" id="waMain">
@@ -719,7 +746,7 @@
 <script src="{{ url_for('static', filename='js/whatsapp/utils.js') }}?v=16"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}?v=16"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/render.js') }}?v=16"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/events.js') }}?v=16"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/events.js') }}?v=17"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/renewals.js') }}?v=1"></script>
 <script>
 (() => {
@@ -1091,12 +1118,14 @@ setTimeout(() => { const el = document.getElementById('chatBody'); if (el) el.sc
   // On mobile, if there's an active chat, show chat (hide sidebar)
   if (isMobile && window.inboxState.activeMobile) {
     sidebar.classList.add('mob-chat-active');
+    sidebar.classList.add('mob-in-chat');
   }
 
   // Back button → show sidebar
   if (backBtn) {
     backBtn.addEventListener('click', () => {
       sidebar.classList.remove('mob-chat-active');
+      sidebar.classList.remove('mob-in-chat');
     });
   }
 
@@ -1106,7 +1135,10 @@ setTimeout(() => { const el = document.getElementById('chatBody'); if (el) el.sc
     convList.addEventListener('click', (e) => {
       if (e.target.closest('.conv-item[data-mobile]')) {
         // Small delay to let the chat switch handler run first
-        setTimeout(() => sidebar.classList.add('mob-chat-active'), 50);
+        setTimeout(() => {
+          sidebar.classList.add('mob-chat-active');
+          sidebar.classList.add('mob-in-chat');
+        }, 50);
       }
     });
   }

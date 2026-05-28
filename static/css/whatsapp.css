@@ -1536,6 +1536,16 @@ kbd {
   .hdr-btn { padding: 7px; }
 }
 
+/* ── Mobile Bottom Navigation Bar ────────────────────────── */
+.mob-bottom-nav {
+  display: none;
+}
+
+/* ── Mobile Refresh Button ───────────────────────────────── */
+.mob-refresh-btn {
+  display: none;
+}
+
 @media (max-width: 680px) {
   .wa-shell { flex-direction: column; position: relative; }
   .wa-rail { display: none; }
@@ -1549,6 +1559,7 @@ kbd {
     z-index: 20;
     transform: translateX(0);
     transition: transform .25s ease;
+    padding-bottom: 64px; /* Space for bottom nav */
   }
 
   /* When a chat is active, hide sidebar */
@@ -1665,9 +1676,217 @@ kbd {
   /* AI toggle in compose */
   .ai-toggle-wrap { display: none; }
 
-  /* Workspace panels */
+  /* Workspace panels — hide desktop switcher, use bottom nav instead */
   .workspace-switcher { display: none; }
-  #inboxPanel { height: 100vh; }
+  #inboxPanel { height: calc(100vh - 64px); }
+
+  /* ── Mobile Bottom Navigation ─────────────────────────── */
+  .mob-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 6px 4px calc(env(safe-area-inset-bottom, 4px) + 6px);
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 -2px 12px rgba(0,0,0,.06);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .mob-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 10px;
+    border-radius: 12px;
+    border: none;
+    background: transparent;
+    color: var(--text-3);
+    font-size: 10.5px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all .15s ease;
+    text-decoration: none;
+    min-width: 56px;
+    position: relative;
+  }
+
+  .mob-nav-item i {
+    font-size: 18px;
+    transition: transform .15s ease;
+  }
+
+  .mob-nav-item span {
+    letter-spacing: -.2px;
+  }
+
+  .mob-nav-item:active {
+    transform: scale(.92);
+  }
+
+  .mob-nav-item.active {
+    color: var(--green-dk);
+    background: var(--green-lt);
+  }
+
+  .mob-nav-item.active i {
+    transform: scale(1.1);
+  }
+
+  /* Badge on nav item */
+  .mob-nav-badge {
+    position: absolute;
+    top: 2px;
+    right: 8px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--red);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--surface);
+  }
+
+  /* Hide bottom nav when chat is open (actual conversation, not workspace switch) */
+  .wa-sidebar.mob-in-chat ~ .mob-bottom-nav {
+    display: none;
+  }
+
+  /* ── Mobile Refresh Button ─────────────────────────────── */
+  .mob-refresh-btn {
+    display: flex;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-2);
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all .2s ease;
+    flex-shrink: 0;
+  }
+
+  .mob-refresh-btn:active {
+    background: var(--green-lt);
+    border-color: var(--green);
+    color: var(--green-dk);
+    transform: scale(.9);
+  }
+
+  .mob-refresh-btn.spinning i {
+    animation: refreshSpin .8s ease;
+  }
+
+  @keyframes refreshSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* ── Mobile Sidebar Header Enhancement ─────────────────── */
+  .sb-header {
+    padding: 12px 14px 10px;
+    background: var(--surface);
+  }
+
+  .sb-header-row {
+    margin-bottom: 10px;
+  }
+
+  .sb-title {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -.5px;
+  }
+
+  .sb-search input {
+    padding: 10px 12px 10px 36px;
+    font-size: 14px;
+    border-radius: 12px;
+    background: var(--surface-3);
+  }
+
+  /* ── Mobile Conversation List Enhancement ──────────────── */
+  .conv-item {
+    padding: 12px 14px;
+    gap: 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  }
+
+  .conv-avatar {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    font-size: 16px;
+  }
+
+  .conv-name {
+    font-size: 14.5px;
+    font-weight: 600;
+    max-width: 180px;
+  }
+
+  .conv-time {
+    font-size: 11.5px;
+  }
+
+  .conv-preview {
+    font-size: 13px;
+    margin-top: 2px;
+    color: var(--text-3);
+  }
+
+  .conv-unread {
+    width: 20px;
+    height: 20px;
+    font-size: 10.5px;
+  }
+
+  /* Active conversation highlight */
+  .conv-item.active {
+    background: var(--green-lt);
+    border-left: 3px solid var(--green);
+    padding-left: 11px;
+  }
+
+  /* ── Mobile Filter Bar Enhancement ─────────────────────── */
+  .sb-filter-bar {
+    padding: 8px 14px;
+  }
+
+  .sb-filter-main {
+    padding: 8px 14px;
+    font-size: 13px;
+    border-radius: 12px;
+  }
+
+  /* ── Mobile Workspace Panels ───────────────────────────── */
+  .workspace-panel {
+    padding-bottom: 64px; /* Space for bottom nav */
+  }
+
+  #renewalsPanel.active,
+  #templatesPanel.active,
+  #campaignsPanel.active,
+  #automationPanel.active {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 64px);
+    overflow: auto;
+  }
 }
 
 /* Desktop: hide back button */
@@ -1726,6 +1945,12 @@ kbd {
 /* ── Utility ─────────────────────────────────────────────── */
 .hidden { display: none !important; }
 .relative { position: relative; }
+
+/* ── Bottom Sheet Animation ──────────────────────────────── */
+@keyframes sheetUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
 
  /* ── AI Toggle Switch ────────────────────────────────────── */
 .ai-toggle-wrap {
