@@ -4636,6 +4636,475 @@ def toggle_whatsapp_ai():
             'error': str(e)
         }), 500
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# IMS RENEWALS API — WhatsApp Template Sending for Renewal Campaigns
+# ═══════════════════════════════════════════════════════════════════════════════
+
+DUPLICATE_INTERVAL_HOURS = int(os.environ.get('DUPLICATE_INTERVAL_HOURS', '24'))
+
+REN_TEMPLATE_MAP = {
+    'expired': 'pack_expiry_alert',
+    'today': 'recharge_today1',
+    'upcoming': 'recharge_reminder',
+}
+
+
+@app.route('/ims/api/renewals/', methods=['GET'])
+@app.route('/ims/api/renewals', methods=['GET'])
+@login_required
+def ims_renewals_list():
+    """List renewal records with pagination, category filter, and search."""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 30, type=int)
+    category = request.args.get('category', '').strip()
+    search = request.args.get('search', '').strip()
+
+    conn = None
+    cursor = None
+    try:
+        conn = get_mysql_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        where_clauses = []
+        params = []
+
+        if category and category != 'all':
+            where_clauses.append("category = %s")
+            params.append(category)
+
+        if search:
+            where_clauses.append("(customer_name LIKE %s OR mobile LIKE %s OR account_id LIKE %s)")
+            like_val = f"%{search}%"
+            params.extend([like_val, like_val, like_val])
+
+        where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+
+        # Count total
+        cursor.execute(f"SELECT COUNT(*) as cnt FROM renewal_records {where_sql}", params)
+        total = cursor.fetchone()['cnt']
+
+        # Fetch page
+        offset = (page - 1) * per_page
+        cursor.execute(
+            f"""SELECT id, customer_name, mobile, account_id, plan_name,
+                       expiry_date, days_remaining, category, zone_name, amount
+                FROM renewal_records {where_sql}
+                ORDER BY days_remaining ASC, expiry_date ASC
+                LIMIT %s OFFSET %s""",
+            params + [per_page, offset]
+        )
+        records = cursor.fetchall()
+
+        # Convert date objects to strings
+        for r in records:
+            if r.get('expiry_date') and hasattr(r['expiry_date'], 'strftime'):
+                r['expiry_date'] = r['expiry_date'].strftime('%Y-%m-%d')
+
+        total_pages = max(1, (total + per_page - 1) // per_page)
+
+        return jsonify({
+            "success": True,
+            "data": records,
+            "pagination": {
+                "page": page,
+                "per_page": per_page,
+                "total": total,
+                "total_pages": total_pages,
+            }
+        })
+    except Exception as exc:
+        app.logger.exception("IMS renewals list failed")
+        return jsonify({"success": False, "error": str(exc)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
+
+
+@app.route('/ims/api/renewals/stats', methods=['GET'])
+@login_required
+def ims_renewals_stats():
+    """Return renewal stats: total, expired, today, upcoming, sent_today."""
+    conn = None
+    cursor = None
+    try:
+        conn = get_mysql_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute("SELECT COUNT(*) as total FROM renewal_records")
+        total = cursor.fetchone()['total']
+
+        cursor.execute("SELECT COUNT(*) as cnt FROM renewal_records WHERE category = 'expired'")
+        expired = cursor.fetchone()['cnt']
+
+        cursor.execute("SELECT COUNT(*) as cnt FROM renewal_records WHERE category = 'today'")
+        today = cursor.fetchone()['cnt']
+
+        cursor.execute("SELECT COUNT(*) as cnt FROM renewal_records WHERE category = 'upcoming'")
+        upcoming = cursor.fetchone()['cnt']
+
+        cursor.execute(
+            "SELECT COUNT(*) as cnt FROM whatsapp_campaign_logs WHERE status = 'sent' AND DATE(sent_at) = CURDATE()"
+        )
+        sent_today = cursor.fetchone()['cnt']
+
+        return jsonify({
+            "success": True,
+            "stats": {
+                "total": total,
+                "expired": expired,
+                "today": today,
+                "upcoming": upcoming,
+                "sent_today": sent_today,
+            }
+        })
+    except Exception as exc:
+        app.logger.exception("IMS renewals stats failed")
+        return jsonify({"success": False, "error": str(exc)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
+
+
+@app.route('/ims/api/renewals/send', methods=['POST'])
+@login_required
+def ims_renewals_send():
+    """Send a WhatsApp template to a single renewal record."""
+    if not whatsapp_config_ready():
+        return jsonify({"success": False, "error": "WhatsApp configuration missing."}), 400
+
+    payload = request.get_json(silent=True) or {}
+    renewal_id = payload.get('renewal_id')
+    template_name = (payload.get('template_name') or '').strip()
+    params = payload.get('params') or []
+    operator_name = (payload.get('operator_name') or 'whatsapp_inbox').strip()
+    override_duplicate = payload.get('override_duplicate', False)
+
+    if not renewal_id:
+        return jsonify({"success": False, "error": "renewal_id is required."}), 400
+
+    conn = None
+    cursor = None
+    try:
+        conn = get_mysql_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # Fetch the renewal record
+        cursor.execute("SELECT * FROM renewal_records WHERE id = %s", (renewal_id,))
+        record = cursor.fetchone()
+        if not record:
+            return jsonify({"success": False, "error": "Renewal record not found."}), 404
+
+        mobile = (record.get('mobile') or '').strip()
+        if not mobile:
+            return jsonify({"success": False, "error": "No mobile number for this record."}), 400
+
+        # Normalize mobile — strip to 10 digits
+        mobile_digits = ''.join(ch for ch in mobile if ch.isdigit())
+        if len(mobile_digits) == 12 and mobile_digits.startswith('91'):
+            mobile_digits = mobile_digits[2:]
+        if len(mobile_digits) != 10:
+            return jsonify({"success": False, "error": f"Invalid mobile number: {mobile}"}), 400
+
+        # Auto-select template if not provided
+        if not template_name:
+            category = (record.get('category') or 'upcoming').strip().lower()
+            template_name = REN_TEMPLATE_MAP.get(category, 'recharge_reminder')
+
+        # Auto-fill params if empty
+        if not params:
+            expiry_date = record.get('expiry_date')
+            if expiry_date and hasattr(expiry_date, 'strftime'):
+                expiry_date = expiry_date.strftime('%Y-%m-%d')
+            params = [
+                record.get('customer_name') or 'Customer',
+                record.get('account_id') or '',
+                expiry_date or '',
+            ]
+
+        # Duplicate check
+        if not override_duplicate:
+            cursor.execute(
+                """SELECT COUNT(*) as cnt FROM whatsapp_campaign_logs
+                   WHERE mobile = %s AND template_name = %s AND renewal_id = %s
+                   AND status = 'sent'
+                   AND sent_at > DATE_SUB(NOW(), INTERVAL %s HOUR)""",
+                (mobile_digits, template_name, renewal_id, DUPLICATE_INTERVAL_HOURS)
+            )
+            dup_count = cursor.fetchone()['cnt']
+            if dup_count > 0:
+                return jsonify({
+                    "success": False,
+                    "error": f"Duplicate: Template '{template_name}' already sent to {mobile_digits} within the last {DUPLICATE_INTERVAL_HOURS} hours."
+                }), 409
+
+        # Build components for Meta API
+        components = []
+        if params:
+            components = [{
+                "type": "body",
+                "parameters": [{"type": "text", "text": str(p)} for p in params]
+            }]
+
+        # Send via Meta WhatsApp Cloud API
+        to_number = f"91{mobile_digits}"
+        message_id = None
+        send_status = 'sent'
+        error_message = None
+
+        try:
+            result = send_whatsapp_template_message(
+                to_number, template_name, 'en', components=components
+            )
+            message_id = (result.get('messages') or [{}])[0].get('id')
+        except Exception as send_exc:
+            app.logger.error("Renewal template send failed for %s: %s", to_number, send_exc)
+            send_status = 'failed'
+            error_message = str(send_exc)
+
+        # Log to whatsapp_campaign_logs
+        cursor.execute(
+            """INSERT INTO whatsapp_campaign_logs
+               (renewal_id, mobile, template_name, template_params, status,
+                whatsapp_message_id, operator_name, error_message, sent_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())""",
+            (
+                renewal_id, mobile_digits, template_name,
+                json.dumps(params), send_status,
+                message_id, operator_name, error_message,
+            )
+        )
+
+        # Log to operator_actions
+        cursor.execute(
+            """INSERT INTO operator_actions
+               (operator_name, action_type, target_id, details, created_at)
+               VALUES (%s, %s, %s, %s, NOW())""",
+            (
+                operator_name, 'send_message', renewal_id,
+                json.dumps({"template": template_name, "mobile": mobile_digits}),
+            )
+        )
+
+        conn.commit()
+
+        if send_status == 'failed':
+            return jsonify({
+                "success": False,
+                "error": f"Failed to send template: {error_message}",
+                "logged": True,
+            }), 500
+
+        return jsonify({
+            "success": True,
+            "result": {
+                "success": True,
+                "message_id": message_id,
+                "status": "sent",
+            }
+        })
+
+    except Exception as exc:
+        if conn:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        app.logger.exception("IMS renewals send failed")
+        return jsonify({"success": False, "error": str(exc)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
+
+
+@app.route('/ims/api/renewals/bulk-send', methods=['POST'])
+@login_required
+def ims_renewals_bulk_send():
+    """Send WhatsApp templates to multiple renewal records."""
+    if not whatsapp_config_ready():
+        return jsonify({"success": False, "error": "WhatsApp configuration missing."}), 400
+
+    payload = request.get_json(silent=True) or {}
+    renewal_ids = payload.get('renewal_ids') or []
+    operator_name = (payload.get('operator_name') or 'whatsapp_inbox').strip()
+    override_duplicate = payload.get('override_duplicate', False)
+
+    if not renewal_ids:
+        return jsonify({"success": False, "error": "renewal_ids is required."}), 400
+
+    conn = None
+    cursor = None
+    sent = 0
+    failed = 0
+    skipped = 0
+
+    try:
+        conn = get_mysql_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        for rid in renewal_ids:
+            cursor.execute("SELECT * FROM renewal_records WHERE id = %s", (rid,))
+            record = cursor.fetchone()
+            if not record:
+                skipped += 1
+                continue
+
+            mobile = (record.get('mobile') or '').strip()
+            mobile_digits = ''.join(ch for ch in mobile if ch.isdigit())
+            if len(mobile_digits) == 12 and mobile_digits.startswith('91'):
+                mobile_digits = mobile_digits[2:]
+            if len(mobile_digits) != 10:
+                skipped += 1
+                continue
+
+            category = (record.get('category') or 'upcoming').strip().lower()
+            template_name = REN_TEMPLATE_MAP.get(category, 'recharge_reminder')
+
+            expiry_date = record.get('expiry_date')
+            if expiry_date and hasattr(expiry_date, 'strftime'):
+                expiry_date = expiry_date.strftime('%Y-%m-%d')
+            params = [
+                record.get('customer_name') or 'Customer',
+                record.get('account_id') or '',
+                expiry_date or '',
+            ]
+
+            # Duplicate check
+            if not override_duplicate:
+                cursor.execute(
+                    """SELECT COUNT(*) as cnt FROM whatsapp_campaign_logs
+                       WHERE mobile = %s AND template_name = %s AND renewal_id = %s
+                       AND status = 'sent'
+                       AND sent_at > DATE_SUB(NOW(), INTERVAL %s HOUR)""",
+                    (mobile_digits, template_name, rid, DUPLICATE_INTERVAL_HOURS)
+                )
+                if cursor.fetchone()['cnt'] > 0:
+                    skipped += 1
+                    continue
+
+            # Send
+            components = [{
+                "type": "body",
+                "parameters": [{"type": "text", "text": str(p)} for p in params]
+            }]
+            to_number = f"91{mobile_digits}"
+            message_id = None
+            send_status = 'sent'
+            error_message = None
+
+            try:
+                result = send_whatsapp_template_message(
+                    to_number, template_name, 'en', components=components
+                )
+                message_id = (result.get('messages') or [{}])[0].get('id')
+                sent += 1
+            except Exception as send_exc:
+                send_status = 'failed'
+                error_message = str(send_exc)
+                failed += 1
+
+            # Log to whatsapp_campaign_logs
+            cursor.execute(
+                """INSERT INTO whatsapp_campaign_logs
+                   (renewal_id, mobile, template_name, template_params, status,
+                    whatsapp_message_id, operator_name, error_message, sent_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW())""",
+                (
+                    rid, mobile_digits, template_name,
+                    json.dumps(params), send_status,
+                    message_id, operator_name, error_message,
+                )
+            )
+
+        # Log bulk action to operator_actions
+        cursor.execute(
+            """INSERT INTO operator_actions
+               (operator_name, action_type, target_id, details, created_at)
+               VALUES (%s, %s, %s, %s, NOW())""",
+            (
+                operator_name, 'bulk_send', 0,
+                json.dumps({"renewal_ids": renewal_ids, "sent": sent, "failed": failed, "skipped": skipped}),
+            )
+        )
+
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "results": {
+                "sent": sent,
+                "failed": failed,
+                "skipped": skipped,
+            }
+        })
+
+    except Exception as exc:
+        if conn:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        app.logger.exception("IMS renewals bulk-send failed")
+        return jsonify({"success": False, "error": str(exc)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
+
+
+@app.route('/ims/api/renewals/sync', methods=['POST'])
+@login_required
+def ims_renewals_sync():
+    """Recalculate days_remaining and category for all renewal records based on current date."""
+    conn = None
+    cursor = None
+    try:
+        conn = get_mysql_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # Update days_remaining
+        cursor.execute(
+            """UPDATE renewal_records
+               SET days_remaining = DATEDIFF(expiry_date, CURDATE()),
+                   category = CASE
+                       WHEN DATEDIFF(expiry_date, CURDATE()) < 0 THEN 'expired'
+                       WHEN DATEDIFF(expiry_date, CURDATE()) = 0 THEN 'today'
+                       ELSE 'upcoming'
+                   END,
+                   updated_at = NOW()
+               WHERE expiry_date IS NOT NULL"""
+        )
+        updated = cursor.rowcount
+        conn.commit()
+
+        return jsonify({
+            "success": True,
+            "sync": {
+                "inserted": 0,
+                "updated": updated,
+            }
+        })
+    except Exception as exc:
+        if conn:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        app.logger.exception("IMS renewals sync failed")
+        return jsonify({"success": False, "error": str(exc)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
+
+
 if __name__ == '__main__':
     try:
         zoho_customers = get_all_zoho_customers()
