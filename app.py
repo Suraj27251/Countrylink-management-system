@@ -2225,63 +2225,135 @@ def submit():
 
 @app.route('/track', methods=['GET', 'POST'])
 def track():
+    """Serve the interactive tracking page.
+    GET: Renders the standalone tracking page.
+    POST: Legacy form submission — looks up complaints by mobile/name.
+    """
+    # For GET requests, just serve the page
+    if request.method == 'GET':
+        return render_template('track.html')
+
+    # Legacy POST handling (if needed)
     complaints = []
     status = None
+    mobile = request.form.get('mobile', '').strip()
+    name = request.form.get('name', '').strip()
 
-    if request.method == 'POST':
-        mobile = request.form.get('mobile', '').strip()
-        name = request.form.get('name', '').strip()
+    mysql_conn = None
+    mysql_cursor = None
+    try:
+        mysql_conn = get_mysql_connection()
+        mysql_cursor = mysql_conn.cursor(dictionary=True)
 
-        mysql_conn = None
-        mysql_cursor = None
-        try:
-            mysql_conn = get_mysql_connection()
-            mysql_cursor = mysql_conn.cursor(dictionary=True)
+        if mobile and name:
+            mysql_cursor.execute("""
+                SELECT id, customer_name, customer_phone, complaint_description, status, created_at
+                FROM complaints
+                WHERE customer_phone = %s AND customer_name LIKE %s
+                ORDER BY created_at DESC
+            """, (mobile, f"%{name}%"))
+        elif mobile:
+            mysql_cursor.execute("""
+                SELECT id, customer_name, customer_phone, complaint_description, status, created_at
+                FROM complaints
+                WHERE customer_phone = %s
+                ORDER BY created_at DESC
+            """, (mobile,))
+        elif name:
+            mysql_cursor.execute("""
+                SELECT id, customer_name, customer_phone, complaint_description, status, created_at
+                FROM complaints
+                WHERE customer_name LIKE %s
+                ORDER BY created_at DESC
+            """, (f"%{name}%",))
 
-            if mobile and name:
-                mysql_cursor.execute("""
-                    SELECT id, customer_name, customer_phone, complaint_description, status, created_at
-                    FROM complaints
-                    WHERE customer_phone = %s AND customer_name LIKE %s
-                    ORDER BY created_at DESC
-                """, (mobile, f"%{name}%"))
-            elif mobile:
-                mysql_cursor.execute("""
-                    SELECT id, customer_name, customer_phone, complaint_description, status, created_at
-                    FROM complaints
-                    WHERE customer_phone = %s
-                    ORDER BY created_at DESC
-                """, (mobile,))
-            elif name:
-                mysql_cursor.execute("""
-                    SELECT id, customer_name, customer_phone, complaint_description, status, created_at
-                    FROM complaints
-                    WHERE customer_name LIKE %s
-                    ORDER BY created_at DESC
-                """, (f"%{name}%",))
+        raw_complaints = mysql_cursor.fetchall()
 
-            raw_complaints = mysql_cursor.fetchall()
+        complaints = [
+            (c["id"], c["customer_name"], c["customer_phone"], c["complaint_description"], c["status"], c["created_at"])
+            for c in raw_complaints
+        ]
 
-            # Convert to tuples for template compatibility
-            complaints = [
-                (c["id"], c["customer_name"], c["customer_phone"], c["complaint_description"], c["status"], c["created_at"])
-                for c in raw_complaints
-            ]
+        status_priority = {"Registered": 0, "Pending": 1, "open": 1, "Assigned": 2, "Complete": 3, "Resolved": 3}
+        if complaints:
+            worst_status_value = max(status_priority.get(comp[4], 0) for comp in complaints)
+            status = [key for key, value in status_priority.items() if value == worst_status_value][0]
 
-            status_priority = {"Registered": 0, "Pending": 1, "open": 1, "Assigned": 2, "Complete": 3, "Resolved": 3}
-            if complaints:
-                worst_status_value = max(status_priority.get(comp[4], 0) for comp in complaints)
-                status = [key for key, value in status_priority.items() if value == worst_status_value][0]
+    except Exception:
+        app.logger.exception("Failed to track complaints")
+    finally:
+        if mysql_cursor:
+            mysql_cursor.close()
+        if mysql_conn and mysql_conn.is_connected():
+            mysql_conn.close()
 
-        except Exception:
-            app.logger.exception("Failed to track complaints")
-        finally:
-            if mysql_cursor:
-                mysql_cursor.close()
-            if mysql_conn and mysql_conn.is_connected():
-                mysql_conn.close()
+    return render_template('track.html')
 
-    return render_template('track.html', complaints=complaints, status=status)
+
+@app.route('/api/track', methods=['GET'])
+def api_track():
+    """API endpoint for the interactive tracking page.
+    Looks up complaint/service status by tracking ID (mobile number or complaint ID).
+    Returns JSON response.
+    """
+    tracking_id = request.args.get('id', '').strip()
+
+    if not tracking_id:
+        return jsonify({'success': False, 'error': 'Tracking ID is required'}), 400
+
+    mysql_conn = None
+    mysql_cursor = None
+    try:
+        mysql_conn = get_mysql_connection()
+        mysql_cursor = mysql_conn.cursor(dictionary=True)
+
+        # Try lookup by mobile number first
+        mysql_cursor.execute("""
+            SELECT id, customer_name, customer_phone, complaint_description, status, created_at
+            FROM complaints
+            WHERE customer_phone = %s
+            ORDER BY created_at DESC
+            LIMIT 5
+        """, (tracking_id,))
+
+        results = mysql_cursor.fetchall()
+
+        # If no results by phone, try by complaint ID
+        if not results:
+            mysql_cursor.execute("""
+                SELECT id, customer_name, customer_phone, complaint_description, status, created_at
+                FROM complaints
+                WHERE id = %s
+                LIMIT 1
+            """, (tracking_id,))
+            results = mysql_cursor.fetchall()
+
+        if not results:
+            return jsonify({
+                'success': False,
+                'trackingId': tracking_id,
+                'error': 'No records found for this Tracking ID'
+            }), 404
+
+        # Return the most recent complaint status
+        latest = results[0]
+        return jsonify({
+            'success': True,
+            'trackingId': tracking_id,
+            'status': latest['status'],
+            'message': f"Complaint #{latest['id']} - {latest['complaint_description'][:100]}",
+            'customerName': latest['customer_name'],
+            'totalComplaints': len(results)
+        })
+
+    except Exception:
+        app.logger.exception("Failed to lookup tracking ID: %s", tracking_id)
+        return jsonify({'success': False, 'error': 'Server error. Please try again later.'}), 500
+    finally:
+        if mysql_cursor:
+            mysql_cursor.close()
+        if mysql_conn and mysql_conn.is_connected():
+            mysql_conn.close()
 
 
 @app.route('/payment')
