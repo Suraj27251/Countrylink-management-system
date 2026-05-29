@@ -122,7 +122,7 @@
    *   nearBottom(), upsertMsg(), scrollBottom()
    */
   const poll = async () => {
-    console.debug('[POLLING] poll() started — activeMobile:', window.inboxState.activeMobile);
+    console.log('[MASTER_POLL] poll() started — activeMobile:', window.inboxState.activeMobile);
     if (window.inboxState.debugActiveMobile) window.inboxState.debugActiveMobile('poll:begin');
 
     try {
@@ -152,6 +152,7 @@
         // Centralize contact ownership: store then render
         window.inboxState.contacts = data.contacts;
         if (debouncedRenderContacts) debouncedRenderContacts(data.contacts, true);
+        console.log('[SIDEBAR_REFRESH] Contacts updated:', data.contacts.length, 'conversations');
       }
 
       // ── Inbox messages (all chats) ──
@@ -186,6 +187,7 @@
                 (window.inboxState.unreadByMobile.get(mobile) || 0) + 1
               );
               if (beep) beep(mobile);
+              console.log('[INBOX_SOUND] Playing sound for new message — mobile:', mobile, 'msgId:', m.id);
               contactsToUpdate.add(mobile);
             }
           }
@@ -219,15 +221,16 @@
           const isOutbound = String(m.direction || '').toLowerCase() === 'outbound';
           const isSelfMessage = Boolean(m.from_me === 1 || m.from_me === true || m.is_self === 1 || m.is_self === true);
 
-          // Dedup: skip if we've already processed this message ID globally
           const msgIdStr = String(m.id);
-          if (window.inboxState.globalKnownMessageIds.has(msgIdStr)) {
-            return; // Already processed — no sound, no render
-          }
+
+          // Sound dedup: only play sound if not already processed by inbox_messages
+          const alreadyProcessedForSound = window.inboxState.globalKnownMessageIds.has(msgIdStr);
+
+          // Always mark as known for future dedup
           window.inboxState.globalKnownMessageIds.add(msgIdStr);
 
-          // Sound handling must run before active-chat render guard so other-chat inbound can still beep.
-          if (!isOptimistic && !isOutbound && !isSelfMessage && messageMobile && messageMobile !== activeMobile) {
+          // Sound handling — only if not already handled by inbox_messages loop
+          if (!alreadyProcessedForSound && !isOptimistic && !isOutbound && !isSelfMessage && messageMobile && messageMobile !== activeMobile) {
             const lastSeen = window.inboxState.lastSeenMessageIdByMobile.get(messageMobile) || 0;
             const curId = +m.id || 0;
             if (curId > lastSeen) {
@@ -238,31 +241,11 @@
                 messageMobile,
                 activeMobile
               });
-            } else {
-              console.debug('[POLLING_SOUND] Skipped sound — already seen message id', {
-                messageId: m.id,
-                messageMobile,
-                lastSeen
-              });
             }
-          } else {
-            console.debug('[POLLING_SOUND] Skipped sound by rule', {
-              messageId: m.id,
-              messageMobile,
-              activeMobile,
-              isOptimistic,
-              isOutbound,
-              isSelfMessage
-            });
           }
 
+          // Render decision: skip only if message belongs to a different conversation
           const shouldSkipRender = Boolean(activeMobile && messageMobile && messageMobile !== activeMobile);
-          console.debug('[POLLING_RENDER] Message routing decision', {
-            messageId: m.id,
-            resolvedMobile: messageMobile,
-            activeMobile,
-            skipped: shouldSkipRender
-          });
           if (!activeMobile || shouldSkipRender) {
             console.debug('[POLLING_RENDER] Skip message render — not active conversation', {
               messageId: m.id,
@@ -271,12 +254,19 @@
             });
             return;
           }
+
+          // upsertMsg handles DOM-level dedup internally (checks if node already exists)
           const isNewMsg = upsertMsg ? upsertMsg(m) : false;
           hasNew = isNewMsg || hasNew;
 
           // Play soft sound for new inbound messages in the active chat
           if (isNewMsg && !isOutbound && !isSelfMessage && messageMobile === activeMobile) {
             if (beep) beep(activeMobile);
+            console.debug('[NEW_MESSAGE] Inbound message rendered in active chat', {
+              messageId: m.id,
+              sender_type: m.sender_type,
+              text: (m.text || '').substring(0, 50)
+            });
           }
         });
 
