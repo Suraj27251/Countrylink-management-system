@@ -1097,6 +1097,65 @@ def process_message_status_event(status_event):
             """,
             (status, message_id),
         )
+
+        # Also update renewal campaign logs delivery status
+        # Status priority: sent(1) < delivered(2) < read(3), failed(0) can override any
+        status_priority = {'sent': 1, 'delivered': 2, 'read': 3, 'failed': 0}
+        new_priority = status_priority.get(status, 0)
+
+        mysql_cursor.execute(
+            """
+            SELECT id, delivery_status FROM whatsapp_campaign_logs
+            WHERE whatsapp_message_id = %s
+            LIMIT 1
+            """,
+            (message_id,),
+        )
+        campaign_row = mysql_cursor.fetchone()
+
+        if campaign_row:
+            current_delivery_status = campaign_row[1] if campaign_row[1] else None
+            current_priority = status_priority.get(current_delivery_status, -1)
+
+            # Allow failed to override any status, otherwise don't downgrade
+            if status == 'failed' or new_priority > current_priority:
+                if status == 'delivered':
+                    mysql_cursor.execute(
+                        """
+                        UPDATE whatsapp_campaign_logs
+                        SET delivery_status = %s, delivered_at = %s
+                        WHERE id = %s
+                        """,
+                        (status, status_time, campaign_row[0]),
+                    )
+                elif status == 'read':
+                    mysql_cursor.execute(
+                        """
+                        UPDATE whatsapp_campaign_logs
+                        SET delivery_status = %s, read_at = %s
+                        WHERE id = %s
+                        """,
+                        (status, status_time, campaign_row[0]),
+                    )
+                elif status == 'failed':
+                    mysql_cursor.execute(
+                        """
+                        UPDATE whatsapp_campaign_logs
+                        SET delivery_status = %s, status = 'failed', error_message = %s
+                        WHERE id = %s
+                        """,
+                        (status, reason or None, campaign_row[0]),
+                    )
+                else:
+                    mysql_cursor.execute(
+                        """
+                        UPDATE whatsapp_campaign_logs
+                        SET delivery_status = %s
+                        WHERE id = %s
+                        """,
+                        (status, campaign_row[0]),
+                    )
+
         mysql_conn.commit()
     except Exception:
         app.logger.exception(
