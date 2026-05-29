@@ -1710,12 +1710,18 @@ ping_results = {ip: "Checking..." for ip in PING_IPS}
 
 
 def ping_host(ip: str) -> str:
-    """Check reachability via TCP (port 80) instead of ICMP ping."""
+    """Check reachability via ICMP ping (works for routers/switches without HTTP)."""
     try:
-        sock = socket.create_connection((ip, 80), timeout=2)
-        sock.close()
-        return "Online"
-    except Exception:
+        # Use -n on Windows, -c on Linux/Mac
+        param = ['-n', '1', '-w', '2000'] if os.name == 'nt' else ['-c', '1', '-W', '2']
+        result = subprocess.run(
+            ['ping'] + param + [ip],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=5
+        )
+        return "Online" if result.returncode == 0 else "Offline"
+    except (subprocess.TimeoutExpired, Exception):
         return "Offline"
 
 
@@ -1724,7 +1730,7 @@ def ping_loop():
     while True:
         for ip in PING_IPS:
             ping_results[ip] = ping_host(ip)
-        time.sleep(10)  # refresh every 10s
+        time.sleep(5)  # refresh every 5s to match frontend polling
 
 # Ensure we only launch the ping thread once
 _ping_thread_started = False
