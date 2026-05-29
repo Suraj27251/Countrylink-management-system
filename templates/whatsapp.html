@@ -40,6 +40,10 @@
         <i class="fas fa-bolt"></i>
         <span class="rail-tooltip">Automation</span>
       </button>
+      <button class="rail-btn workspace-link" data-workspace="renewals" type="button">
+        <i class="fas fa-rotate"></i>
+        <span class="rail-tooltip">Renewals</span>
+      </button>
       <a href="{{ url_for('complaints_page') }}" class="rail-btn" title="">
         <i class="fas fa-ticket"></i>
         <span class="rail-tooltip">Complaints</span>
@@ -87,6 +91,7 @@
       <button class="ws-btn" data-workspace="templates" type="button">Templates</button>
       <button class="ws-btn" data-workspace="campaigns" type="button">Campaigns</button>
       <button class="ws-btn" data-workspace="automation" type="button">Flows</button>
+      <button class="ws-btn" data-workspace="renewals" type="button">Renewals</button>
     </div>
     <!-- Header -->
     <div class="sb-header">
@@ -237,6 +242,79 @@
     </section>
     <section class="workspace-panel" id="automationPanel">
       <div class="workspace-wrap"><h3><i class="fas fa-bolt"></i> Automation & Agent Tools</h3><div class="ws-grid"><div class="ws-card"><h5>Template Trigger Rules</h5><p>Auto-send approved template on ticket created/payment reminder.</p></div><div class="ws-card"><h5>Flow Launcher</h5><p>Map WhatsApp flows to support intents from inbox tags.</p></div><div class="ws-card"><h5>Escalation Bot</h5><p>Escalate unread chats after 5/15/30 minutes to a human queue.</p></div><div class="ws-card"><h5>SLA Watcher</h5><p>Live queue of conversations breaching first response SLA.</p></div></div></div>
+    </section>
+    <section class="workspace-panel" id="renewalsPanel">
+      <div style="padding:16px;display:flex;flex-direction:column;gap:12px;height:100%;overflow:hidden;">
+        <!-- Stats Row -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:100px;background:var(--bg-2);border-radius:8px;padding:10px 14px;text-align:center;">
+            <div style="font-size:20px;font-weight:700;color:var(--text-1);" id="ren-stat-total">0</div>
+            <div style="font-size:11px;color:var(--text-3);">Total</div>
+          </div>
+          <div style="flex:1;min-width:100px;background:var(--bg-2);border-radius:8px;padding:10px 14px;text-align:center;border-left:3px solid #dc3545;">
+            <div style="font-size:20px;font-weight:700;color:#dc3545;" id="ren-stat-expired">0</div>
+            <div style="font-size:11px;color:var(--text-3);">Expired</div>
+          </div>
+          <div style="flex:1;min-width:100px;background:var(--bg-2);border-radius:8px;padding:10px 14px;text-align:center;border-left:3px solid #fd7e14;">
+            <div style="font-size:20px;font-weight:700;color:#fd7e14;" id="ren-stat-today">0</div>
+            <div style="font-size:11px;color:var(--text-3);">Today</div>
+          </div>
+          <div style="flex:1;min-width:100px;background:var(--bg-2);border-radius:8px;padding:10px 14px;text-align:center;border-left:3px solid #198754;">
+            <div style="font-size:20px;font-weight:700;color:#198754;" id="ren-stat-upcoming">0</div>
+            <div style="font-size:11px;color:var(--text-3);">Upcoming</div>
+          </div>
+          <div style="flex:1;min-width:100px;background:var(--bg-2);border-radius:8px;padding:10px 14px;text-align:center;border-left:3px solid #0dcaf0;">
+            <div style="font-size:20px;font-weight:700;color:#0dcaf0;" id="ren-stat-sent">0</div>
+            <div style="font-size:11px;color:var(--text-3);">Sent Today</div>
+          </div>
+        </div>
+        <!-- Controls Row -->
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div id="ren-category-btns" style="display:flex;gap:4px;">
+            <button class="btn btn-sm btn-outline-secondary active" data-cat="all">All</button>
+            <button class="btn btn-sm btn-outline-danger" data-cat="expired">Expired</button>
+            <button class="btn btn-sm btn-outline-warning" data-cat="today">Today</button>
+            <button class="btn btn-sm btn-outline-success" data-cat="upcoming">Upcoming</button>
+          </div>
+          <input type="text" id="ren-search" class="form-control form-control-sm" placeholder="Search name/mobile..." style="max-width:180px;font-size:12px;">
+          <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+            <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer;">
+              <input type="checkbox" id="ren-select-all"> Select All
+            </label>
+            <button class="btn btn-sm btn-success" id="ren-bulk-btn" disabled style="font-size:11px;">
+              <i class="fab fa-whatsapp"></i> Send (<span id="ren-sel-count">0</span>)
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" id="ren-sync-btn" style="font-size:11px;">
+              <i class="fas fa-rotate"></i> Sync
+            </button>
+          </div>
+        </div>
+        <!-- Table -->
+        <div style="flex:1;overflow:auto;border-radius:8px;border:1px solid var(--border);">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead style="position:sticky;top:0;background:var(--bg-2);z-index:2;">
+              <tr style="border-bottom:1px solid var(--border);">
+                <th style="padding:8px 10px;width:30px;"></th>
+                <th style="padding:8px 10px;text-align:left;">Customer</th>
+                <th style="padding:8px 10px;text-align:left;">Mobile</th>
+                <th style="padding:8px 10px;text-align:left;">Plan</th>
+                <th style="padding:8px 10px;text-align:left;">Expiry</th>
+                <th style="padding:8px 10px;text-align:center;">Days</th>
+                <th style="padding:8px 10px;text-align:center;">Status</th>
+                <th style="padding:8px 10px;text-align:center;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="ren-tbody">
+              <tr><td colspan="8" style="padding:30px;text-align:center;color:var(--text-3);">Switch to Renewals tab to load data</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- Pagination -->
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-3);">
+          <span id="ren-page-info">--</span>
+          <div id="ren-pagination" style="display:flex;gap:4px;"></div>
+        </div>
+      </div>
     </section>
     <section class="workspace-panel active" id="inboxPanel">
 
@@ -665,6 +743,7 @@
 <script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}?v=16"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/render.js') }}?v=16"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/events.js') }}?v=17"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/renewals.js') }}?v=1"></script>
 <script>
 (() => {
 'use strict';
