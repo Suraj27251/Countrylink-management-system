@@ -1705,7 +1705,7 @@ _model = None
 _vectorizer = None
 
 # --- Pinging setup ---
-PING_IPS = ["103.149.126.10", "36.50.163.244", "154.84.251.178"]
+PING_IPS = ["103.149.126.10", "103.121.155.140", "154.84.251.178"]
 ping_results = {ip: "Checking..." for ip in PING_IPS}
 
 
