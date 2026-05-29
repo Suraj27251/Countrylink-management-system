@@ -226,35 +226,8 @@
           }
           window.inboxState.globalKnownMessageIds.add(msgIdStr);
 
-          // Sound handling must run before active-chat render guard so other-chat inbound can still beep.
-          if (!isOptimistic && !isOutbound && !isSelfMessage && messageMobile && messageMobile !== activeMobile) {
-            const lastSeen = window.inboxState.lastSeenMessageIdByMobile.get(messageMobile) || 0;
-            const curId = +m.id || 0;
-            if (curId > lastSeen) {
-              window.inboxState.lastSeenMessageIdByMobile.set(messageMobile, Math.max(lastSeen, curId));
-              if (beep) beep(messageMobile);
-              console.debug('[POLLING_SOUND] Played sound for non-active inbound message', {
-                messageId: m.id,
-                messageMobile,
-                activeMobile
-              });
-            } else {
-              console.debug('[POLLING_SOUND] Skipped sound — already seen message id', {
-                messageId: m.id,
-                messageMobile,
-                lastSeen
-              });
-            }
-          } else {
-            console.debug('[POLLING_SOUND] Skipped sound by rule', {
-              messageId: m.id,
-              messageMobile,
-              activeMobile,
-              isOptimistic,
-              isOutbound,
-              isSelfMessage
-            });
-          }
+          // Sound handling disabled here — handled by the inline realtime poller
+          // to avoid double-beeping from two polling systems.
 
           const shouldSkipRender = Boolean(activeMobile && messageMobile && messageMobile !== activeMobile);
           console.debug('[POLLING_RENDER] Message routing decision', {
@@ -274,10 +247,7 @@
           const isNewMsg = upsertMsg ? upsertMsg(m) : false;
           hasNew = isNewMsg || hasNew;
 
-          // Play soft sound for new inbound messages in the active chat
-          if (isNewMsg && !isOutbound && !isSelfMessage && messageMobile === activeMobile) {
-            if (beep) beep(activeMobile);
-          }
+          // Sound handled by inline realtime poller — skip here to avoid double-beep
         });
 
         if (data.last_message_id) {
