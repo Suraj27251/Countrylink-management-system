@@ -339,6 +339,37 @@ main.container {
   margin-bottom: 10px;
 }
 
+.sb-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sb-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-3);
+  flex-shrink: 0;
+  transition: background .3s, box-shadow .3s;
+}
+
+.sb-live-dot.live {
+  background: var(--green);
+  box-shadow: 0 0 6px rgba(37,211,102,.5);
+}
+
+.sb-live-dot.degraded {
+  background: var(--amber);
+  box-shadow: 0 0 6px rgba(245,158,11,.4);
+  animation: pulse 2s infinite;
+}
+
+.sb-live-dot.offline {
+  background: var(--red);
+  box-shadow: 0 0 4px rgba(229,57,53,.3);
+}
+
 .sb-title {
   font-size: 17px;
   font-weight: 700;
