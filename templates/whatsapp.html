@@ -40,10 +40,6 @@
         <i class="fas fa-bolt"></i>
         <span class="rail-tooltip">Automation</span>
       </button>
-      <button class="rail-btn workspace-link" data-workspace="renewals" type="button">
-        <i class="fas fa-rotate"></i>
-        <span class="rail-tooltip">Renewals</span>
-      </button>
       <a href="{{ url_for('complaints_page') }}" class="rail-btn" title="">
         <i class="fas fa-ticket"></i>
         <span class="rail-tooltip">Complaints</span>
@@ -91,7 +87,6 @@
       <button class="ws-btn" data-workspace="templates" type="button">Templates</button>
       <button class="ws-btn" data-workspace="campaigns" type="button">Campaigns</button>
       <button class="ws-btn" data-workspace="automation" type="button">Flows</button>
-      <button class="ws-btn" data-workspace="renewals" type="button">Renewals</button>
     </div>
     <!-- Header -->
     <div class="sb-header">
@@ -185,10 +180,6 @@
       <i class="fas fa-ticket"></i>
       <span>Complaints</span>
     </a>
-    <button class="mob-nav-item" data-workspace="renewals" type="button">
-      <i class="fas fa-rotate"></i>
-      <span>Renewals</span>
-    </button>
     <button class="mob-nav-item" id="mobMoreBtn" type="button">
       <i class="fas fa-ellipsis"></i>
       <span>More</span>
@@ -246,79 +237,6 @@
     </section>
     <section class="workspace-panel" id="automationPanel">
       <div class="workspace-wrap"><h3><i class="fas fa-bolt"></i> Automation & Agent Tools</h3><div class="ws-grid"><div class="ws-card"><h5>Template Trigger Rules</h5><p>Auto-send approved template on ticket created/payment reminder.</p></div><div class="ws-card"><h5>Flow Launcher</h5><p>Map WhatsApp flows to support intents from inbox tags.</p></div><div class="ws-card"><h5>Escalation Bot</h5><p>Escalate unread chats after 5/15/30 minutes to a human queue.</p></div><div class="ws-card"><h5>SLA Watcher</h5><p>Live queue of conversations breaching first response SLA.</p></div></div></div>
-    </section>
-    <section class="workspace-panel" id="renewalsPanel">
-      <div style="padding:16px;display:flex;flex-direction:column;gap:12px;height:100%;overflow:hidden;">
-        <!-- Stats Row -->
-        <div style="display:flex;gap:12px;flex-shrink:0;flex-wrap:wrap;">
-          <div class="renewal-stat-card" style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;text-align:center;">
-            <div style="font-size:22px;font-weight:700;color:var(--text-1);" id="ren-stat-total">0</div>
-            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;">Total</div>
-          </div>
-          <div class="renewal-stat-card" style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-left:3px solid #dc3545;border-radius:var(--radius-lg);padding:12px 16px;text-align:center;">
-            <div style="font-size:22px;font-weight:700;color:#dc3545;" id="ren-stat-expired">0</div>
-            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;">Expired</div>
-          </div>
-          <div class="renewal-stat-card" style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-left:3px solid #fd7e14;border-radius:var(--radius-lg);padding:12px 16px;text-align:center;">
-            <div style="font-size:22px;font-weight:700;color:#fd7e14;" id="ren-stat-today">0</div>
-            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;">Today</div>
-          </div>
-          <div class="renewal-stat-card" style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-left:3px solid #198754;border-radius:var(--radius-lg);padding:12px 16px;text-align:center;">
-            <div style="font-size:22px;font-weight:700;color:#198754;" id="ren-stat-upcoming">0</div>
-            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;">Upcoming</div>
-          </div>
-          <div class="renewal-stat-card" style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-left:3px solid #0dcaf0;border-radius:var(--radius-lg);padding:12px 16px;text-align:center;">
-            <div style="font-size:22px;font-weight:700;color:#0dcaf0;" id="ren-stat-sent">0</div>
-            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;">Sent Today</div>
-          </div>
-        </div>
-
-        <!-- Filter Bar -->
-        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;flex-wrap:wrap;">
-          <div class="btn-group btn-group-sm" id="ren-category-btns">
-            <button class="btn btn-outline-secondary active" data-cat="all">All</button>
-            <button class="btn btn-outline-danger" data-cat="expired">Expired</button>
-            <button class="btn btn-outline-warning" data-cat="today">Today</button>
-            <button class="btn btn-outline-success" data-cat="upcoming">Upcoming</button>
-          </div>
-          <div style="position:relative;flex:1;max-width:220px;">
-            <i class="fas fa-magnifying-glass" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-3);font-size:12px;pointer-events:none;"></i>
-            <input id="ren-search" class="form-control form-control-sm" placeholder="Search name/mobile..." style="padding-left:30px;font-size:12px;">
-          </div>
-          <div style="margin-left:auto;display:flex;gap:6px;">
-            <button class="btn btn-sm btn-outline-secondary" id="ren-sync-btn" title="Sync from IMS"><i class="fas fa-rotate"></i> Sync</button>
-            <button class="btn btn-sm btn-success" id="ren-bulk-btn" disabled><i class="fab fa-whatsapp"></i> Send (<span id="ren-sel-count">0</span>)</button>
-            <a href="/ims" target="_blank" class="btn btn-sm btn-outline-primary" title="Open full dashboard"><i class="fas fa-arrow-up-right-from-square"></i></a>
-          </div>
-        </div>
-
-        <!-- Table -->
-        <div style="flex:1;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);">
-          <table style="width:100%;border-collapse:collapse;font-size:12px;" id="ren-table">
-            <thead>
-              <tr>
-                <th style="padding:8px 10px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);width:30px;"><input type="checkbox" id="ren-select-all"></th>
-                <th style="padding:8px 10px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);white-space:nowrap;">Customer</th>
-                <th style="padding:8px 10px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);white-space:nowrap;">Mobile</th>
-                <th style="padding:8px 10px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);white-space:nowrap;">Plan</th>
-                <th style="padding:8px 10px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);white-space:nowrap;">Expiry</th>
-                <th style="padding:8px 10px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);white-space:nowrap;">Days</th>
-                <th style="padding:8px 10px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);white-space:nowrap;">Status</th>
-                <th style="padding:8px 10px;font-weight:600;color:var(--text-2);border-bottom:1px solid var(--border);white-space:nowrap;">Action</th>
-              </tr>
-            </thead>
-            <tbody id="ren-tbody">
-              <tr><td colspan="8" style="padding:40px;text-align:center;color:var(--text-3);">Loading renewals...</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Pagination -->
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
-          <small style="color:var(--text-3);" id="ren-page-info">Showing 0 of 0</small>
-          <div class="btn-group btn-group-sm" id="ren-pagination"></div>
-        </div>
-      </div>
     </section>
     <section class="workspace-panel active" id="inboxPanel">
 
@@ -744,10 +662,9 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/state.js') }}?v=16"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/utils.js') }}?v=16"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}?v=17"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}?v=16"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/render.js') }}?v=16"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/events.js') }}?v=17"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/renewals.js') }}?v=1"></script>
 <script>
 (() => {
 'use strict';
@@ -814,7 +731,7 @@ const STATIC_BASE     = '{{ url_for("static", filename="") }}';
 window.STATIC_BASE = STATIC_BASE;
 const NOTIFICATION_SOUND_URL = `${STATIC_BASE}audio/whatsapp_notification.wav`;
 const SOFT_SOUND_URL = `${STATIC_BASE}audio/soft_sound.mp3`;
-const HEARTBEAT_ACTIVE_MS = 3000;
+const HEARTBEAT_ACTIVE_MS = 1000;
 const HEARTBEAT_BACKGROUND_MS = 5000;
 const HEARTBEAT_IDLE_MS = 10000;
 const HEARTBEAT_IDLE_AFTER_MS = 5 * 60 * 1000;
@@ -1147,11 +1064,167 @@ setTimeout(() => { const el = document.getElementById('chatBody'); if (el) el.sc
 })();
 
 /* ═══════════════════════════════════════════════════════════
-   NOTE: Simple real-time poller REMOVED — the pollingEngine
-   heartbeat (1s active, 5s background) already handles both
-   chat messages and sidebar refresh. The duplicate poller was
-   causing double notifications and API contention.
+   SIMPLE REAL-TIME POLLER — independent of pollingEngine
+   Fetches new messages every 2s for the active chat.
+   Also refreshes sidebar every 5s for new conversations.
    ═══════════════════════════════════════════════════════════ */
+(function startSimplePoller() {
+  const CHAT_POLL_INTERVAL = 2000;
+  const SIDEBAR_POLL_INTERVAL = 5000;
+  const apiBase = API_URL;
+  let sidebarTick = 0;
+
+  // Track chats the user has opened this session — never re-show green dot for these
+  const openedChats = new Set();
+  if (window.inboxState.activeMobile) openedChats.add(window.inboxState.activeMobile);
+
+  // Expose so chat switch can add to it
+  window._openedChats = openedChats;
+
+  // Track last known unread counts to detect NEW unreads
+  // Seed with current values from server-rendered sidebar so first poll doesn't trigger false dots
+  const lastKnownUnread = new Map();
+  document.querySelectorAll('.conv-item[data-mobile]').forEach(el => {
+    const mob = el.dataset.mobile;
+    // Read unread_count from data attribute if available, otherwise assume current state is "seen"
+    const unread = parseInt(el.dataset.unreadCount || '0', 10);
+    lastKnownUnread.set(mob, unread);
+  });
+
+  setInterval(async () => {
+    try {
+      const mobile = window.inboxState.activeMobile;
+      if (!mobile) return;
+
+      // Every 5th tick (10s), also fetch sidebar contacts
+      sidebarTick++;
+      const includeSidebar = (sidebarTick % Math.round(SIDEBAR_POLL_INTERVAL / CHAT_POLL_INTERVAL)) === 0;
+
+      const sinceId = window.inboxState.cursors.globalLastMessageId || 0;
+      let url = `${apiBase}?mobile=${encodeURIComponent(mobile)}&since_id=${sinceId}`;
+      if (includeSidebar) {
+        url += '&include_contacts=1';
+      }
+
+      const res = await fetch(url, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin'
+      });
+      if (!res.ok) return;
+
+      const data = await res.json();
+
+      // Bail if user switched chats during fetch
+      if (window.inboxState.activeMobile !== mobile) return;
+
+      // ── Update sidebar contacts ──
+      if (data.contacts && data.contacts.length > 0) {
+        const convList = document.getElementById('convList');
+        if (convList) {
+          data.contacts.forEach(c => {
+            const isActiveChat = c.mobile === mobile;
+            const el = convList.querySelector(`[data-mobile="${CSS.escape(c.mobile)}"]`);
+            if (el) {
+              const previewEl = el.querySelector('.conv-preview');
+              if (previewEl && c.text) previewEl.textContent = c.text;
+              const timeEl = el.querySelector('.conv-time');
+              if (timeEl && c.created_at) {
+                const t = c.created_at.includes(' ') ? c.created_at.split(' ')[1].slice(0,5) : c.created_at.slice(0,5);
+                timeEl.textContent = t;
+              }
+
+              const prevUnread = lastKnownUnread.get(c.mobile) || 0;
+              const curUnread = c.unread_count || 0;
+              lastKnownUnread.set(c.mobile, curUnread);
+
+              if (isActiveChat) {
+                // Active chat — never show green dot
+                el.classList.remove('has-new');
+              } else if (curUnread > prevUnread) {
+                // Unread count INCREASED — new message arrived, show green dot + sound
+                el.classList.add('has-new');
+                window.eventsEngine.beep(c.mobile);
+              }
+              // If curUnread <= prevUnread, don't touch the dot (keep current state)
+            } else {
+              // New conversation — add to sidebar
+              const initial = (c.name || c.mobile || '?')[0].toUpperCase();
+              const time = c.created_at ? (c.created_at.includes(' ') ? c.created_at.split(' ')[1].slice(0,5) : c.created_at.slice(0,5)) : '';
+              const hasNew = !isActiveChat && (c.unread_count || 0) > 0;
+              const html = `<a class="conv-item ${hasNew ? 'has-new' : ''}" href="${PAGE_URL}?mobile=${encodeURIComponent(c.mobile)}" data-mobile="${c.mobile}" data-name="${(c.name||'').toLowerCase()}">
+                <div class="conv-avatar">${initial}</div>
+                <div class="conv-meta">
+                  <div class="conv-row1"><div class="conv-name">${c.name || c.mobile}</div><div class="conv-time">${time}</div></div>
+                  <div class="conv-preview">${c.text || 'New message'}</div>
+                </div>
+              </a>`;
+              convList.insertAdjacentHTML('afterbegin', html);
+              // Play sound for new conversation
+              if (hasNew) window.eventsEngine.beep(c.mobile);
+            }
+          });
+        }
+      }
+
+      // ── Render new messages ──
+      if (data.messages && data.messages.length > 0) {
+        const chatEl = document.getElementById('chatBody');
+        if (!chatEl) return;
+
+        const renderFn = window.renderEngine.renderMsg;
+        let rendered = false;
+
+        data.messages.forEach(m => {
+          const idStr = String(m.id);
+          if (window.inboxState.globalKnownMessageIds.has(idStr)) return;
+          if (chatEl.querySelector(`[data-message-id="${CSS.escape(idStr)}"]`)) return;
+
+          try {
+            const node = renderFn(m);
+            chatEl.appendChild(node);
+            window.inboxState.globalKnownMessageIds.add(idStr);
+            rendered = true;
+
+            // Play sound for new inbound messages
+            if (m.direction !== 'outbound' && m.sender_type === 'customer') {
+              window.eventsEngine.beep(mobile);
+            }
+          } catch (e) {
+            console.error('[SIMPLE_POLL] Render error:', e);
+          }
+        });
+
+        // Update cursor
+        const lastMsg = data.messages[data.messages.length - 1];
+        if (lastMsg) {
+          window.inboxState.cursors.globalLastMessageId = Math.max(
+            window.inboxState.cursors.globalLastMessageId, +lastMsg.id || 0
+          );
+        }
+        if (data.last_message_id) {
+          window.inboxState.cursors.globalLastMessageId = Math.max(
+            window.inboxState.cursors.globalLastMessageId, +data.last_message_id || 0
+          );
+        }
+
+        // Auto-scroll to bottom for new messages
+        if (rendered) {
+          chatEl.scrollTop = chatEl.scrollHeight;
+        }
+      }
+
+      if (data.last_inbox_message_id) {
+        window.inboxState.cursors.globalLastInboxId = Math.max(
+          window.inboxState.cursors.globalLastInboxId, +data.last_inbox_message_id || 0
+        );
+      }
+    } catch (e) {
+      // Silent fail
+    }
+  }, CHAT_POLL_INTERVAL);
+
+  console.debug('[SIMPLE_POLL] Started — 2s chat, 10s sidebar');
+})();
 
 } catch (bootErr) {
   console.error('[BOOT] Bootstrap FAILED:', bootErr && bootErr.message ? bootErr.message : bootErr);
