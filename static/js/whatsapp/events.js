@@ -1167,18 +1167,52 @@ window.__eventsEngineInitDone = true;
     document.getElementById('mobRefreshBtn')?.addEventListener('click', async () => {
       const btn = document.getElementById('mobRefreshBtn');
       btn?.classList.add('spinning');
+      console.log('[REFRESH] Manual refresh triggered');
       try {
-        if (window.pollingEngine) {
-          await window.pollingEngine.pollSidebar();
-          if (window.inboxState?.activeMobile) {
-            await window.pollingEngine.pollMessages();
-          }
-        } else {
-          // Fallback: reload the page
-          window.location.reload();
+        // Direct fetch — bypasses pollingEngine to avoid conflicts with simplePoller
+        const mobile = window.inboxState.activeMobile || '';
+        const sinceId = window.inboxState.cursors.globalLastMessageId || 0;
+        let url = `${window.MESSAGES_API_URL || '/api/whatsapp/messages'}?include_contacts=1&since_id=${sinceId}`;
+        if (mobile) url += `&mobile=${encodeURIComponent(mobile)}`;
+
+        const res = await fetch(url, {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          credentials: 'same-origin'
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        // Update sidebar
+        if (data.contacts?.length && window.renderEngine?.debouncedRenderContacts) {
+          window.inboxState.contacts = data.contacts;
+          window.renderEngine.debouncedRenderContacts(data.contacts, true);
+          console.log('[REFRESH] Sidebar updated:', data.contacts.length, 'contacts');
         }
+
+        // Update active chat messages
+        if (data.messages?.length && window.renderEngine?.upsertMsg) {
+          data.messages.forEach(m => {
+            window.renderEngine.upsertMsg(m);
+          });
+          const chatEl = document.getElementById('chatBody');
+          if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+          console.log('[REFRESH] Messages updated:', data.messages.length);
+        }
+
+        // Update cursors
+        if (data.last_message_id) {
+          window.inboxState.cursors.globalLastMessageId = Math.max(
+            window.inboxState.cursors.globalLastMessageId, +data.last_message_id || 0
+          );
+        }
+        if (data.last_inbox_message_id) {
+          window.inboxState.cursors.globalLastInboxId = Math.max(
+            window.inboxState.cursors.globalLastInboxId, +data.last_inbox_message_id || 0
+          );
+        }
+        console.log('[REFRESH] Complete');
       } catch (e) {
-        console.error('[Mobile] Refresh failed:', e);
+        console.error('[REFRESH] Failed:', e);
       } finally {
         setTimeout(() => btn?.classList.remove('spinning'), 600);
       }

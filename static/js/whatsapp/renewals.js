@@ -117,7 +117,7 @@ async function loadRenRecords() {
 function renderRenTable(records) {
   const tbody = document.getElementById('ren-tbody');
   if (!records || records.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="padding:30px;text-align:center;color:var(--text-3);">No renewal records found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="ren-empty">No renewal records found</td></tr>';
     return;
   }
 
@@ -130,17 +130,17 @@ function renderRenTable(records) {
     const plan = escHtml(r.plan_name || '--');
     const expiry = r.expiry_date || '--';
 
-    return `<tr style="border-bottom:1px solid var(--border);">
-      <td style="padding:6px 10px;"><input type="checkbox" class="ren-row-check" data-id="${r.id}" ${checked}></td>
-      <td style="padding:6px 10px;font-weight:500;">${name}</td>
-      <td style="padding:6px 10px;font-family:'DM Mono',monospace;font-size:11px;">${mobile}</td>
-      <td style="padding:6px 10px;font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${plan}</td>
-      <td style="padding:6px 10px;white-space:nowrap;">${expiry}</td>
-      <td style="padding:6px 10px;">${days}</td>
-      <td style="padding:6px 10px;">${badge}</td>
-      <td style="padding:6px 10px;">
-        <button class="btn btn-sm btn-success" style="padding:2px 8px;font-size:11px;" onclick="renSendOne(${r.id})">
-          <i class="fab fa-whatsapp"></i> Send
+    return `<tr>
+      <td><input type="checkbox" class="ren-row-check" data-id="${r.id}" ${checked}></td>
+      <td style="font-weight:500;">${name}</td>
+      <td style="font-family:'DM Mono',monospace;font-size:11px;">${mobile}</td>
+      <td class="ren-hide-mobile" style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${plan}</td>
+      <td style="white-space:nowrap;">${expiry}</td>
+      <td style="text-align:center;">${days}</td>
+      <td class="ren-hide-mobile" style="text-align:center;">${badge}</td>
+      <td style="text-align:center;">
+        <button class="btn btn-sm btn-success" style="padding:3px 8px;font-size:11px;" onclick="renSendOne(${r.id})">
+          <i class="fab fa-whatsapp"></i>
         </button>
       </td>
     </tr>`;

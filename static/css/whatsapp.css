@@ -1614,6 +1614,7 @@ kbd {
   /* Compose area — fixed at bottom, compact */
   .chat-compose {
     padding: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     border-top: 1px solid var(--border);
     background: var(--surface);
   }
@@ -1678,7 +1679,13 @@ kbd {
 
   /* Workspace panels — hide desktop switcher, use bottom nav instead */
   .workspace-switcher { display: none; }
-  #inboxPanel { height: calc(100vh - 64px); }
+  #inboxPanel { height: 100dvh; height: calc(100vh - env(safe-area-inset-top, 0px)); }
+
+  /* When in chat view (bottom nav hidden), use full height */
+  .wa-sidebar.mob-in-chat ~ .wa-main #inboxPanel {
+    height: 100dvh;
+    height: 100vh;
+  }
 
   /* ── Mobile Bottom Navigation ─────────────────────────── */
   .mob-bottom-nav {
@@ -2075,4 +2082,205 @@ kbd {
   background: -webkit-radial-gradient(45%, circle, lightgreen 0%, lightgreen 100%);
   border: 1px solid #004562;
   box-shadow: 0 2px 4px green, 0 0 4px green inset;
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   RENEWALS PANEL — Responsive Styles
+   ═══════════════════════════════════════════════════════════ */
+
+.ren-panel {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Stats */
+.ren-stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ren-stat-card {
+  flex: 1;
+  min-width: 70px;
+  background: var(--bg-2, var(--surface-2));
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: center;
+}
+
+.ren-stat-card.ren-stat-expired { border-left: 3px solid #dc3545; }
+.ren-stat-card.ren-stat-today { border-left: 3px solid #fd7e14; }
+.ren-stat-card.ren-stat-upcoming { border-left: 3px solid #198754; }
+.ren-stat-card.ren-stat-sent { border-left: 3px solid #0dcaf0; }
+
+.ren-stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.ren-stat-expired .ren-stat-value { color: #dc3545; }
+.ren-stat-today .ren-stat-value { color: #fd7e14; }
+.ren-stat-upcoming .ren-stat-value { color: #198754; }
+.ren-stat-sent .ren-stat-value { color: #0dcaf0; }
+
+.ren-stat-label {
+  font-size: 10px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+/* Controls */
+.ren-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ren-cat-btns {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.ren-cat-btns .btn { font-size: 11px; padding: 4px 10px; }
+
+.ren-controls-row2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ren-select-label {
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ren-controls-row2 .btn { font-size: 11px; padding: 4px 8px; white-space: nowrap; }
+
+/* Data Table */
+.ren-data-wrap {
+  flex: 1;
+  overflow: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  -webkit-overflow-scrolling: touch;
+}
+
+.ren-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.ren-table thead {
+  position: sticky;
+  top: 0;
+  background: var(--bg-2, var(--surface-2));
+  z-index: 2;
+}
+
+.ren-table th {
+  padding: 8px 10px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.ren-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.ren-table tbody tr:hover { background: var(--surface-2, #f8fafc); }
+
+.ren-empty {
+  padding: 30px !important;
+  text-align: center;
+  color: var(--text-3);
+}
+
+/* Footer / Pagination */
+.ren-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-3);
+  padding-top: 4px;
+}
+
+.ren-pagination {
+  display: flex;
+  gap: 4px;
+}
+
+.ren-pagination .btn { font-size: 11px; padding: 2px 8px; }
+
+/* ── Mobile Responsive (≤680px) ─────────────────────────── */
+@media (max-width: 680px) {
+  .ren-panel { padding: 10px; gap: 8px; }
+
+  /* Stats: 3 columns on small screens */
+  .ren-stats { gap: 6px; }
+  .ren-stat-card {
+    min-width: 55px;
+    padding: 8px 6px;
+  }
+  .ren-stat-value { font-size: 16px; }
+  .ren-stat-label { font-size: 9px; }
+
+  /* Category buttons: scrollable */
+  .ren-cat-btns {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+  }
+  .ren-cat-btns .btn { flex-shrink: 0; }
+
+  /* Controls row: stack */
+  .ren-controls-row2 { flex-wrap: wrap; }
+  .ren-controls-row2 input[type="text"] { min-width: 100px; }
+
+  /* Hide columns that don't fit on mobile */
+  .ren-hide-mobile { display: none !important; }
+
+  /* Table: tighter padding */
+  .ren-table th,
+  .ren-table td { padding: 6px 6px; font-size: 11px; }
+
+  /* Make send buttons touch-friendly */
+  .ren-table .btn { min-height: 32px; min-width: 32px; padding: 4px 8px; }
+
+  /* Pagination */
+  .ren-footer { flex-direction: column; gap: 6px; align-items: stretch; text-align: center; }
+}
+
+/* ── Very small screens (≤400px) ────────────────────────── */
+@media (max-width: 400px) {
+  .ren-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+  }
+  .ren-stat-card { min-width: unset; padding: 6px 4px; }
+  .ren-stat-value { font-size: 14px; }
+
+  .ren-cat-btns .btn { font-size: 10px; padding: 3px 7px; }
 }
