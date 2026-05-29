@@ -384,10 +384,18 @@ def normalize_mobile(raw_mobile):
     if not raw_mobile:
         return ''
     digits = ''.join(ch for ch in str(raw_mobile).strip() if ch.isdigit())
-    # Normalize India numbers like 91XXXXXXXXXX into a consistent 10-digit key
-    # so webhook numbers and locally stored contacts match reliably.
+    # Strip India country code prefix in all common formats:
+    # 91XXXXXXXXXX (12 digits), 091XXXXXXXXXX (13 digits)
     if len(digits) == 12 and digits.startswith('91'):
         digits = digits[2:]
+    elif len(digits) == 13 and digits.startswith('091'):
+        digits = digits[3:]
+    # If still longer than 10 digits and starts with 91, strip it
+    # (handles edge cases like "91 98765 43210" → 12 digits after strip)
+    elif len(digits) > 10 and digits.startswith('91'):
+        candidate = digits[2:]
+        if len(candidate) == 10:
+            digits = candidate
     return digits
 
 
@@ -583,7 +591,8 @@ def process_incoming_message(message, metadata):
             mysql_cursor = mysql_conn.cursor(dictionary=True)
             mysql_conn.start_transaction()
 
-            # Find existing conversation
+            # Find existing conversation — try exact match first, then fallback
+            # to last-10-digits match to handle legacy duplicate formats
             mysql_cursor.execute("""
                 SELECT id
                 FROM whatsapp_conversations
@@ -592,6 +601,31 @@ def process_incoming_message(message, metadata):
             """, (mobile,))
 
             conversation = mysql_cursor.fetchone()
+
+            # Fallback: if no exact match, try matching by last 10 digits
+            # This catches cases where DB has '918149912379' but we normalized to '8149912379'
+            if not conversation:
+                mobile_key = conversation_mobile_key(mobile)
+                if mobile_key and len(mobile_key) == 10:
+                    mysql_cursor.execute("""
+                        SELECT id, phone
+                        FROM whatsapp_conversations
+                        WHERE phone LIKE %s OR phone = %s
+                        ORDER BY updated_at DESC
+                        LIMIT 1
+                    """, (f'%{mobile_key}', f'91{mobile_key}'))
+                    conversation = mysql_cursor.fetchone()
+                    if conversation:
+                        # Fix the stored phone to the normalized format
+                        mysql_cursor.execute("""
+                            UPDATE whatsapp_conversations
+                            SET phone = %s
+                            WHERE id = %s
+                        """, (mobile, conversation["id"]))
+                        app.logger.info(
+                            "Fixed conversation phone format: old=%s new=%s conversation_id=%s",
+                            conversation.get("phone"), mobile, conversation["id"]
+                        )
 
             if conversation:
                 conversation_id = conversation["id"]
@@ -2963,6 +2997,19 @@ def whatsapp_messages_api():
 
             active_conversation = mysql_cursor.fetchone()
 
+            # Fallback: try last-10-digits match for legacy data
+            if not active_conversation:
+                mobile_key = conversation_mobile_key(mobile)
+                if mobile_key and len(mobile_key) == 10:
+                    mysql_cursor.execute("""
+                        SELECT id, customer_name
+                        FROM whatsapp_conversations
+                        WHERE phone LIKE %s OR phone = %s
+                        ORDER BY updated_at DESC
+                        LIMIT 1
+                    """, (f'%{mobile_key}', f'91{mobile_key}'))
+                    active_conversation = mysql_cursor.fetchone()
+
             conversation_id = (
                 active_conversation["id"]
                 if active_conversation
@@ -3254,6 +3301,19 @@ def send_whatsapp():
             (mobile,),
         )
         conversation = mysql_cursor.fetchone()
+
+        # Fallback: try last-10-digits match for legacy data
+        if not conversation:
+            mobile_key = conversation_mobile_key(mobile)
+            if mobile_key and len(mobile_key) == 10:
+                mysql_cursor.execute("""
+                    SELECT id
+                    FROM whatsapp_conversations
+                    WHERE phone LIKE %s OR phone = %s
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                """, (f'%{mobile_key}', f'91{mobile_key}'))
+                conversation = mysql_cursor.fetchone()
 
         if conversation:
             conversation_id = conversation["id"]
