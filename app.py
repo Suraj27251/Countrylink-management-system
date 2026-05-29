@@ -2938,6 +2938,7 @@ def whatsapp_messages_api():
 
             mysql_cursor.execute("""
                 SELECT
+                    id AS conversation_id,
                     phone AS mobile,
                     customer_name AS name,
                     last_message AS text,
@@ -2963,6 +2964,7 @@ def whatsapp_messages_api():
             for idx, row in enumerate(raw_contacts, start=1):
                 contacts.append({
                     "id": idx,
+                    "conversation_id": int(row.get("conversation_id") or 0),
                     "name": row.get("name") or row.get("mobile"),
                     "mobile": normalize_mobile(row.get("mobile")),
                     "text": row.get("text") or "",
@@ -2983,6 +2985,40 @@ def whatsapp_messages_api():
 
         latest_row = mysql_cursor.fetchone()
         latest_inbox_id = latest_row["latest_id"] if latest_row else 0
+
+        # ── Populate inbox_messages: new messages across ALL conversations since since_inbox_id ──
+        # This powers the frontend notification sound and unread badge updates
+        if include_contacts and since_inbox_id > 0:
+            mysql_cursor.execute("""
+                SELECT
+                    m.id,
+                    m.phone AS mobile,
+                    m.sender_type,
+                    m.message_text AS text,
+                    m.message_type,
+                    m.created_at,
+                    c.customer_name AS name
+                FROM whatsapp_messages m
+                LEFT JOIN whatsapp_conversations c ON m.conversation_id = c.id
+                WHERE m.id > %s
+                ORDER BY m.id ASC
+                LIMIT 100
+            """, (since_inbox_id,))
+
+            raw_inbox_msgs = mysql_cursor.fetchall()
+            for msg in raw_inbox_msgs:
+                sender_type = msg.get("sender_type", "customer")
+                direction = "inbound" if sender_type == "customer" else "outbound"
+                inbox_messages.append({
+                    "id": msg["id"],
+                    "mobile": normalize_mobile(msg.get("mobile") or ""),
+                    "name": msg.get("name") or normalize_mobile(msg.get("mobile") or ""),
+                    "sender_type": sender_type,
+                    "direction": direction,
+                    "text": msg.get("text") or "",
+                    "message_type": msg.get("message_type") or "text",
+                    "created_at": str(msg["created_at"]) if msg.get("created_at") else None,
+                })
 
         if mobile:
 
