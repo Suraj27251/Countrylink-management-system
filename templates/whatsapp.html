@@ -745,7 +745,7 @@
 <script src="{{ url_for('static', filename='js/whatsapp/state.js') }}?v=16"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/utils.js') }}?v=16"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/polling.js') }}?v=17"></script>
-<script src="{{ url_for('static', filename='js/whatsapp/render.js') }}?v=17"></script>
+<script src="{{ url_for('static', filename='js/whatsapp/render.js') }}?v=16"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/events.js') }}?v=17"></script>
 <script src="{{ url_for('static', filename='js/whatsapp/renewals.js') }}?v=1"></script>
 <script>
@@ -814,7 +814,7 @@ const STATIC_BASE     = '{{ url_for("static", filename="") }}';
 window.STATIC_BASE = STATIC_BASE;
 const NOTIFICATION_SOUND_URL = `${STATIC_BASE}audio/whatsapp_notification.wav`;
 const SOFT_SOUND_URL = `${STATIC_BASE}audio/soft_sound.mp3`;
-const HEARTBEAT_ACTIVE_MS = 2000;
+const HEARTBEAT_ACTIVE_MS = 3000;
 const HEARTBEAT_BACKGROUND_MS = 5000;
 const HEARTBEAT_IDLE_MS = 10000;
 const HEARTBEAT_IDLE_AFTER_MS = 5 * 60 * 1000;

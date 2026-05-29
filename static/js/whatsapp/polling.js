@@ -219,12 +219,15 @@
           const isOutbound = String(m.direction || '').toLowerCase() === 'outbound';
           const isSelfMessage = Boolean(m.from_me === 1 || m.from_me === true || m.is_self === 1 || m.is_self === true);
 
-          // Track if this message was already processed for SOUND purposes
+          // Dedup: skip if we've already processed this message ID globally
           const msgIdStr = String(m.id);
-          const alreadyProcessedForSound = window.inboxState.globalKnownMessageIds.has(msgIdStr);
+          if (window.inboxState.globalKnownMessageIds.has(msgIdStr)) {
+            return; // Already processed — no sound, no render
+          }
+          window.inboxState.globalKnownMessageIds.add(msgIdStr);
 
-          // Sound handling: only beep if we haven't already processed this message
-          if (!alreadyProcessedForSound && !isOptimistic && !isOutbound && !isSelfMessage && messageMobile && messageMobile !== activeMobile) {
+          // Sound handling must run before active-chat render guard so other-chat inbound can still beep.
+          if (!isOptimistic && !isOutbound && !isSelfMessage && messageMobile && messageMobile !== activeMobile) {
             const lastSeen = window.inboxState.lastSeenMessageIdByMobile.get(messageMobile) || 0;
             const curId = +m.id || 0;
             if (curId > lastSeen) {
@@ -235,22 +238,44 @@
                 messageMobile,
                 activeMobile
               });
+            } else {
+              console.debug('[POLLING_SOUND] Skipped sound — already seen message id', {
+                messageId: m.id,
+                messageMobile,
+                lastSeen
+              });
             }
+          } else {
+            console.debug('[POLLING_SOUND] Skipped sound by rule', {
+              messageId: m.id,
+              messageMobile,
+              activeMobile,
+              isOptimistic,
+              isOutbound,
+              isSelfMessage
+            });
           }
 
           const shouldSkipRender = Boolean(activeMobile && messageMobile && messageMobile !== activeMobile);
+          console.debug('[POLLING_RENDER] Message routing decision', {
+            messageId: m.id,
+            resolvedMobile: messageMobile,
+            activeMobile,
+            skipped: shouldSkipRender
+          });
           if (!activeMobile || shouldSkipRender) {
-            // Mark as processed even if not rendered (it's for another chat)
-            window.inboxState.globalKnownMessageIds.add(msgIdStr);
+            console.debug('[POLLING_RENDER] Skip message render — not active conversation', {
+              messageId: m.id,
+              messageMobile,
+              activeMobile
+            });
             return;
           }
-
-          // Always attempt render via upsertMsg — it handles DOM dedup internally
           const isNewMsg = upsertMsg ? upsertMsg(m) : false;
           hasNew = isNewMsg || hasNew;
 
           // Play soft sound for new inbound messages in the active chat
-          if (isNewMsg && !alreadyProcessedForSound && !isOutbound && !isSelfMessage && messageMobile === activeMobile) {
+          if (isNewMsg && !isOutbound && !isSelfMessage && messageMobile === activeMobile) {
             if (beep) beep(activeMobile);
           }
         });
