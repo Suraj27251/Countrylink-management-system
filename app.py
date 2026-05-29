@@ -2913,12 +2913,13 @@ def whatsapp_messages_api():
                     last_customer_message_at,
                     COALESCE(needs_human, 0) AS needs_human,
                     CASE
-                        WHEN last_customer_message_at IS NULL THEN 'active'
+                        WHEN last_customer_message_at IS NULL THEN 'inactive'
                         WHEN TIMESTAMPDIFF(HOUR, last_customer_message_at, NOW()) < 22 THEN 'active'
                         WHEN TIMESTAMPDIFF(HOUR, last_customer_message_at, NOW()) < 24 THEN 'expiring'
                         ELSE 'inactive'
                     END AS chat_window_status
                 FROM whatsapp_conversations
+                WHERE last_customer_message_at IS NOT NULL
                 ORDER BY COALESCE(needs_human, 0) DESC, unread_count DESC, last_customer_message_at DESC, updated_at DESC
             """)
 

@@ -591,7 +591,14 @@
       const isActive = mobile === window.inboxState.activeMobile;
       const name = c.name || mobile || 'Unknown';
       const cls = avatarClasses[i % 3];
-      const unreadCount = !isActive ? (window.inboxState.unreadByMobile.get(mobile) || 0) : 0;
+      // Use server unread_count as source of truth, fallback to client-side map
+      const serverUnread = parseInt(c.unread_count || 0, 10);
+      const clientUnread = window.inboxState.unreadByMobile.get(mobile) || 0;
+      const unreadCount = !isActive ? Math.max(serverUnread, clientUnread) : 0;
+      // Sync server unread into client map so green dots work correctly
+      if (!isActive && serverUnread > 0 && serverUnread > clientUnread) {
+        window.inboxState.unreadByMobile.set(mobile, serverUnread);
+      }
       const hasNewMessage = !isActive && unreadCount > 0;
       const time = fmtTime(c.created_at);
       const preview = c.text || c.preview || 'No messages yet';
