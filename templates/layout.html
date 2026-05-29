@@ -5,34 +5,386 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Countrylink{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        /* ── Modern Navbar ─────────────────────────────────────────── */
+        .cl-navbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+            transition: background 0.3s ease, box-shadow 0.3s ease;
+        }
+        .cl-navbar-inner {
+            max-width: 1280px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 24px;
+            gap: 16px;
+        }
+        .cl-navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+        .cl-navbar-brand img {
+            height: 36px;
+            width: auto;
+        }
+        .cl-navbar-brand-text {
+            font-family: 'Inter', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.3px;
+        }
+        @media (max-width: 480px) {
+            .cl-navbar-brand-text { display: none; }
+        }
+
+        /* ── Desktop Nav Links ─────────────────────────────────────── */
+        .cl-nav-links {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: nowrap;
+        }
+        .cl-nav-link {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 10px;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            color: #475569;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            position: relative;
+        }
+        .cl-nav-link i {
+            font-size: 14px;
+            opacity: 0.7;
+            transition: opacity 0.2s ease;
+        }
+        .cl-nav-link:hover {
+            background: rgba(102, 126, 234, 0.08);
+            color: #667eea;
+        }
+        .cl-nav-link:hover i { opacity: 1; }
+        .cl-nav-link.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        .cl-nav-link.active i { opacity: 1; }
+
+        /* ── Right Actions ─────────────────────────────────────────── */
+        .cl-nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        /* ── Mobile Hamburger ──────────────────────────────────────── */
+        .cl-hamburger {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            border: none;
+            background: #f1f5f9;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            flex-shrink: 0;
+        }
+        .cl-hamburger:hover { background: #e2e8f0; }
+        .cl-hamburger-icon {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            width: 18px;
+        }
+        .cl-hamburger-icon span {
+            display: block;
+            height: 2px;
+            width: 100%;
+            background: #334155;
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+        .cl-hamburger.open .cl-hamburger-icon span:nth-child(1) {
+            transform: rotate(45deg) translate(4px, 4px);
+        }
+        .cl-hamburger.open .cl-hamburger-icon span:nth-child(2) {
+            opacity: 0;
+            transform: scaleX(0);
+        }
+        .cl-hamburger.open .cl-hamburger-icon span:nth-child(3) {
+            transform: rotate(-45deg) translate(4px, -4px);
+        }
+
+        /* ── Mobile Drawer ─────────────────────────────────────────── */
+        .cl-mobile-drawer {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 280px;
+            height: 100%;
+            background: #fff;
+            z-index: 200;
+            transform: translateX(-100%);
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 4px 0 24px rgba(15, 23, 42, 0.12);
+            overflow-y: auto;
+        }
+        .cl-mobile-drawer.open {
+            transform: translateX(0);
+        }
+        .cl-drawer-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 20px 24px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .cl-drawer-header img {
+            height: 32px;
+            width: auto;
+        }
+        .cl-drawer-header span {
+            font-family: 'Inter', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        .cl-drawer-links {
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .cl-drawer-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            color: #475569;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+        .cl-drawer-link i {
+            width: 20px;
+            text-align: center;
+            font-size: 15px;
+            color: #94a3b8;
+            transition: color 0.2s ease;
+        }
+        .cl-drawer-link:hover {
+            background: #f8fafc;
+            color: #667eea;
+        }
+        .cl-drawer-link:hover i { color: #667eea; }
+        .cl-drawer-link.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+        }
+        .cl-drawer-link.active i { color: #fff; }
+        .cl-drawer-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #f1f5f9;
+            margin-top: auto;
+        }
+
+        /* ── Overlay ───────────────────────────────────────────────── */
+        .cl-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(2px);
+            z-index: 150;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .cl-overlay.show {
+            opacity: 1;
+        }
+
+        /* ── Responsive ────────────────────────────────────────────── */
+        @media (max-width: 1024px) {
+            .cl-nav-links { display: none; }
+            .cl-hamburger { display: flex; }
+            .cl-mobile-drawer { display: block; }
+            .cl-overlay { display: block; pointer-events: none; }
+            .cl-overlay.show { pointer-events: auto; }
+        }
+        @media (min-width: 1025px) {
+            .cl-mobile-drawer { display: none !important; }
+            .cl-overlay { display: none !important; }
+        }
+
+        /* ── Dark Mode Navbar ──────────────────────────────────────── */
+        body.dark-mode .cl-navbar {
+            background: rgba(30, 41, 59, 0.88);
+            border-bottom-color: rgba(51, 65, 85, 0.5);
+        }
+        body.dark-mode .cl-navbar-brand-text {
+            background: linear-gradient(135deg, #a5b4fc, #c4b5fd);
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+        body.dark-mode .cl-nav-link {
+            color: #cbd5e1;
+        }
+        body.dark-mode .cl-nav-link:hover {
+            background: rgba(148, 163, 184, 0.1);
+            color: #a5b4fc;
+        }
+        body.dark-mode .cl-nav-link.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+        }
+        body.dark-mode .cl-hamburger {
+            background: #334155;
+        }
+        body.dark-mode .cl-hamburger-icon span {
+            background: #e2e8f0;
+        }
+        body.dark-mode .cl-mobile-drawer {
+            background: #1e293b;
+        }
+        body.dark-mode .cl-drawer-header {
+            border-bottom-color: #334155;
+        }
+        body.dark-mode .cl-drawer-header span { color: #f1f5f9; }
+        body.dark-mode .cl-drawer-link { color: #cbd5e1; }
+        body.dark-mode .cl-drawer-link i { color: #64748b; }
+        body.dark-mode .cl-drawer-link:hover {
+            background: #334155;
+            color: #a5b4fc;
+        }
+        body.dark-mode .cl-drawer-link:hover i { color: #a5b4fc; }
+        body.dark-mode .cl-drawer-link.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+        }
+        body.dark-mode .cl-drawer-link.active i { color: #fff; }
+        body.dark-mode .cl-drawer-footer { border-top-color: #334155; }
+    </style>
     {% block extra_head %}{% endblock %}
 </head>
 <body class="bg-gray-50 font-roboto">
-    <header class="header">
-        <button id="menuButton" class="menu-button"><i class="fas fa-bars"></i></button>
-        <div class="logo">
-            <a href="{{ url_for('dashboard') }}">
+    <!-- ═══════════ MODERN NAVBAR ═══════════ -->
+    <nav class="cl-navbar">
+        <div class="cl-navbar-inner">
+            <!-- Brand -->
+            <a href="{{ url_for('dashboard') }}" class="cl-navbar-brand">
                 <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Countrylink Logo">
+                <span class="cl-navbar-brand-text">COUNTRYLINK</span>
             </a>
-        </div>
-        <div class="title">COUNTRYLINK BROADBAND</div>
-        <div class="language" style="display:flex; align-items:center; gap:12px;">
-            {% block header_actions %}{% endblock %}
-        </div>
-    </header>
-    <nav class="tabs floating-nav" id="mainNav">
-        <div class="floating-nav__links">
-            {% block tabs %}{% endblock %}
+
+            <!-- Desktop Nav Links -->
+            <div class="cl-nav-links">
+                {% block tabs %}{% endblock %}
+            </div>
+
+            <!-- Right Actions -->
+            <div class="cl-nav-actions">
+                {% block header_actions %}{% endblock %}
+                <button class="cl-hamburger" id="clHamburger" aria-label="Open menu">
+                    <div class="cl-hamburger-icon">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </button>
+            </div>
         </div>
     </nav>
-    <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
+    <!-- ═══════════ MOBILE DRAWER ═══════════ -->
+    <aside class="cl-mobile-drawer" id="clDrawer">
+        <div class="cl-drawer-header">
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo">
+            <span>Countrylink</span>
+        </div>
+        <div class="cl-drawer-links" id="clDrawerLinks">
+            <!-- Populated by JS from nav links -->
+        </div>
+        <div class="cl-drawer-footer">
+            <div id="clDrawerActions"></div>
+        </div>
+    </aside>
+    <div class="cl-overlay" id="clOverlay"></div>
+
     <main class="container mx-auto p-4">
         {% block content %}{% endblock %}
     </main>
-    <script src="{{ url_for('static', filename='js/menu.js') }}"></script>
+
+    <script>
+    // ── Modern Navbar Mobile Menu ────────────────────────────────────────────
+    (function() {
+        const hamburger = document.getElementById('clHamburger');
+        const drawer = document.getElementById('clDrawer');
+        const overlay = document.getElementById('clOverlay');
+        const drawerLinks = document.getElementById('clDrawerLinks');
+
+        // Clone desktop nav links into mobile drawer
+        const desktopLinks = document.querySelectorAll('.cl-nav-links .cl-nav-link');
+        desktopLinks.forEach(link => {
+            const clone = link.cloneNode(true);
+            clone.className = 'cl-drawer-link' + (link.classList.contains('active') ? ' active' : '');
+            drawerLinks.appendChild(clone);
+        });
+
+        function openDrawer() {
+            drawer.classList.add('open');
+            overlay.classList.add('show');
+            hamburger.classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeDrawer() {
+            drawer.classList.remove('open');
+            overlay.classList.remove('show');
+            hamburger.classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        if (hamburger) hamburger.addEventListener('click', () => {
+            drawer.classList.contains('open') ? closeDrawer() : openDrawer();
+        });
+        if (overlay) overlay.addEventListener('click', closeDrawer);
+
+        // Close on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeDrawer();
+        });
+    })();
+    </script>
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>

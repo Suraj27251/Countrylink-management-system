@@ -267,25 +267,26 @@
     </style>
 {% endblock %}
 {% block header_actions %}
-    <div class="theme-toggle" style="margin-left:15px;">
+    <div class="theme-toggle" style="display:flex;align-items:center;gap:6px;">
         <label class="switch">
             <input type="checkbox" id="themeToggle">
             <span class="slider"></span>
         </label>
-        <span class="theme-label"><i class="fas fa-moon"></i></span>
+        <span class="theme-label" style="color:#64748b;font-size:14px;"><i class="fas fa-moon"></i></span>
     </div>
     <a href="{{ url_for('auth.logout') }}"
-       class="ml-3 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded flex items-center gap-2 text-sm">
+       style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;background:#fee2e2;color:#dc2626;font-size:13px;font-weight:600;text-decoration:none;transition:all 0.2s ease;"
+       onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">
        <i class="fas fa-right-from-bracket"></i> Logout
     </a>
 {% endblock %}
 {% block tabs %}
-    <div class="tab active"><a href="{{ url_for('dashboard') }}"><i class="fas fa-gauge"></i> Dashboard</a></div>
-    <div class="tab"><a href="{{ url_for('complaints_page') }}"><i class="fas fa-code-branch"></i> Complaints</a></div>
-    <div class="tab"><a href="{{ url_for('new_connections') }}"><i class="fas fa-user-plus"></i> New Connections</a></div>
-    <div class="tab"><a href="{{ url_for('stock') }}"><i class="fas fa-boxes"></i> Stock</a></div>
-    <div class="tab"><a href="{{ url_for('hr_dashboard') }}"><i class="fas fa-users"></i> Human Resource</a></div>
-    <div class="tab"><a href="{{ url_for('whatsapp_complaints') }}"><i class="fab fa-whatsapp"></i> WhatsApp Inbox</a></div>
+    <a href="{{ url_for('dashboard') }}" class="cl-nav-link active"><i class="fas fa-gauge"></i> Dashboard</a>
+    <a href="{{ url_for('complaints_page') }}" class="cl-nav-link"><i class="fas fa-code-branch"></i> Complaints</a>
+    <a href="{{ url_for('new_connections') }}" class="cl-nav-link"><i class="fas fa-user-plus"></i> New Connections</a>
+    <a href="{{ url_for('stock') }}" class="cl-nav-link"><i class="fas fa-boxes"></i> Stock</a>
+    <a href="{{ url_for('hr_dashboard') }}" class="cl-nav-link"><i class="fas fa-users"></i> Human Resource</a>
+    <a href="{{ url_for('whatsapp_complaints') }}" class="cl-nav-link"><i class="fab fa-whatsapp"></i> WhatsApp</a>
 {% endblock %}
 {% block content %}
 <div class="dashboard-wrapper">
