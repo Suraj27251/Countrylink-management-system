@@ -1,5 +1,6 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/countrylinks/countrylink/
-    - /bin/echo "Deployment completed — no file copy required"
+    - export DEPLOYPATH=/home/countrylinks/public_html/Countrylink-management-system-main/
+    - /bin/ln -sfn /home/countrylinks/public_html/Countrylink-management-system-main/static /home/countrylinks/public_html/static
+    - /bin/echo "Deployment completed — static symlink created"
