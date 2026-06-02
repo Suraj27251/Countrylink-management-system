@@ -34,7 +34,7 @@ function initCrmPanel() {
         <div class="crm-panel-header">
           <h4 class="crm-panel-title"><i class="fas fa-user-circle"></i> Customer Profile</h4>
           <button class="crm-close-btn" onclick="closeCrmPanel()" title="Close panel">
-            <i class="fas fa-xmark"></i>
+            <i class="fas fa-times"></i>
           </button>
         </div>
         <div class="crm-panel-body" id="crmPanelBody">
@@ -42,9 +42,13 @@ function initCrmPanel() {
         </div>
       </div>
     `;
-    const waMain = document.getElementById('waMain');
-    if (waMain) {
-      waMain.appendChild(panel);
+    // On mobile, append to body for fixed positioning; on desktop, append to waMain for absolute
+    const isMobile = window.innerWidth <= 680;
+    const container = isMobile ? document.body : document.getElementById('waMain');
+    if (container) {
+      container.appendChild(panel);
+    } else {
+      document.body.appendChild(panel);
     }
   }
 
