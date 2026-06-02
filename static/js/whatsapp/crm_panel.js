@@ -24,6 +24,9 @@ const crmState = {
 // ─── Initialization ────────────────────────────────────────────────────────────
 
 function initCrmPanel() {
+  // Don't initialize CRM panel on mobile — it's desktop only
+  if (window.innerWidth <= 680) return;
+
   // Create the CRM panel container if it doesn't exist
   if (!document.getElementById('crmPanel')) {
     const panel = document.createElement('aside');
@@ -57,6 +60,9 @@ function initCrmPanel() {
 }
 
 function _addCrmTriggerButton() {
+  // Don't add CRM button on mobile
+  if (window.innerWidth <= 680) return;
+
   const headerActions = document.querySelector('.chat-header-actions');
   if (!headerActions) return;
   if (document.getElementById('crmPanelBtn')) return;
