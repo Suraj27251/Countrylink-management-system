@@ -109,7 +109,15 @@ async function campLoadDashboardData() {
   campState.loading = true;
   try {
     // Fetch all campaigns for stats
-    const statsRes = await fetch(`${CAMP_API}/?per_page=100&page=1`);
+    const statsRes = await fetch(`${CAMP_API}/?per_page=100&page=1`, { credentials: 'same-origin' });
+    if (!statsRes.ok) {
+      const errText = await statsRes.text().catch(() => '');
+      console.error('[CAMPAIGNS] API error:', statsRes.status, errText);
+      const tbody = document.getElementById('campTableBody');
+      if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="camp-loading">API Error (${statsRes.status}): ${statsRes.status === 401 ? 'Please log in again.' : 'Server error — check if database migration ran.'}</td></tr>`;
+      campState.loading = false;
+      return;
+    }
     const statsData = statsRes.ok ? await statsRes.json() : { campaigns: [], total: 0 };
 
     const allCampaigns = statsData.campaigns || [];
@@ -135,7 +143,7 @@ async function campLoadDashboardData() {
     document.getElementById('campStatPending').textContent = pendingApproval;
 
     // Fetch paginated list for table
-    const listRes = await fetch(`${CAMP_API}/?page=${campState.page}&per_page=${campState.perPage}`);
+    const listRes = await fetch(`${CAMP_API}/?page=${campState.page}&per_page=${campState.perPage}`, { credentials: 'same-origin' });
     const listData = listRes.ok ? await listRes.json() : { campaigns: [], total: 0, total_pages: 0 };
 
     campState.campaigns = listData.campaigns || [];
@@ -147,7 +155,18 @@ async function campLoadDashboardData() {
   } catch (err) {
     console.error('[CAMPAIGNS] Failed to load dashboard data:', err);
     const tbody = document.getElementById('campTableBody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="camp-loading">Failed to load campaigns.</td></tr>';
+    if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="camp-loading">
+      <div style="text-align:center;">
+        <p style="font-weight:600;margin-bottom:8px;">Unable to load campaigns</p>
+        <p style="font-size:12px;color:var(--text-3);">
+          ${err.message || 'Network or server error'}. 
+          Check that the server has restarted after deployment (database migration runs on startup).
+        </p>
+        <button class="camp-btn camp-btn-outline" onclick="campLoadDashboardData()" style="margin-top:12px;">
+          <i class="fas fa-sync-alt"></i> Retry
+        </button>
+      </div>
+    </td></tr>`;
   }
   campState.loading = false;
 }
