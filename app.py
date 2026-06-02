@@ -160,6 +160,34 @@ _run_crm_migration()
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Enterprise CRM Recovery Manager on startup
+# ---------------------------------------------------------------------------
+def _run_recovery_on_startup():
+    """Run Recovery Manager to resume interrupted campaigns after restart."""
+    try:
+        from services.recovery_manager import RecoveryManager
+        recovery_mgr = RecoveryManager(get_connection=get_mysql_connection)
+        report = recovery_mgr.recover_on_startup()
+        app.logger.info(
+            "Recovery Manager completed on startup in %.2fs — "
+            "requeued=%d, duplicates_prevented=%d, campaigns_resumed=%d",
+            report.total_recovery_time_seconds,
+            report.messages_requeued,
+            report.duplicates_prevented,
+            report.campaigns_resumed,
+        )
+    except Exception as exc:
+        # Non-fatal: app can still serve existing functionality if recovery fails
+        app.logger.warning(
+            "Recovery Manager skipped (non-fatal): %s", exc
+        )
+
+
+_run_recovery_on_startup()
+# ---------------------------------------------------------------------------
+
+
 def create_retryable_session():
     retry = Retry(
         total=ZOHO_MAX_RETRIES,

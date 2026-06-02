@@ -238,7 +238,7 @@ This implementation plan builds the enterprise WhatsApp CRM platform on top of t
     - Test that delivery_rate = delivered/sent, read_rate = read/sent, failure_rate = failed/sent, all in [0,1], test-sends excluded
     - **Validates: Requirements 5.3, 8.1, 16.3**
 
-- [ ] 10. Simulation engine and A/B testing
+- [x] 10. Simulation engine and A/B testing
   - [x] 10.1 Implement simulation engine
     - Create `services/simulation.py` with `SimulationEngine` class
     - Implement `simulate()` — compute final_audience after exclusions (cooldown, opt-out, DND, invalid, incomplete params)
@@ -258,26 +258,26 @@ This implementation plan builds the enterprise WhatsApp CRM platform on top of t
     - Prevent full send until operator selects winner
     - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5_
 
-  - [~] 10.3 Write property test for simulation computation (Property 27)
+  - [x] 10.3 Write property test for simulation computation (Property 27)
     - **Property 27: Simulation computation correctness**
     - Test final_audience = N - exclusions, estimated_time = final_audience / rate, cost = final_audience * price, exclusions non-negative
     - **Validates: Requirements 22.1, 22.2, 22.4**
 
-  - [~] 10.4 Write property test for simulation warning threshold (Property 28)
+  - [x] 10.4 Write property test for simulation warning threshold (Property 28)
     - **Property 28: Simulation exclusion warning threshold**
     - Test warning when excluded > 30% and no warning when ≤ 30%
     - **Validates: Requirements 22.5**
 
-  - [~] 10.5 Write property test for A/B test even split (Property 18)
+  - [x] 10.5 Write property test for A/B test even split (Property 18)
     - **Property 18: A/B test even audience split**
     - Test that for audience N and V variants, each variant gets floor(N/V) or ceil(N/V) with max difference of 1
     - **Validates: Requirements 13.2**
 
-- [~] 11. Checkpoint - Ensure all tests pass
+- [x] 11. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 12. CRM Panel and customer profile services
-  - [~] 12.1 Implement CRM service and Blueprint
+- [x] 12. CRM Panel and customer profile services
+  - [x] 12.1 Implement CRM service and Blueprint
     - Create `blueprints/crm_bp.py` with Flask Blueprint at `/api/crm/`
     - Create `services/crm.py` with `CRMService` class
     - Implement `get_customer_profile()` — join renewal_records + customer data for full profile
@@ -288,18 +288,18 @@ This implementation plan builds the enterprise WhatsApp CRM platform on top of t
     - Display opt-out/DND status, engagement score, and engagement trend on profile
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 19.6, 23.7_
 
-  - [~] 12.2 Write property test for timeline ordering (Property 13)
+  - [x] 12.2 Write property test for timeline ordering (Property 13)
     - **Property 13: Timeline ordering consistency**
     - Test that all interaction records merge in strictly reverse chronological order with no records omitted
     - **Validates: Requirements 7.2, 7.6**
 
-  - [~] 12.3 Write property test for tag queryability in segmentation (Property 14)
+  - [x] 12.3 Write property test for tag queryability in segmentation (Property 14)
     - **Property 14: Tags assigned to customers are queryable in segmentation**
     - Test that tagged customers appear in segment results when filtering by that tag
     - **Validates: Requirements 7.5**
 
-- [ ] 13. Quality monitor, notification engine, and recovery manager
-  - [~] 13.1 Implement quality monitor service
+- [x] 13. Quality monitor, notification engine, and recovery manager
+  - [x] 13.1 Implement quality monitor service
     - Create `services/quality_monitor.py` with `QualityMonitor` class
     - Implement `compute_metrics()` — aggregate blocked_count, failure_rate, opt_out_rate, read_rate for 24h and 7d windows
     - Implement `get_quality_tier()` — determine GREEN/YELLOW/RED based on metrics thresholds
@@ -309,7 +309,7 @@ This implementation plan builds the enterprise WhatsApp CRM platform on top of t
     - Integrate adaptive cooldown: increase to 120h when tier is Yellow
     - _Requirements: 18.1, 18.2, 18.3, 18.4, 18.5, 18.6, 18.7_
 
-  - [~] 13.2 Implement notification engine
+  - [x] 13.2 Implement notification engine
     - Create `services/notification_engine.py` with `NotificationEngine` class
     - Implement `send_alert()` — create system_notifications record with type, severity, details
     - Implement alert delivery: in-app notification (persistent), browser push (optional), WhatsApp to operator (optional)
@@ -317,7 +317,7 @@ This implementation plan builds the enterprise WhatsApp CRM platform on top of t
     - Generate alerts for: campaign_degraded (>10% failures), queue_overloaded (>10k backlog), webhook_connectivity (5min gap), template_rejected, quality_drop
     - _Requirements: 25.1, 25.2, 25.3, 25.4, 25.5, 25.6, 25.7_
 
-  - [~] 13.3 Implement recovery manager
+  - [x] 13.3 Implement recovery manager
     - Create `services/recovery_manager.py` with `RecoveryManager` class
     - Implement `recover_on_startup()` — query campaign_messages in "queued" or "sending" status, re-enqueue within 30s
     - Implement `identify_stale_messages()` — find records in "sending" with updated_at > 5 minutes ago
@@ -327,18 +327,18 @@ This implementation plan builds the enterprise WhatsApp CRM platform on top of t
     - Register startup hook in app.py to call `recover_on_startup()`
     - _Requirements: 26.1, 26.2, 26.3, 26.4, 26.5, 26.6, 26.7_
 
-  - [~] 13.4 Write property test for threshold alerts (Property 26)
+  - [x] 13.4 Write property test for threshold alerts (Property 26)
     - **Property 26: Threshold-triggered alert correctness**
     - Test that failure_rate > 10% triggers campaign_degraded, blocked_count > 10 triggers block_spike, suppression > 20% triggers pause
     - **Validates: Requirements 18.2, 18.3, 21.7, 25.1**
 
-  - [~] 13.5 Write property test for stale message recovery (Property 30)
+  - [x] 13.5 Write property test for stale message recovery (Property 30)
     - **Property 30: Stale message recovery reset**
     - Test that messages in "sending" state for >5 minutes get reset to "queued"
     - **Validates: Requirements 26.6**
 
-- [ ] 14. Engagement scoring and analytics
-  - [~] 14.1 Implement engagement scorer and analytics Blueprint
+- [x] 14. Engagement scoring and analytics
+  - [x] 14.1 Implement engagement scorer and analytics Blueprint
     - Create `services/engagement_scorer.py` with engagement batch computation
     - Implement interaction_score = round(0.4 * read_rate + 0.3 * response_rate + 0.2 * recency_score + 0.1 * frequency_score), bounded [0, 100]
     - Implement engagement trend classification (increasing, stable, declining)
@@ -350,18 +350,18 @@ This implementation plan builds the enterprise WhatsApp CRM platform on top of t
     - Use pre-computed summary tables (campaign_analytics) for dashboard queries
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 12.4, 23.1, 23.2, 23.3, 23.4, 23.5, 23.6_
 
-  - [~] 14.2 Write property test for engagement score bounds (Property 29)
+  - [x] 14.2 Write property test for engagement score bounds (Property 29)
     - **Property 29: Engagement score bounded computation**
     - Test weighted score formula is bounded to [0, 100] for all valid inputs
     - **Validates: Requirements 23.2**
 
-  - [~] 14.3 Write property test for date range filtering (Property 15)
+  - [x] 14.3 Write property test for date range filtering (Property 15)
     - **Property 15: Date range filtering includes only records within bounds**
     - Test that all returned analytics records have timestamps within [start, end]
     - **Validates: Requirements 8.4**
 
 - [ ] 15. Media library
-  - [~] 15.1 Implement media library Blueprint
+  - [x] 15.1 Implement media library Blueprint
     - Create `blueprints/media_bp.py` with Flask Blueprint at `/api/media/`
     - Implement file upload with size validation: image ≤ 5MB, video ≤ 16MB, document ≤ 100MB
     - Store metadata in media_assets table (filename, mime_type, file_size, storage_path, uploaded_by)
