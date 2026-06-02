@@ -140,6 +140,26 @@ def get_mysql_connection():
     )
 
 
+# ---------------------------------------------------------------------------
+# Enterprise CRM schema migration on startup (idempotent, safe to run every boot)
+# ---------------------------------------------------------------------------
+def _run_crm_migration():
+    """Run Enterprise CRM database migrations. Called once at import time."""
+    try:
+        from migrations.enterprise_crm_schema import ensure_crm_tables
+        ensure_crm_tables(get_mysql_connection)
+        app.logger.info("Enterprise CRM schema migration completed on startup.")
+    except Exception as exc:
+        # Non-fatal: app can still serve existing functionality if migration fails
+        app.logger.warning(
+            "Enterprise CRM migration skipped (non-fatal): %s", exc
+        )
+
+
+_run_crm_migration()
+# ---------------------------------------------------------------------------
+
+
 def create_retryable_session():
     retry = Retry(
         total=ZOHO_MAX_RETRIES,
@@ -744,6 +764,37 @@ def process_incoming_message(message, metadata):
                 conversation_id,
             )
 
+            # -----------------------------------------------------------
+            # Opt-out / opt-in keyword detection (Enterprise CRM)
+            # Process STOP/UNSUBSCRIBE/OPT OUT/CANCEL/DND and START/SUBSCRIBE
+            # -----------------------------------------------------------
+            if inserted_new_message and text_body:
+                try:
+                    from services.opt_out_manager import OptOutManager, OPT_OUT_KEYWORDS, OPT_IN_KEYWORDS
+                    _opt_mgr = OptOutManager(
+                        get_connection=get_mysql_connection,
+                        send_message_fn=send_whatsapp_message if whatsapp_config_ready() else None,
+                    )
+                    _msg_lower = text_body.strip().lower()
+                    if _opt_mgr.is_opt_out_keyword(_msg_lower):
+                        _opt_mgr.process_opt_out(mobile, _msg_lower)
+                        app.logger.info(
+                            "Opt-out processed mobile=%s keyword=%s",
+                            mobile, _msg_lower,
+                        )
+                    elif _opt_mgr.is_opt_in_keyword(_msg_lower):
+                        _opt_mgr.process_opt_in(mobile, _msg_lower)
+                        app.logger.info(
+                            "Opt-in processed mobile=%s keyword=%s",
+                            mobile, _msg_lower,
+                        )
+                except Exception:
+                    app.logger.exception(
+                        "Opt-out/opt-in processing failed mobile=%s (non-fatal)",
+                        mobile,
+                    )
+            # -----------------------------------------------------------
+
             app.logger.info(
                 "MySQL inbox sync success mobile=%s conversation_id=%s",
                 mobile,
@@ -1076,13 +1127,40 @@ def process_message_status_event(status_event):
 
     errors = status_event.get('errors') or []
     reason = ''
+    error_code = None
     if errors:
         first_error = errors[0] or {}
         reason = first_error.get('details') or first_error.get('title') or first_error.get('message') or ''
+        error_code = first_error.get('code')
 
     app.logger.info("Message status update received: message_id=%s status=%s", message_id or 'no-id', status)
     if not message_id:
         return
+
+    # --- Campaign delivery tracking (Requirements 5.1, 5.2, 5.3, 5.4, 5.5) ---
+    try:
+        from services.delivery_tracker import DeliveryTracker
+        tracker = DeliveryTracker(get_connection=get_mysql_connection)
+        campaign_handled = tracker.process_status_update(
+            whatsapp_message_id=message_id,
+            status=status,
+            timestamp=timestamp_unix,
+            error_code=error_code,
+            error_message=reason or None,
+        )
+        if campaign_handled:
+            app.logger.info(
+                "Campaign delivery status processed: message_id=%s status=%s",
+                message_id,
+                status,
+            )
+    except Exception:
+        app.logger.exception(
+            "Campaign delivery tracking failed (non-fatal): message_id=%s status=%s",
+            message_id,
+            status,
+        )
+    # --- End campaign delivery tracking ---
 
     mysql_conn = None
     mysql_cursor = None
@@ -4814,6 +4892,15 @@ def toggle_whatsapp_ai():
 
 
 if __name__ == '__main__':
+    # Run Enterprise CRM database migrations on startup
+    try:
+        from migrations.enterprise_crm_schema import ensure_crm_tables
+        ensure_crm_tables(get_mysql_connection)
+        app.logger.info("Enterprise CRM schema migration completed.")
+    except Exception as exc:
+        app.logger.error("Enterprise CRM migration failed during startup: %s", exc, exc_info=True)
+        print(f"Enterprise CRM migration failed (non-fatal): {exc}")
+
     try:
         zoho_customers = get_all_zoho_customers()
         inserted_count, updated_count = save_customers_to_db(zoho_customers)
