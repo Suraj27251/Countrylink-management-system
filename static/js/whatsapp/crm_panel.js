@@ -210,28 +210,49 @@ function _renderCrmPanel(profile) {
   const body = document.getElementById('crmPanelBody');
   if (!body) return;
 
-  const engScore = profile.engagement_score != null ? profile.engagement_score : null;
-  const engTrend = profile.engagement_trend || 'stable';
-  const optedOut = profile.opted_out || false;
-  const dndActive = profile.dnd_active || false;
+  // Extract fields with proper fallbacks for the actual DB schema
+  const name = profile.customer_name || profile.name || '';
+  const displayName = name || 'Customer';
+  const mobile = profile.mobile || crmState.mobile || '';
+  const initial = (displayName.charAt(0) || 'C').toUpperCase();
+  
+  // Status from DB — "Unlimited" means active plan, use category/days_remaining for actual status
+  const planStatus = profile.status || '';
+  const category = profile.category || '';
+  const daysRemaining = profile.days_remaining;
+  const isExpired = category === 'expired' || (daysRemaining !== null && daysRemaining <= 0);
+  const isExpiringToday = category === 'today' || daysRemaining === 0;
+  
+  // Engagement data (from customer_engagement table, may be null)
+  const eng = profile.engagement || {};
+  const engScore = eng.score != null ? eng.score : null;
+  const engTrend = eng.trend || 'stable';
+  
+  // Opt-out/DND status
+  const optOut = profile.opt_out_status || {};
+  const dnd = profile.dnd_status || {};
+  const optedOut = optOut.opted_out || false;
+  const dndActive = dnd.dnd_active || false;
 
   body.innerHTML = `
-    <!-- Profile Section -->
+    <!-- Profile Header -->
     <div class="crm-section crm-profile-section">
       <div class="crm-profile-header">
-        <div class="crm-avatar">${_escCrm((profile.name || '?').charAt(0).toUpperCase())}</div>
+        <div class="crm-avatar">${_escCrm(initial)}</div>
         <div class="crm-profile-info">
-          <h5 class="crm-profile-name">${_escCrm(profile.name || 'Unknown')}</h5>
-          <span class="crm-profile-mobile"><i class="fas fa-phone"></i> ${_escCrm(profile.mobile || crmState.mobile)}</span>
+          <h5 class="crm-profile-name">${_escCrm(displayName)}</h5>
+          <span class="crm-profile-mobile"><i class="fas fa-phone"></i> ${_escCrm(mobile)}</span>
         </div>
       </div>
 
-      <!-- Status Indicators -->
+      <!-- Status Badges -->
       <div class="crm-status-row">
         ${optedOut ? '<span class="crm-badge crm-badge-red"><i class="fas fa-ban"></i> Opted Out</span>' : ''}
         ${dndActive ? '<span class="crm-badge crm-badge-amber"><i class="fas fa-moon"></i> DND</span>' : ''}
-        ${!optedOut && !dndActive ? '<span class="crm-badge crm-badge-green"><i class="fas fa-check-circle"></i> Active</span>' : ''}
-        <span class="crm-badge crm-badge-outline">${_escCrm(profile.status || 'unknown')}</span>
+        ${isExpired ? '<span class="crm-badge crm-badge-red"><i class="fas fa-clock"></i> Expired</span>' : ''}
+        ${isExpiringToday ? '<span class="crm-badge crm-badge-amber"><i class="fas fa-exclamation"></i> Expiring Today</span>' : ''}
+        ${!isExpired && !isExpiringToday && !optedOut ? '<span class="crm-badge crm-badge-green"><i class="fas fa-check-circle"></i> Active</span>' : ''}
+        ${daysRemaining != null && daysRemaining > 0 ? `<span class="crm-badge crm-badge-outline">${daysRemaining}d left</span>` : ''}
       </div>
 
       <!-- Engagement Score -->
@@ -251,16 +272,18 @@ function _renderCrmPanel(profile) {
         </div>
       ` : ''}
 
-      <!-- Plan & Details -->
+      <!-- Customer Details -->
       <div class="crm-detail-grid">
         ${_detailItem('Plan', profile.plan_name)}
+        ${_detailItem('Category', profile.plan_category)}
         ${_detailItem('Validity', profile.validity || _formatValidity(profile.expiry_date))}
         ${_detailItem('Zone', profile.zone_name)}
         ${_detailItem('Area', profile.area)}
         ${_detailItem('Building', profile.building)}
         ${_detailItem('Network', profile.network_type)}
-        ${_detailItem('Activation', _formatDate(profile.activation_date))}
+        ${_detailItem('Mode', profile.connectivity_mode)}
         ${_detailItem('Expiry', _formatDate(profile.expiry_date))}
+        ${_detailItem('Activation', _formatDate(profile.activation_date))}
       </div>
     </div>
 
@@ -275,7 +298,7 @@ function _renderCrmPanel(profile) {
       <div class="crm-tag-add">
         <input type="text" id="crmTagInput" class="crm-input" placeholder="Add tag..." 
                onkeydown="if(event.key==='Enter'){event.preventDefault();crmAddTag();}">
-        <button class="crm-btn crm-btn-sm" onclick="crmAddTag()">
+        <button class="crm-btn crm-btn-sm crm-btn-primary" onclick="crmAddTag()">
           <i class="fas fa-plus"></i>
         </button>
       </div>
@@ -299,9 +322,7 @@ function _renderCrmPanel(profile) {
       <div class="crm-section-header">
         <h6><i class="fas fa-clock-rotate-left"></i> Activity Timeline</h6>
       </div>
-      <div class="crm-timeline" id="crmTimelineList">
-        <!-- Timeline items loaded dynamically -->
-      </div>
+      <div class="crm-timeline" id="crmTimelineList"></div>
       <button class="crm-btn crm-btn-outline crm-btn-block" id="crmLoadMoreBtn" 
               onclick="_loadTimeline('${_escCrm(crmState.mobile)}')" style="display:none;">
         Load more...

@@ -703,6 +703,11 @@ function campShowSegments() {
         <i class="fas fa-arrow-left"></i> Back
       </button>
       <h3><i class="fas fa-users"></i> Audience Segments</h3>
+      <div class="camp-actions">
+        <button class="camp-btn camp-btn-primary" onclick="campShowCreateSegment()">
+          <i class="fas fa-plus"></i> Create Segment
+        </button>
+      </div>
     </div>
     <div class="camp-table-wrap">
       <table class="camp-table">
@@ -710,12 +715,13 @@ function campShowSegments() {
           <tr>
             <th>Name</th>
             <th>Description</th>
+            <th>Est. Count</th>
             <th>Created By</th>
             <th>Created At</th>
           </tr>
         </thead>
         <tbody id="campSegmentsBody">
-          <tr><td colspan="4" class="camp-loading">Loading segments...</td></tr>
+          <tr><td colspan="5" class="camp-loading">Loading segments...</td></tr>
         </tbody>
       </table>
     </div>
@@ -724,9 +730,154 @@ function campShowSegments() {
   campLoadSegmentsList();
 }
 
+function campShowCreateSegment() {
+  campState.view = 'create_segment';
+  const container = document.getElementById('campaignsPanelContent');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="camp-header">
+      <button class="camp-btn camp-btn-ghost" onclick="campShowSegments()">
+        <i class="fas fa-arrow-left"></i> Back
+      </button>
+      <h3><i class="fas fa-plus-circle"></i> Create New Segment</h3>
+    </div>
+    <form class="camp-form" id="campSegmentForm" onsubmit="campHandleCreateSegment(event)">
+      <div class="camp-form-group">
+        <label for="segName">Segment Name *</label>
+        <input type="text" id="segName" class="camp-input" required placeholder="e.g., Expired users in Zone A">
+      </div>
+      <div class="camp-form-group">
+        <label for="segDesc">Description</label>
+        <input type="text" id="segDesc" class="camp-input" placeholder="Optional description">
+      </div>
+
+      <div class="camp-audience-builder">
+        <span class="camp-audience-builder-label"><i class="fas fa-filter"></i> Filter Criteria</span>
+        <div class="camp-filter-grid">
+          <div class="camp-form-group">
+            <label>Category</label>
+            <select id="segFilterCategory" class="camp-input" onchange="segOnFiltersChanged()">
+              <option value="">Any</option>
+              <option value="expired">Expired</option>
+              <option value="today">Expiring Today</option>
+              <option value="upcoming">Upcoming</option>
+            </select>
+          </div>
+          <div class="camp-form-group">
+            <label>Zone</label>
+            <input type="text" id="segFilterZone" class="camp-input" placeholder="e.g., North Zone" onchange="segOnFiltersChanged()">
+          </div>
+          <div class="camp-form-group">
+            <label>Plan Name</label>
+            <input type="text" id="segFilterPlan" class="camp-input" placeholder="e.g., 100Mbps" onchange="segOnFiltersChanged()">
+          </div>
+          <div class="camp-form-group">
+            <label>Network Type</label>
+            <input type="text" id="segFilterNetwork" class="camp-input" placeholder="e.g., Fiber" onchange="segOnFiltersChanged()">
+          </div>
+          <div class="camp-form-group">
+            <label>Area</label>
+            <input type="text" id="segFilterArea" class="camp-input" placeholder="e.g., Sector 5" onchange="segOnFiltersChanged()">
+          </div>
+          <div class="camp-form-group">
+            <label>Days Remaining</label>
+            <div class="camp-filter-range">
+              <input type="number" id="segFilterDaysMin" class="camp-input" placeholder="Min" onchange="segOnFiltersChanged()">
+              <span class="camp-filter-range-sep">—</span>
+              <input type="number" id="segFilterDaysMax" class="camp-input" placeholder="Max" onchange="segOnFiltersChanged()">
+            </div>
+          </div>
+        </div>
+        <div class="camp-audience-estimate" id="segAudienceEstimate">Add filters to see audience estimate</div>
+      </div>
+
+      <div class="camp-form-actions">
+        <button type="submit" class="camp-btn camp-btn-primary">
+          <i class="fas fa-save"></i> Save Segment
+        </button>
+        <button type="button" class="camp-btn camp-btn-outline" onclick="campShowSegments()">Cancel</button>
+      </div>
+    </form>
+  `;
+}
+
+function segBuildFilters() {
+  const filters = {};
+  const category = document.getElementById('segFilterCategory')?.value;
+  if (category) filters.category = category;
+  const zone = document.getElementById('segFilterZone')?.value?.trim();
+  if (zone) filters.zone_name = zone;
+  const plan = document.getElementById('segFilterPlan')?.value?.trim();
+  if (plan) filters.plan_name = plan;
+  const network = document.getElementById('segFilterNetwork')?.value?.trim();
+  if (network) filters.network_type = network;
+  const area = document.getElementById('segFilterArea')?.value?.trim();
+  if (area) filters.area = area;
+  const daysMin = document.getElementById('segFilterDaysMin')?.value;
+  const daysMax = document.getElementById('segFilterDaysMax')?.value;
+  if (daysMin || daysMax) {
+    filters.days_remaining = {};
+    if (daysMin) filters.days_remaining.min = parseInt(daysMin, 10);
+    if (daysMax) filters.days_remaining.max = parseInt(daysMax, 10);
+  }
+  return filters;
+}
+
+let _segEstimateTimer = null;
+function segOnFiltersChanged() {
+  clearTimeout(_segEstimateTimer);
+  const display = document.getElementById('segAudienceEstimate');
+  if (display) { display.textContent = 'Estimating...'; display.className = 'camp-audience-estimate camp-audience-loading'; }
+  _segEstimateTimer = setTimeout(async () => {
+    const filters = segBuildFilters();
+    if (Object.keys(filters).length === 0) {
+      if (display) { display.textContent = 'Add filters to see audience estimate'; display.className = 'camp-audience-estimate'; }
+      return;
+    }
+    try {
+      const res = await fetch(`${SEG_API}/estimate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filters }) });
+      if (!res.ok) throw new Error('Estimation failed');
+      const data = await res.json();
+      const count = data.count || 0;
+      if (display) {
+        display.textContent = `${count.toLocaleString()} recipient${count !== 1 ? 's' : ''} match`;
+        display.className = 'camp-audience-estimate ' + (count === 0 ? 'camp-audience-zero' : 'camp-audience-ok');
+      }
+    } catch (err) {
+      if (display) { display.textContent = 'Unable to estimate'; display.className = 'camp-audience-estimate camp-audience-error'; }
+    }
+  }, 400);
+}
+
+async function campHandleCreateSegment(e) {
+  e.preventDefault();
+  const name = document.getElementById('segName')?.value?.trim();
+  if (!name) { campShowToast('Segment name is required', 'error'); return; }
+  const description = document.getElementById('segDesc')?.value?.trim() || '';
+  const filters = segBuildFilters();
+  if (Object.keys(filters).length === 0) { campShowToast('Add at least one filter', 'error'); return; }
+
+  try {
+    const res = await fetch(`${SEG_API}/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, description, filters }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Failed to create segment');
+    }
+    campShowToast('Segment created successfully!', 'success');
+    campShowSegments();
+  } catch (err) {
+    campShowToast(err.message || 'Failed to create segment', 'error');
+  }
+}
+
 async function campLoadSegmentsList() {
   try {
-    const res = await fetch(`${SEG_API}/?per_page=50`);
+    const res = await fetch(`${SEG_API}/?per_page=50`, { credentials: 'same-origin' });
     if (!res.ok) throw new Error('Failed to load segments');
     const data = await res.json();
     const segments = data.segments || data.items || [];
@@ -735,7 +886,7 @@ async function campLoadSegmentsList() {
     if (!tbody) return;
 
     if (segments.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" class="camp-loading">No segments saved yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="camp-loading">No segments saved yet. Click "Create Segment" to build one.</td></tr>';
       return;
     }
 
@@ -743,6 +894,7 @@ async function campLoadSegmentsList() {
       <tr>
         <td class="camp-cell-name">${escHtml(seg.name || 'Unnamed')}</td>
         <td>${escHtml(seg.description || '-')}</td>
+        <td>${seg.estimated_count || '-'}</td>
         <td>${escHtml(seg.created_by || '-')}</td>
         <td>${seg.created_at ? new Date(seg.created_at).toLocaleDateString() : '-'}</td>
       </tr>
@@ -750,7 +902,7 @@ async function campLoadSegmentsList() {
   } catch (err) {
     console.error('[CAMPAIGNS] Failed to load segments:', err);
     const tbody = document.getElementById('campSegmentsBody');
-    if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="camp-loading">Failed to load segments.</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="camp-loading">Failed to load segments.</td></tr>';
   }
 }
 
