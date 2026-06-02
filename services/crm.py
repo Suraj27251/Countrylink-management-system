@@ -37,10 +37,10 @@ class CRMService:
 
     def get_customer_profile(self, customer_id: int = None, mobile: str = None) -> dict:
         """
-        Get full customer profile by joining renewal_records with
+        Get full customer profile by joining customers with
         suppression/engagement data.
 
-        Accepts either customer_id (renewal_records.id) or mobile number.
+        Accepts either customer_id (customers.id) or mobile number.
         Returns profile dict including opt-out/DND status and engagement score.
 
         Raises ValueError if customer not found.
@@ -53,14 +53,14 @@ class CRMService:
         try:
             cursor = conn.cursor(dictionary=True)
 
-            # Fetch base customer data from renewal_records
+            # Fetch base customer data from customers
             if customer_id is not None:
                 cursor.execute(
-                    "SELECT * FROM renewal_records WHERE id = %s", (customer_id,)
+                    "SELECT * FROM customers WHERE id = %s", (customer_id,)
                 )
             else:
                 cursor.execute(
-                    "SELECT * FROM renewal_records WHERE mobile = %s LIMIT 1", (mobile,)
+                    "SELECT * FROM customers WHERE mobile = %s LIMIT 1", (mobile,)
                 )
 
             customer = cursor.fetchone()
@@ -542,7 +542,7 @@ class CRMService:
         try:
             cursor = conn.cursor(dictionary=True)
             cursor.execute(
-                "SELECT mobile FROM renewal_records WHERE id = %s", (customer_id,)
+                "SELECT mobile FROM customers WHERE id = %s", (customer_id,)
             )
             row = cursor.fetchone()
             if not row:

@@ -562,7 +562,7 @@ class CampaignService:
             criteria = filter_criteria
 
         # Build simple WHERE clause from criteria for counting
-        # Use the renewal_records table (source of customer data)
+        # Use the customers table (source of customer data)
         where_parts = []
         params = []
 
@@ -586,7 +586,7 @@ class CampaignService:
                     params.append(value["max"])
 
         where_sql = " AND ".join(where_parts) if where_parts else "1=1"
-        count_sql = f"SELECT COUNT(*) as cnt FROM renewal_records WHERE {where_sql}"
+        count_sql = f"SELECT COUNT(*) as cnt FROM customers WHERE {where_sql}"
 
         try:
             cursor.execute(count_sql, tuple(params))
@@ -655,7 +655,7 @@ class CampaignService:
                         params.append(value["max"])
 
             where_sql = " AND ".join(where_parts) if where_parts else "1=1"
-            query = f"SELECT mobile, customer_name FROM renewal_records WHERE {where_sql}"
+            query = f"SELECT mobile, customer_name FROM customers WHERE {where_sql}"
 
             cursor.execute(query, tuple(params))
             recipients = cursor.fetchall()

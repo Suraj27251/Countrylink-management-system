@@ -470,10 +470,13 @@ function campShowCreate() {
         <label class="camp-audience-builder-label"><i class="fas fa-filter"></i> Audience Builder</label>
         <div class="camp-filter-grid">
           <div class="camp-form-group">
-            <label for="campFilterStatus">Status</label>
+            <label for="campFilterStatus">Category</label>
             <select id="campFilterStatus" class="camp-input camp-filter-input" onchange="campOnFiltersChanged()">
               <option value="">Any</option>
-              <option value="active">Active</option>
+              <option value="expired">Expired</option>
+              <option value="today">Expiring Today</option>
+              <option value="upcoming">Upcoming</option>
+            </select>
               <option value="inactive">Inactive</option>
               <option value="disconnected">Disconnected</option>
             </select>
@@ -572,17 +575,20 @@ async function campLoadSegmentsForSelect() {
 
 async function campLoadTemplatesForSelect() {
   try {
-    const res = await fetch('/api/templates?status=approved&per_page=100');
+    const res = await fetch('/api/whatsapp/templates');
     if (!res.ok) return;
     const data = await res.json();
-    const templates = data.templates || data.items || [];
+    const templates = data.data || data.templates || [];
     const select = document.getElementById('campTemplate');
     if (!select) return;
 
     templates.forEach(tpl => {
       const opt = document.createElement('option');
-      opt.value = tpl.id;
-      opt.textContent = tpl.template_name || tpl.name || `Template #${tpl.id}`;
+      opt.value = tpl.id || tpl.name;
+      opt.textContent = tpl.name || tpl.template_name || `Template #${tpl.id}`;
+      if (tpl.status && tpl.status !== 'APPROVED') {
+        opt.textContent += ` (${tpl.status})`;
+      }
       select.appendChild(opt);
     });
   } catch (err) {
@@ -827,18 +833,18 @@ async function campLoadDraftCampaigns() {
 
 async function campLoadABTemplates() {
   try {
-    const res = await fetch('/api/templates?status=approved&per_page=100');
+    const res = await fetch('/api/whatsapp/templates');
     if (!res.ok) return;
     const data = await res.json();
-    const templates = data.templates || data.items || [];
+    const templates = data.data || data.templates || [];
 
     ['campABVariantA', 'campABVariantB'].forEach(selectId => {
       const select = document.getElementById(selectId);
       if (!select) return;
       templates.forEach(tpl => {
         const opt = document.createElement('option');
-        opt.value = tpl.id;
-        opt.textContent = tpl.template_name || tpl.name || `Template #${tpl.id}`;
+        opt.value = tpl.id || tpl.name;
+        opt.textContent = tpl.name || tpl.template_name || `Template #${tpl.id}`;
         select.appendChild(opt);
       });
     });
@@ -1042,7 +1048,7 @@ function campOnFiltersChanged() {
   const filters = {};
 
   const status = document.getElementById('campFilterStatus')?.value;
-  if (status) filters.status = status;
+  if (status) filters.category = status;
 
   const zone = document.getElementById('campFilterZone')?.value?.trim();
   if (zone) filters.zone_name = zone;

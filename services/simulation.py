@@ -334,7 +334,7 @@ class SimulationEngine:
                     params.append(value["max"])
 
         where_sql = " AND ".join(where_parts) if where_parts else "1=1"
-        query = f"SELECT mobile, customer_name, plan_name, zone_name, area, expiry_date FROM renewal_records WHERE {where_sql}"
+        query = f"SELECT mobile, customer_name, plan_name, zone_name, area, expiry_date FROM customers WHERE {where_sql}"
 
         cursor.execute(query, tuple(params))
         return cursor.fetchall()

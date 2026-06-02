@@ -25,6 +25,7 @@ EXACT_MATCH_FIELDS = {
     "network_type",
     "connectivity_mode",
     "owner_tenant",
+    "category",
 }
 
 BOOLEAN_FIELDS = {
@@ -203,7 +204,7 @@ class SegmentationService:
         Uses a COUNT(*) query for real-time estimation.
         """
         where_clause, params = self.build_query(filters, reference_date=reference_date)
-        sql = f"SELECT COUNT(*) as cnt FROM renewal_records r WHERE {where_clause}"
+        sql = f"SELECT COUNT(*) as cnt FROM customers r WHERE {where_clause}"
 
         conn = self._get_conn()
         cursor = None
@@ -249,7 +250,7 @@ class SegmentationService:
             cursor = conn.cursor(dictionary=True)
 
             # Get total count
-            count_sql = f"SELECT COUNT(*) as cnt FROM renewal_records r WHERE {where_clause}"
+            count_sql = f"SELECT COUNT(*) as cnt FROM customers r WHERE {where_clause}"
             cursor.execute(count_sql, params)
             total = cursor.fetchone()["cnt"]
 
@@ -261,7 +262,7 @@ class SegmentationService:
             # Paginated fetch
             offset = (page - 1) * per_page
             data_sql = (
-                f"SELECT r.* FROM renewal_records r WHERE {where_clause} "
+                f"SELECT r.* FROM customers r WHERE {where_clause} "
                 f"ORDER BY r.mobile ASC LIMIT %s OFFSET %s"
             )
             cursor.execute(data_sql, params + [per_page, offset])

@@ -860,12 +860,12 @@ class ReactivationService:
             mobiles = list(set(m["customer_mobile"] for m in targeted_messages))
             total_targeted = len(mobiles)
 
-            # Query current status from renewal_records
+            # Query current status from customers
             placeholders = ", ".join(["%s"] * len(mobiles))
             cursor.execute(
                 f"""
                 SELECT mobile, status
-                FROM renewal_records
+                FROM customers
                 WHERE mobile IN ({placeholders})
                   AND status = 'active'
                 """,

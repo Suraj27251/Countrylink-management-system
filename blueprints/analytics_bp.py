@@ -393,7 +393,7 @@ def get_zone_breakdown():
                 "source": "precomputed",
             }), 200
 
-        # Fallback: compute from campaign_messages joined with renewal_records
+        # Fallback: compute from campaign_messages joined with customers
         cursor.execute(
             """
             SELECT
@@ -402,7 +402,7 @@ def get_zone_breakdown():
                 SUM(CASE WHEN cm.status IN ('delivered', 'read') THEN 1 ELSE 0 END) AS delivered_count,
                 SUM(CASE WHEN cm.status = 'read' THEN 1 ELSE 0 END) AS read_count
             FROM campaign_messages cm
-            JOIN renewal_records rr ON rr.mobile = cm.customer_mobile
+            JOIN customers rr ON rr.mobile = cm.customer_mobile
             WHERE cm.sent_at >= %s
               AND cm.sent_at <= %s
               AND cm.status NOT IN ('queued', 'skipped')
@@ -584,7 +584,7 @@ def get_retention_metrics():
             SELECT COUNT(DISTINCT cm.customer_mobile) AS reactivated
             FROM campaign_messages cm
             JOIN campaigns c ON c.id = cm.campaign_id
-            JOIN renewal_records rr ON rr.mobile = cm.customer_mobile
+            JOIN customers rr ON rr.mobile = cm.customer_mobile
             WHERE c.campaign_type = 'reactivation'
               AND cm.sent_at >= %s
               AND cm.sent_at <= %s
@@ -628,7 +628,7 @@ def get_retention_metrics():
                 COUNT(*) AS total_customers,
                 SUM(CASE WHEN status IN ('expired', 'inactive', 'disconnected')
                     THEN 1 ELSE 0 END) AS churned
-            FROM renewal_records
+            FROM customers
             WHERE zone_name IS NOT NULL AND zone_name != ''
             GROUP BY zone_name
             ORDER BY churned DESC
