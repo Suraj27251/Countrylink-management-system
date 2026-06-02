@@ -788,3 +788,140 @@ def trigger_engagement_recompute():
     except Exception as e:
         logger.exception("Error during engagement recomputation")
         return jsonify({"error": "Failed to recompute engagement scores."}), 500
+
+
+# ------------------------------------------------------------------
+# Quality Monitor Dashboard (Requirement 18.4)
+# ------------------------------------------------------------------
+
+@analytics_bp.route("/quality", methods=["GET"])
+@_require_auth
+def get_quality_dashboard():
+    """
+    Get quality monitor dashboard data: current tier (Green/Yellow/Red),
+    24h and 7d metrics, and active alerts.
+
+    Returns quality tier, metrics, and alerts for the dashboard.
+    """
+    from services.quality_monitor import QualityMonitor
+
+    try:
+        conn_factory = _get_connection
+        monitor = QualityMonitor(conn_factory)
+        dashboard = monitor.get_dashboard_data()
+
+        def _metrics_to_dict(m):
+            return {
+                "period_hours": m.period_hours,
+                "period_start": m.period_start.isoformat() if m.period_start else None,
+                "period_end": m.period_end.isoformat() if m.period_end else None,
+                "blocked_count": m.blocked_count,
+                "failure_rate": round(m.failure_rate * 100, 2),
+                "opt_out_rate": round(m.opt_out_rate * 100, 2),
+                "read_rate": round(m.read_rate * 100, 2),
+                "total_sent": m.total_sent,
+                "total_failed": m.total_failed,
+                "total_opt_outs": m.total_opt_outs,
+                "total_read": m.total_read,
+            }
+
+        alerts_list = []
+        for alert in dashboard.active_alerts:
+            alerts_list.append({
+                "alert_type": alert.alert_type,
+                "severity": alert.severity,
+                "title": alert.title,
+                "details": alert.details,
+                "created_at": alert.created_at.isoformat() if alert.created_at else None,
+            })
+
+        return jsonify({
+            "current_tier": dashboard.current_tier.value,
+            "metrics_24h": _metrics_to_dict(dashboard.metrics_24h),
+            "metrics_7d": _metrics_to_dict(dashboard.metrics_7d),
+            "active_alerts": alerts_list,
+        }), 200
+
+    except Exception as e:
+        logger.exception("Error fetching quality dashboard")
+        return jsonify({"error": "Failed to fetch quality dashboard data."}), 500
+
+
+# ------------------------------------------------------------------
+# Opt-out trends (Requirement 19.7)
+# ------------------------------------------------------------------
+
+@analytics_bp.route("/optout-trends", methods=["GET"])
+@_require_auth
+def get_optout_trends():
+    """
+    Get opt-out trends and failure breakdown by category.
+
+    Query Parameters:
+        start_date (str): Start of date range (YYYY-MM-DD).
+        end_date (str): End of date range (YYYY-MM-DD).
+
+    Returns daily opt-out counts and failure category breakdown.
+    """
+    start_date, end_date = _parse_date_range()
+
+    if not end_date:
+        end_date = datetime.now()
+    if not start_date:
+        start_date = end_date - timedelta(days=30)
+
+    conn = _get_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        # Daily opt-out trend
+        cursor.execute(
+            """
+            SELECT DATE(created_at) AS date_label, COUNT(*) AS opt_out_count
+            FROM suppression_list
+            WHERE reason = 'opt_out_keyword'
+              AND created_at >= %s
+              AND created_at <= %s
+            GROUP BY date_label
+            ORDER BY date_label ASC
+            """,
+            (start_date, end_date),
+        )
+        opt_out_daily = cursor.fetchall()
+
+        # Serialize date objects
+        for row in opt_out_daily:
+            if row.get("date_label") and hasattr(row["date_label"], "isoformat"):
+                row["date_label"] = row["date_label"].isoformat()
+
+        # Failure breakdown by category
+        cursor.execute(
+            """
+            SELECT
+                COALESCE(error_category, 'unknown') AS category,
+                COUNT(*) AS count
+            FROM campaign_messages
+            WHERE status IN ('failed', 'permanently_failed')
+              AND sent_at >= %s
+              AND sent_at <= %s
+            GROUP BY category
+            ORDER BY count DESC
+            """,
+            (start_date, end_date),
+        )
+        failure_breakdown = cursor.fetchall()
+
+        return jsonify({
+            "date_range": {
+                "start": start_date.isoformat(),
+                "end": end_date.isoformat(),
+            },
+            "opt_out_daily": opt_out_daily,
+            "failure_breakdown": failure_breakdown,
+        }), 200
+
+    except Exception as e:
+        logger.exception("Error fetching opt-out trends")
+        return jsonify({"error": "Failed to fetch opt-out trends."}), 500
+    finally:
+        cursor.close()
+        conn.close()

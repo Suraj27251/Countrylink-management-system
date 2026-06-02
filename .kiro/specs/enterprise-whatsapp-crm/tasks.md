@@ -360,7 +360,7 @@ This implementation plan builds the enterprise WhatsApp CRM platform on top of t
     - Test that all returned analytics records have timestamps within [start, end]
     - **Validates: Requirements 8.4**
 
-- [ ] 15. Media library
+- [x] 15. Media library
   - [x] 15.1 Implement media library Blueprint
     - Create `blueprints/media_bp.py` with Flask Blueprint at `/api/media/`
     - Implement file upload with size validation: image ≤ 5MB, video ≤ 16MB, document ≤ 100MB
@@ -370,16 +370,16 @@ This implementation plan builds the enterprise WhatsApp CRM platform on top of t
     - Reject unsupported mime types with specific error messages
     - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5_
 
-  - [~] 15.2 Write property test for media file validation (Property 19)
+  - [x] 15.2 Write property test for media file validation (Property 19)
     - **Property 19: Media file size validation**
     - Test acceptance matrix: image ≤ 5MB, video ≤ 16MB, document ≤ 100MB; reject all others with specific constraint
     - **Validates: Requirements 14.2**
 
-- [~] 16. Checkpoint - Ensure all tests pass
+- [x] 16. Checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 17. Reactivation workflows and automation rules
-  - [~] 17.1 Implement reactivation workflows and automation rules
+- [x] 17. Reactivation workflows and automation rules
+  - [x] 17.1 Implement reactivation workflows and automation rules
     - Add reactivation workflow templates in CampaignService: expired recovery, inactive comeback, disconnected re-engagement, speed upgrade, festive promotions
     - Pre-populate segment + template suggestions when operator selects workflow
     - Implement automation_rules CRUD — trigger types (schedule, event, threshold), condition config, action (create_campaign_draft, notify_operator)
@@ -387,8 +387,8 @@ This implementation plan builds the enterprise WhatsApp CRM platform on top of t
     - Track reactivation success: monitor status changes within 30 days of campaign
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 18. Frontend — Campaign Manager UI
-  - [~] 18.1 Create Campaign Manager workspace panel HTML/JS
+- [x] 18. Frontend — Campaign Manager UI
+  - [x] 18.1 Create Campaign Manager workspace panel HTML/JS
     - Create `templates/campaigns/` Jinja2 templates for campaign manager
     - Add "Campaigns" workspace-switcher tab alongside existing tabs (Inbox, Templates, etc.)
     - Implement dashboard summary cards (total campaigns, active sends, delivery rates)
@@ -396,7 +396,7 @@ This implementation plan builds the enterprise WhatsApp CRM platform on top of t
     - Use existing CSS variables (--surface, --surface-2, --border, --text-1, --green, etc.)
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 12.2, 12.5_
 
-  - [~] 18.2 Create Campaign creation wizard and audience builder UI
+  - [x] 18.2 Create Campaign creation wizard and audience builder UI
     - Implement campaign creation form: name, description, segment, template, schedule, priority
     - Implement audience builder with multi-filter interface and real-time count estimation
     - Implement template selection with preview and parameter mapping UI
@@ -405,7 +405,7 @@ This implementation plan builds the enterprise WhatsApp CRM platform on top of t
     - Add simulation results display panel
     - _Requirements: 1.1, 3.5, 16.1, 22.1_
 
-  - [~] 18.3 Create approval workflow UI and campaign detail view
+  - [x] 18.3 Create approval workflow UI and campaign detail view
     - Implement pending approval queue view for operators
     - Implement approval/rejection buttons with preview summary
     - Implement real-time campaign progress view (sent, delivered, failed counts)
@@ -413,8 +413,8 @@ This implementation plan builds the enterprise WhatsApp CRM platform on top of t
     - Implement campaign pause/resume/cancel controls
     - _Requirements: 2.1, 2.4, 4.6, 13.3, 13.4_
 
-- [ ] 19. Frontend — CRM Panel and Analytics Dashboard
-  - [~] 19.1 Create CRM Panel slide-out UI
+- [x] 19. Frontend — CRM Panel and Analytics Dashboard
+  - [x] 19.1 Create CRM Panel slide-out UI
     - Create `templates/crm/` Jinja2 templates
     - Implement slide-out panel within existing chat view (wa-main area)
     - Display customer profile: name, mobile, plan, validity, status, zone, area, building
@@ -425,7 +425,7 @@ This implementation plan builds the enterprise WhatsApp CRM platform on top of t
     - Integrate within existing dark theme layout (wa-rail, wa-sidebar, wa-main)
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 10.5, 12.5_
 
-  - [~] 19.2 Create Analytics Dashboard UI
+  - [x] 19.2 Create Analytics Dashboard UI
     - Create `templates/analytics/` Jinja2 templates
     - Add analytics workspace panel tab
     - Implement per-campaign metrics display with percentage breakdowns
@@ -439,8 +439,8 @@ This implementation plan builds the enterprise WhatsApp CRM platform on top of t
     - Display opt-out trends and failure breakdown by category
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 10.6, 18.4, 19.7, 21.6_
 
-- [ ] 20. Frontend — Media Library and Notifications UI
-  - [~] 20.1 Create Media Library and Notification panel UI
+- [x] 20. Frontend — Media Library and Notifications UI
+  - [x] 20.1 Create Media Library and Notification panel UI
     - Create media upload form with drag-and-drop support
     - Implement media grid view with thumbnails, search, and type filter
     - Display file metadata and usage count
@@ -449,8 +449,8 @@ This implementation plan builds the enterprise WhatsApp CRM platform on top of t
     - Implement theme-aware styling using existing CSS variables
     - _Requirements: 14.3, 14.4, 25.6, 10.3_
 
-- [ ] 21. Integration wiring — Blueprint registration and app.py updates
-  - [~] 21.1 Register all Blueprints and wire startup hooks
+- [x] 21. Integration wiring — Blueprint registration and app.py updates
+  - [x] 21.1 Register all Blueprints and wire startup hooks
     - Register `campaign_bp`, `segment_bp`, `crm_bp`, `analytics_bp`, `media_bp` in `app.py`
     - Wire `ensure_crm_tables()` migration call on app startup
     - Wire `RecoveryManager.recover_on_startup()` on app startup
@@ -461,7 +461,7 @@ This implementation plan builds the enterprise WhatsApp CRM platform on top of t
     - Add engagement scorer batch scheduler post-campaign
     - _Requirements: 9.1, 11.5, 15.1, 26.2_
 
-- [~] 22. Final checkpoint - Ensure all tests pass
+- [x] 22. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

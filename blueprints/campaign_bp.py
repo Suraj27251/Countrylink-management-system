@@ -1781,3 +1781,222 @@ def select_ab_winner(campaign_id):
     except Exception as exc:
         logger.exception("Failed to select A/B winner for campaign %d", campaign_id)
         return jsonify({"error": str(exc)}), 500
+
+
+# ------------------------------------------------------------------
+# Reactivation Workflow Routes (Requirements 6.1, 6.2, 6.3, 6.4, 6.5)
+# ------------------------------------------------------------------
+
+def _get_reactivation_service():
+    """Get ReactivationService instance using app's MySQL connection factory."""
+    from app import get_mysql_connection
+    from services.reactivation import ReactivationService
+    return ReactivationService(get_mysql_connection)
+
+
+@campaign_bp.route("/reactivation/workflows", methods=["GET"])
+@_require_auth
+def list_reactivation_workflows():
+    """
+    List all available reactivation workflow templates.
+
+    Returns the 5 built-in workflow templates with their suggested
+    segment filters and template names.
+    """
+    service = _get_reactivation_service()
+    workflows = service.list_workflows()
+    return jsonify({"workflows": workflows, "total": len(workflows)}), 200
+
+
+@campaign_bp.route("/reactivation/workflows/<workflow_id>", methods=["GET"])
+@_require_auth
+def get_reactivation_workflow(workflow_id):
+    """
+    Get a specific reactivation workflow by ID.
+
+    Returns the workflow configuration including suggested segment
+    filters and template name.
+    """
+    service = _get_reactivation_service()
+    try:
+        workflow = service.get_workflow(workflow_id)
+        return jsonify(workflow), 200
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 404
+
+
+@campaign_bp.route("/reactivation/workflows/<workflow_id>/prepare", methods=["POST"])
+@_require_auth
+def prepare_reactivation_campaign(workflow_id):
+    """
+    Pre-populate a campaign from a reactivation workflow.
+
+    Creates a campaign draft with the workflow's suggested segment and template.
+    The campaign MUST be approved by an operator before any messages are dispatched.
+    """
+    service = _get_reactivation_service()
+    operator = session.get("user_name", "unknown")
+    try:
+        result = service.prepare_campaign_from_workflow(workflow_id, operator)
+        return jsonify(result), 201
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        logger.exception("Failed to prepare reactivation campaign for workflow %s", workflow_id)
+        return jsonify({"error": str(exc)}), 500
+
+
+@campaign_bp.route("/reactivation/success", methods=["GET"])
+@_require_auth
+def get_reactivation_success():
+    """
+    Track reactivation success metrics.
+
+    Monitors if customers who received reactivation campaigns have
+    changed status to 'active' within 30 days.
+    """
+    days = request.args.get("days", 30, type=int)
+    service = _get_reactivation_service()
+    try:
+        metrics = service.track_reactivation_success(days_window=days)
+        return jsonify(metrics), 200
+    except Exception as exc:
+        logger.exception("Failed to compute reactivation success metrics")
+        return jsonify({"error": str(exc)}), 500
+
+
+# ------------------------------------------------------------------
+# Automation Rules CRUD Routes
+# ------------------------------------------------------------------
+
+@campaign_bp.route("/automation-rules", methods=["POST"])
+@_require_auth
+def create_automation_rule():
+    """
+    Create a new automation rule.
+
+    Request body:
+        {
+            "name": "Weekly Expired Recovery",
+            "trigger_type": "schedule",  // schedule | event | threshold
+            "trigger_config": {"cron": "0 9 * * 1"},
+            "condition_config": {"min_expired_count": 10},  // optional
+            "action_type": "create_campaign_draft",  // create_campaign_draft | notify_operator
+            "action_config": {
+                "campaign_name": "Auto Recovery",
+                "campaign_type": "reactivation",
+                "segment_id": 5,
+                "template_id": 3
+            },
+            "is_active": true
+        }
+
+    All automation-generated campaigns require operator approval.
+    """
+    data = request.get_json(force=True)
+    if not data:
+        return jsonify({"error": "Request body required."}), 400
+
+    service = _get_reactivation_service()
+    operator = session.get("user_name", "unknown")
+    try:
+        rule = service.create_automation_rule(data, operator)
+        return jsonify(rule), 201
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        logger.exception("Failed to create automation rule")
+        return jsonify({"error": str(exc)}), 500
+
+
+@campaign_bp.route("/automation-rules", methods=["GET"])
+@_require_auth
+def list_automation_rules():
+    """List automation rules with optional filtering and pagination."""
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
+    active_only = request.args.get("active_only", "false").lower() == "true"
+
+    service = _get_reactivation_service()
+    try:
+        result = service.list_automation_rules(
+            active_only=active_only, page=page, per_page=per_page
+        )
+        return jsonify(result), 200
+    except Exception as exc:
+        logger.exception("Failed to list automation rules")
+        return jsonify({"error": str(exc)}), 500
+
+
+@campaign_bp.route("/automation-rules/<int:rule_id>", methods=["GET"])
+@_require_auth
+def get_automation_rule(rule_id):
+    """Get a single automation rule by ID."""
+    service = _get_reactivation_service()
+    try:
+        rule = service.get_automation_rule(rule_id)
+        return jsonify(rule), 200
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except Exception as exc:
+        logger.exception("Failed to get automation rule %d", rule_id)
+        return jsonify({"error": str(exc)}), 500
+
+
+@campaign_bp.route("/automation-rules/<int:rule_id>", methods=["PUT"])
+@_require_auth
+def update_automation_rule(rule_id):
+    """Update an existing automation rule."""
+    data = request.get_json(force=True)
+    if not data:
+        return jsonify({"error": "Request body required."}), 400
+
+    service = _get_reactivation_service()
+    operator = session.get("user_name", "unknown")
+    try:
+        rule = service.update_automation_rule(rule_id, data, operator)
+        return jsonify(rule), 200
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        logger.exception("Failed to update automation rule %d", rule_id)
+        return jsonify({"error": str(exc)}), 500
+
+
+@campaign_bp.route("/automation-rules/<int:rule_id>", methods=["DELETE"])
+@_require_auth
+def delete_automation_rule(rule_id):
+    """Delete an automation rule."""
+    service = _get_reactivation_service()
+    try:
+        service.delete_automation_rule(rule_id)
+        return jsonify({"deleted": True, "rule_id": rule_id}), 200
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except Exception as exc:
+        logger.exception("Failed to delete automation rule %d", rule_id)
+        return jsonify({"error": str(exc)}), 500
+
+
+@campaign_bp.route("/automation-rules/<int:rule_id>/execute", methods=["POST"])
+@_require_auth
+@_require_campaign_send_permission
+def execute_automation_rule(rule_id):
+    """
+    Manually execute an automation rule.
+
+    For 'create_campaign_draft' action: creates a campaign draft that
+    requires operator approval before sending.
+    For 'notify_operator' action: creates a system notification.
+
+    Requires 'campaign_send' permission.
+    """
+    service = _get_reactivation_service()
+    try:
+        result = service.execute_rule(rule_id)
+        return jsonify(result), 201
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        logger.exception("Failed to execute automation rule %d", rule_id)
+        return jsonify({"error": str(exc)}), 500

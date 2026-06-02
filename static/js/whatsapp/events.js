@@ -722,6 +722,11 @@ window.__eventsEngineInitDone = true;
       // ALWAYS restart polling after chat switch (whether success or failure)
       window.pollingEngine.schedulePoll(1000);
 
+      // Notify CRM panel of conversation change
+      if (typeof crmOnConversationChange === 'function') {
+        crmOnConversationChange(mobile);
+      }
+
       if (dom.msgInput) dom.msgInput.focus();
     });
 
@@ -1075,7 +1080,7 @@ window.__eventsEngineInitDone = true;
      ═══════════════════════════════════════════════════════════ */
 
   const setWorkspace = async (name = 'inbox') => {
-    ['inbox', 'templates', 'campaigns', 'automation', 'renewals'].forEach(key => {
+    ['inbox', 'templates', 'campaigns', 'automation', 'renewals', 'media', 'analytics'].forEach(key => {
       const panel = document.getElementById(`${key}Panel`);
       if (panel) panel.classList.toggle('active', key === name);
     });
@@ -1099,7 +1104,10 @@ window.__eventsEngineInitDone = true;
     }
 
     if (name === 'templates') { await loadTemplates(); refreshTemplateCategories(); renderApprovedTemplateRows(); }
+    if (name === 'campaigns' && typeof initCampaignsPanel === 'function') { initCampaignsPanel(); }
+    if (name === 'analytics' && typeof initAnalyticsPanel === 'function') { initAnalyticsPanel(); }
     if (name === 'renewals' && typeof initRenewalsPanel === 'function') { initRenewalsPanel(); }
+    if (name === 'media' && typeof initMediaPanel === 'function') { initMediaPanel(); }
     console.debug('[EVENT] Workspace switched to:', name);
   };
 

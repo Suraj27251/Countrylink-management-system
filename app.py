@@ -188,6 +188,32 @@ _run_recovery_on_startup()
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Enterprise CRM Blueprint Registration
+# ---------------------------------------------------------------------------
+_CRM_BLUEPRINTS = [
+    ("blueprints.campaign_bp", "campaign_bp"),
+    ("blueprints.segment_bp", "segment_bp"),
+    ("blueprints.crm_bp", "crm_bp"),
+    ("blueprints.analytics_bp", "analytics_bp"),
+    ("blueprints.media_bp", "media_bp"),
+    ("blueprints.notification_bp", "notification_bp"),
+]
+
+for _module_path, _bp_attr in _CRM_BLUEPRINTS:
+    try:
+        _mod = __import__(_module_path, fromlist=[_bp_attr])
+        _bp = getattr(_mod, _bp_attr)
+        app.register_blueprint(_bp)
+        app.logger.info("Registered blueprint: %s", _bp_attr)
+    except Exception as exc:
+        app.logger.warning(
+            "Failed to register blueprint %s from %s (non-fatal): %s",
+            _bp_attr, _module_path, exc,
+        )
+# ---------------------------------------------------------------------------
+
+
 def create_retryable_session():
     retry = Retry(
         total=ZOHO_MAX_RETRIES,
