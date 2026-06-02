@@ -1573,6 +1573,7 @@ kbd {
     height: 100%;
     position: absolute;
     top: 0; left: 0;
+    overflow: hidden;
   }
 
   /* Chat header: add back button */
@@ -3846,18 +3847,11 @@ kbd {
 
 /* ── CRM Panel Responsive ─────────────────────────────────── */
 @media (max-width: 900px) {
-  .crm-panel {
-    width: 320px;
-  }
-}
-
-@media (max-width: 680px) {
-  /* Hide CRM panel completely on mobile */
+  /* Hide CRM panel and button completely on mobile/tablet */
   .crm-panel {
     display: none !important;
   }
 
-  /* Hide CRM button on mobile */
   #crmPanelBtn {
     display: none !important;
   }
