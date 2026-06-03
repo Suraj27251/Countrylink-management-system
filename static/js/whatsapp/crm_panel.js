@@ -70,6 +70,7 @@ function _addCrmTriggerButton() {
   const btn = document.createElement('button');
   btn.id = 'crmPanelBtn';
   btn.className = 'hdr-btn';
+  btn.type = 'button';
   btn.title = 'Customer Profile';
   btn.innerHTML = '<i class="fas fa-address-card"></i><span>CRM</span>';
   btn.addEventListener('click', () => {

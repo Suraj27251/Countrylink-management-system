@@ -317,6 +317,7 @@ main.container {
 .workspace-panel.active { display: block; }
 #inboxPanel {
   overflow: hidden;
+  min-width: 0;
 }
 #inboxPanel.active {
   display: flex;
@@ -603,24 +604,34 @@ main.container {
   background: var(--surface-3);
   min-width: 0;
   overflow: hidden;
+  position: relative;
 }
 
 /* ── Chat Header - IMPROVED: Simplified actions ─────────── */
 .chat-header {
+  --header-action-height: 34px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   padding: 12px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
   flex-shrink: 0;
   min-height: 64px;
+  min-width: 0;
 }
 
 .chat-header-left {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.chat-header-info {
+  min-width: 0;
 }
 
 .chat-header-info h3 {
@@ -629,6 +640,9 @@ main.container {
   color: var(--text-1);
   margin: 0 0 2px;
   line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chat-header-info p {
@@ -638,6 +652,14 @@ main.container {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.chat-header-info p span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .online-pill {
@@ -661,14 +683,26 @@ main.container {
 .chat-header-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-width: max-content;
+}
+
+.chat-actions-menu {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
 }
 
 .hdr-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 7px 12px;
+  height: var(--header-action-height);
+  min-height: var(--header-action-height);
+  padding: 0 12px;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--surface);
@@ -679,12 +713,21 @@ main.container {
   transition: var(--transition);
   font-family: 'DM Sans', sans-serif;
   white-space: nowrap;
+  line-height: 1;
+  vertical-align: middle;
+  flex: 0 0 auto;
+}
+
+.hdr-icon-btn {
+  width: var(--header-action-height);
+  min-width: var(--header-action-height);
+  padding: 0;
 }
 
 .hdr-btn:hover { border-color: var(--green); color: var(--green-dk); background: var(--green-lt); }
 .hdr-btn.primary { background: var(--green); border-color: var(--green); color: #fff; }
 .hdr-btn.primary:hover { background: var(--green-dk); border-color: var(--green-dk); }
-.hdr-btn i { font-size: 13px; }
+.hdr-btn i { font-size: 13px; line-height: 1; }
 
 /* Connection indicator - IMPROVED: Subtle dot instead of badge */
 .connection-dot {
@@ -1533,7 +1576,8 @@ kbd {
 @media (max-width: 900px) {
   .wa-sidebar { width: 280px; }
   .hdr-btn span { display: none; }
-  .hdr-btn { padding: 7px; }
+  .hdr-btn { padding: 0 9px; }
+  .hdr-icon-btn { padding: 0; }
 }
 
 /* ── Mobile Bottom Navigation Bar ────────────────────────── */
@@ -1578,6 +1622,7 @@ kbd {
 
   /* Chat header: add back button */
   .chat-header {
+    --header-action-height: 36px;
     padding: 8px 10px;
     gap: 8px;
   }
@@ -1603,8 +1648,8 @@ kbd {
   .chat-header-left .conv-avatar { width: 36px; height: 36px; font-size: 13px; border-radius: 10px; }
   .chat-header-info h3 { font-size: 14px; }
   .chat-header-info p { font-size: 11px; }
-  .chat-header-actions { gap: 2px; }
-  .hdr-btn { padding: 6px; font-size: 13px; }
+  .chat-header-actions { gap: 4px; min-width: auto; }
+  .hdr-btn { width: var(--header-action-height); min-width: var(--header-action-height); padding: 0; font-size: 13px; }
   .hdr-btn span { display: none; }
 
   /* Chat body */
