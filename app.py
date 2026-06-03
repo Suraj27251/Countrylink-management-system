@@ -189,6 +189,44 @@ _run_recovery_on_startup()
 
 
 # ---------------------------------------------------------------------------
+# Ensure payment_verification_requests table exists (idempotent)
+# ---------------------------------------------------------------------------
+def _ensure_payment_verification_table():
+    try:
+        conn = get_mysql_connection()
+        cur = conn.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS payment_verification_requests (
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                customer_mobile VARCHAR(32) NOT NULL,
+                screenshot_ref VARCHAR(1024) NOT NULL,
+                amount DECIMAL(12,2) DEFAULT NULL,
+                utr_reference VARCHAR(255) DEFAULT NULL,
+                status VARCHAR(20) DEFAULT 'pending',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                verified_by VARCHAR(255) DEFAULT NULL,
+                admin_remarks TEXT DEFAULT NULL,
+                verified_at DATETIME DEFAULT NULL,
+                INDEX idx_pv_customer_mobile (customer_mobile),
+                INDEX idx_pv_status (status)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        app.logger.info("Ensured payment_verification_requests table exists")
+    except Exception as exc:
+        app.logger.warning("Could not ensure payment_verification_requests table: %s", exc)
+
+
+_ensure_payment_verification_table()
+
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
 # Enterprise CRM Blueprint Registration
 # ---------------------------------------------------------------------------
 _CRM_BLUEPRINTS = [
@@ -198,6 +236,7 @@ _CRM_BLUEPRINTS = [
     ("blueprints.analytics_bp", "analytics_bp"),
     ("blueprints.media_bp", "media_bp"),
     ("blueprints.notification_bp", "notification_bp"),
+    ("blueprints.ai_bp", "ai_bp"),
 ]
 
 for _module_path, _bp_attr in _CRM_BLUEPRINTS:
@@ -2155,6 +2194,15 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    # Ensure optional columns used by API exist
+    try:
+        c.execute("ALTER TABLE connection_requests ADD COLUMN lead_id TEXT")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        c.execute("ALTER TABLE connection_requests ADD COLUMN source TEXT DEFAULT 'web'")
+    except sqlite3.OperationalError:
+        pass
     for column_def in [
         "name TEXT",
         "mobile TEXT",
@@ -2507,14 +2555,18 @@ def api_track():
                 'error': 'No records found for this Tracking ID'
             }), 404
 
-        # Return the most recent complaint status
+        # Return the most recent complaint status and tracking-friendly fields
         latest = results[0]
         return jsonify({
             'success': True,
             'trackingId': tracking_id,
             'status': latest['status'],
+            'created_at': str(latest.get('created_at')),
+            'latest_update': str(latest.get('updated_at')) if latest.get('updated_at') else None,
             'message': f"Complaint #{latest['id']} - {latest['complaint_description'][:100]}",
             'customerName': latest['customer_name'],
+            'assigned_technician': latest.get('assigned_technician') if 'assigned_technician' in latest else None,
+            'technician_remarks': latest.get('technician_remarks') if 'technician_remarks' in latest else None,
             'totalComplaints': len(results)
         })
 
@@ -4197,23 +4249,52 @@ def api_new_connection_request():
     if not data:
         return jsonify({"error": "Invalid or missing JSON"}), 400
 
-    name = data.get("name")
-    mobile = data.get("mobile")
-    area = data.get("area")
+    name = (data.get("name") or "").strip()
+    mobile = (data.get("mobile") or data.get("phone") or "").strip()
+    area = (data.get("area") or "").strip()
+    source = (data.get("source") or request.headers.get('X-Source') or 'web').strip()
 
-    if not all([name, mobile]):
+    # Basic validation
+    if not name or not mobile:
         return jsonify({"error": "Missing name or mobile"}), 400
 
+    # Normalize mobile (store last 10 digits)
+    mobile_digits = re.sub(r"\D", "", mobile)
+    if len(mobile_digits) >= 10:
+        mobile_norm = mobile_digits[-10:]
+    else:
+        return jsonify({"error": "Invalid mobile number"}), 400
+
+    # Normalize area to a compact form
+    area_norm = re.sub(r"\s+", " ", area).strip()
+
+    # Duplicate detection: avoid exact duplicate pending requests for same mobile+area
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute(
-        "INSERT INTO connection_requests (name, mobile, area) VALUES (?, ?, ?)",
-        (name, mobile, area)
-    )
-    conn.commit()
-    conn.close()
+    try:
+        c.execute("SELECT id, status FROM connection_requests WHERE mobile = ? AND area = ? ORDER BY created_at DESC LIMIT 1", (mobile_norm, area_norm))
+        existing = c.fetchone()
+        if existing:
+            # If existing request is recent and not rejected/resolved, treat as duplicate
+            existing_status = existing[1] if len(existing) > 1 else None
+            if existing_status and existing_status.lower() not in ('rejected', 'resolved', 'completed'):
+                app.logger.info("Duplicate new-connection request ignored mobile=%s area=%s", mobile_norm, area_norm)
+                conn.close()
+                return jsonify({"status": "duplicate", "message": "A similar request already exists"}), 200
 
-    return jsonify({"status": "received"}), 200
+        # Insert new lead with lead_id for tracking
+        lead_id = f"LD-{uuid.uuid4().hex[:10].upper()}"
+        c.execute("INSERT INTO connection_requests (lead_id, name, mobile, area, source, status, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))", (lead_id, name, mobile_norm, area_norm, source, 'received'))
+        conn.commit()
+        app.logger.info("New connection lead created lead_id=%s mobile=%s area=%s source=%s", lead_id, mobile_norm, area_norm, source)
+    except Exception:
+        conn.rollback()
+        app.logger.exception("Failed to create new connection request")
+        return jsonify({"error": "internal_error"}), 500
+    finally:
+        conn.close()
+
+    return jsonify({"status": "received", "lead_id": lead_id}), 200
 
 
 @app.route('/update-connection-status/<int:connection_id>', methods=['POST'])
