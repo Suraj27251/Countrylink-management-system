@@ -1,126 +1,54 @@
 {% extends 'layout.html' %}
-{% block title %}New Connection Requests{% endblock %}
+{% block title %}New Connection Requests — Countrylink{% endblock %}
 {% block extra_head %}
     <style>
-        body {
-            font-family: 'Roboto', sans-serif;
-            background: #f2f5f9;
-            margin: 0;
-            padding: 0;
-        }
+        /* Reuse dashboard look: glass cards, pills, subtle shadows */
+        .container { padding: 20px 28px; }
+        .section-header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+        .section-title { font-size:18px; margin:0 0 6px 0; color:#0f172a; }
+        .section-meta { margin:0; color:#64748b; font-size:13px; }
 
-        .container {
-            padding: 20px 40px;
-        }
+        .glass-card { background: rgba(255,255,255,0.9); backdrop-filter: blur(8px); border-radius:12px; border:1px solid rgba(15,23,42,0.04); box-shadow:0 8px 24px rgba(15,23,42,0.05); padding:16px; }
 
-        h2 {
-            margin-top: 30px;
-            color: #333;
-        }
+        .controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+        .controls input[type=text], .controls select { padding:8px 10px; border-radius:8px; border:1px solid #e6eef7; min-width:180px; }
+        .button { padding:8px 12px; border-radius:8px; border:none; cursor:pointer; font-weight:600; }
+        .button.primary { background:#4facfe; color:#fff; }
+        .button.ghost { background:transparent; border:1px solid #e6eef7; color:#0f172a; }
 
-        .filters {
-            margin-bottom: 20px;
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: space-between;
-            gap: 10px;
-        }
+        .kpi-small { display:flex; gap:12px; align-items:center; padding:12px; border-radius:10px; background:linear-gradient(90deg,#43e97b 0%,#38f9d7 100%); color:#04251a; font-weight:700; }
 
-        .filters input,
-        .filters select {
-            padding: 8px 12px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-        }
+        .dash-table { width:100%; border-collapse:separate; border-spacing:0; margin-top:12px; }
+        .dash-table thead th { background:linear-gradient(135deg,#667eea,#764ba2); color:#fff; padding:12px 14px; text-align:left; font-size:12px; }
+        .dash-table tbody td { padding:12px 14px; border-bottom:1px solid #f1f5f9; color:#0f172a; }
+        .pill { display:inline-flex; align-items:center; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+        .pill-pending { background:#fef3c7; color:#92400e; }
+        .pill-hold { background:#e2e8f0; color:#334155; }
+        .pill-completed { background:#d1fae5; color:#065f46; }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: #fff;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            margin-top: 10px;
-            border-radius: 6px;
-            overflow: hidden;
-        }
+        .status-dropdown { padding:6px 8px; border-radius:8px; border:1px solid #e6eef7; }
+        .row-actions { display:flex; gap:8px; align-items:center; }
 
-        th, td {
-            padding: 12px 15px;
-            text-align: center;
-            border-bottom: 1px solid #eee;
-        }
-
-        th {
-            background-color: #4CAF50;
-            color: white;
-        }
-
-        tr:hover {
-            background-color: #f1f1f1;
-        }
-
-        .badge {
-            padding: 6px 10px;
-            border-radius: 20px;
-            color: white;
-            font-weight: bold;
-        }
-
-        .badge-pending {
-            background-color: #f0ad4e;
-        }
-
-        .badge-hold {
-            background-color: #6c757d;
-        }
-
-        .badge-completed {
-            background-color: #28a745;
-        }
-
-        button.save-btn, button.export-btn {
-            padding: 6px 10px;
-            background-color: #007BFF;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        button.save-btn:hover,
-        button.export-btn:hover {
-            background-color: #0056b3;
-        }
-
-        @media (max-width: 768px) {
-            .header {
-                flex-direction: column;
-                align-items: center;
-                text-align: center;
-            }
-
-            .header .title {
-                order: 1;
-                width: 100%;
-                margin-top: 10px;
-            }
-
-            .header .logo {
-                order: 0;
-                margin-bottom: 10px;
-            }
-
-            .header a.home-btn {
-                order: 2;
-                margin-top: 10px;
-            }
-
-            .filters {
-                flex-direction: column;
-                align-items: stretch;
-            }
+        @media (max-width:900px) {
+            .section-header { flex-direction:column; align-items:stretch; }
+            .controls { justify-content:space-between; }
+            .controls input[type=text] { min-width:140px; }
         }
     </style>
+{% endblock %}
+{% block header_actions %}
+    <div class="theme-toggle" style="display:flex;align-items:center;gap:6px;">
+        <label class="switch">
+            <input type="checkbox" id="themeToggle">
+            <span class="slider"></span>
+        </label>
+        <span class="theme-label" style="color:#64748b;font-size:14px;"><i class="fas fa-moon"></i></span>
+    </div>
+    <a href="{{ url_for('auth.logout') }}"
+       style="display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;background:#fee2e2;color:#dc2626;font-size:13px;font-weight:600;text-decoration:none;"
+       onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">
+       <i class="fas fa-right-from-bracket"></i> Logout
+    </a>
 {% endblock %}
 {% block tabs %}
     <a href="{{ url_for('dashboard') }}" class="cl-nav-link"><i class="fas fa-gauge"></i> Dashboard</a>
@@ -132,74 +60,117 @@
 {% endblock %}
 {% block content %}
 <div class="container">
-    <h2>New Connection Requests</h2>
 
-    <div class="filters">
-        <input type="text" id="searchInput" placeholder="Search by name or mobile..." onkeyup="filterTable()">
-        <select id="statusFilter" onchange="filterTable()">
-            <option value="">All Status</option>
-            <option value="Pending">Pending</option>
-            <option value="Hold">Hold</option>
-            <option value="Completed">Completed</option>
-        </select>
-        <button class="export-btn" onclick="window.print()">🖨 Export as PDF</button>
+    <div class="section-header">
+        <div>
+            <h2 class="section-title"><i class="fas fa-user-plus" style="color:#43e97b;margin-right:8px;"></i>New Connection Requests</h2>
+            <p class="section-meta">Manage incoming connection requests and schedule installations.</p>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;">
+            <div class="kpi-small">⛳ Pending: <span style="margin-left:8px;" id="pendingCount">{{ pending_connection_count or 0 }}</span></div>
+            <a href="{{ url_for('new_connections') }}" class="button ghost">View All</a>
+        </div>
     </div>
 
-    <table id="connectionTable">
-        <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Mobile</th>
-            <th>Address</th>
-            <th>Status</th>
-            <th>Requested At</th>
-            <th>Update</th>
-        </tr>
-        </thead>
-        <tbody>
-        {% for conn in connections %}
-        <tr>
-            <form action="{{ url_for('update_connection_status', connection_id=conn[0]) }}" method="POST">
-                <td>{{ conn[0] }}</td>
-                <td>{{ conn[1] }}</td>
-                <td>{{ conn[2] }}</td>
-                <td>{{ conn[3] }}</td>
-                <td>
-                    <span class="badge badge-{{ conn[4]|lower }}">{{ conn[4] }}</span><br>
-                    <select name="status" class="status-dropdown">
-                        <option value="Pending" {% if conn[4] == 'Pending' %}selected{% endif %}>Pending</option>
-                        <option value="Hold" {% if conn[4] == 'Hold' %}selected{% endif %}>Hold</option>
-                        <option value="Completed" {% if conn[4] == 'Completed' %}selected{% endif %}>Completed</option>
-                    </select>
-                </td>
-                <td>{{ conn[5] }}</td>
-                <td><button type="submit" class="save-btn">Save</button></td>
-            </form>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-</div>
+    <div class="glass-card" style="margin-top:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div class="controls">
+                <input type="text" id="searchInput" placeholder="Search name, mobile, address..." onkeyup="filterTable()">
+                <select id="statusFilter" onchange="filterTable()">
+                    <option value="">All Status</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Hold">Hold</option>
+                    <option value="Completed">Completed</option>
+                </select>
+                <button class="button primary" onclick="window.print()">🖨 Export</button>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <small style="color:#64748b;">Showing <strong>{{ connections|length }}</strong> rows</small>
+            </div>
+        </div>
 
+        <div style="overflow-x:auto;margin-top:12px;">
+            <table class="dash-table" id="connectionTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Mobile</th>
+                        <th>Area / Address</th>
+                        <th>Status</th>
+                        <th>Requested</th>
+                        <th style="text-align:right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for conn in connections %}
+                    <tr>
+                        <form action="{{ url_for('update_connection_status', connection_id=conn[0]) }}" method="POST">
+                            <td>{{ conn[0] }}</td>
+                            <td style="font-weight:600;">{{ conn[1] }}</td>
+                            <td>{{ conn[2] }}</td>
+                            <td>{{ conn[3] }}</td>
+                            <td>
+                                {% set s = conn[4]|lower %}
+                                {% if s == 'pending' %}
+                                    <span class="pill pill-pending">Pending</span>
+                                {% elif s == 'hold' %}
+                                    <span class="pill pill-hold">Hold</span>
+                                {% else %}
+                                    <span class="pill pill-completed">Completed</span>
+                                {% endif %}
+                                <div style="margin-top:6px;">
+                                    <select name="status" class="status-dropdown">
+                                        <option value="Pending" {% if conn[4] == 'Pending' %}selected{% endif %}>Pending</option>
+                                        <option value="Hold" {% if conn[4] == 'Hold' %}selected{% endif %}>Hold</option>
+                                        <option value="Completed" {% if conn[4] == 'Completed' %}selected{% endif %}>Completed</option>
+                                    </select>
+                                </div>
+                            </td>
+                            <td>{{ conn[5] }}</td>
+                            <td style="text-align:right;">
+                                <div class="row-actions">
+                                    <a href="{{ url_for('view_connection', connection_id=conn[0]) }}" class="button ghost" style="text-decoration:none;">View</a>
+                                    <button type="submit" class="button primary">Save</button>
+                                </div>
+                            </td>
+                        </form>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+{% block extra_scripts %}
 <script>
+    // small filter helper
     function filterTable() {
         const input = document.getElementById('searchInput').value.toLowerCase();
         const status = document.getElementById('statusFilter').value;
-        const table = document.getElementById('connectionTable');
-        const rows = table.getElementsByTagName('tr');
-
-        for (let i = 1; i < rows.length; i++) {
-            const cells = rows[i].getElementsByTagName('td');
-            const name = cells[1]?.textContent?.toLowerCase();
-            const mobile = cells[2]?.textContent?.toLowerCase();
-            const rowStatus = cells[4]?.textContent?.trim();
-
-            const matchesSearch = name?.includes(input) || mobile?.includes(input);
+        const rows = document.querySelectorAll('#connectionTable tbody tr');
+        rows.forEach(r => {
+            const tds = r.querySelectorAll('td');
+            const name = (tds[1]?.textContent||'').toLowerCase();
+            const mobile = (tds[2]?.textContent||'').toLowerCase();
+            const area = (tds[3]?.textContent||'').toLowerCase();
+            const rowStatus = (tds[4]?.textContent||'').trim();
+            const matchesSearch = !input || name.includes(input) || mobile.includes(input) || area.includes(input);
             const matchesStatus = !status || rowStatus === status;
+            r.style.display = (matchesSearch && matchesStatus) ? '' : 'none';
+        });
+    }
 
-            rows[i].style.display = matchesSearch && matchesStatus ? '' : 'none';
-        }
+    // theme toggle (same as dashboard)
+    const toggle = document.getElementById('themeToggle');
+    const body = document.body;
+    if (toggle) {
+        if (localStorage.getItem('theme') === 'dark') { body.classList.add('dark-mode'); toggle.checked = true; }
+        toggle.addEventListener('change', () => {
+            body.classList.toggle('dark-mode'); localStorage.setItem('theme', body.classList.contains('dark-mode') ? 'dark' : 'light');
+        });
     }
 </script>
 {% endblock %}
