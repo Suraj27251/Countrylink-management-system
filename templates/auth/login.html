@@ -44,7 +44,7 @@
       {% endwith %}
 
       <div class="input">
-        <input type="email" name="email" placeholder="Email" autocomplete="email" required>
+        <input type="{{ login_input_type or 'email' }}" name="email" placeholder="{{ login_input_placeholder or 'Email' }}" autocomplete="{{ login_input_autocomplete or 'email' }}" required>
       </div>
 
       <div class="input">
