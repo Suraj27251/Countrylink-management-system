@@ -60,6 +60,12 @@ def admin_login():
 def _handle_login(require_admin=False):
     login_title = 'Admin Login' if require_admin else 'Welcome Back'
     login_button_label = 'Login as Admin' if require_admin else 'Login'
+    login_context = {
+        'login_title': login_title,
+        'login_button_label': login_button_label,
+        'login_endpoint': 'auth.admin_login' if require_admin else 'auth.login',
+        'show_signup_link': not require_admin,
+    }
 
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
@@ -80,12 +86,12 @@ def _handle_login(require_admin=False):
 
         if not row or not check_password_hash(row[3], password):
             flash('Invalid email or password.', 'error')
-            return render_template('auth/login.html', login_title=login_title, login_button_label=login_button_label)
+            return render_template('auth/login.html', **login_context)
 
         user_role = (row[4] or 'user').strip().lower()
         if require_admin and user_role != 'admin':
             flash('Admin access required for this login.', 'error')
-            return render_template('auth/login.html', login_title=login_title, login_button_label=login_button_label)
+            return render_template('auth/login.html', **login_context)
 
         session['user_id'] = row[0]
         session['user_name'] = row[1]
@@ -96,7 +102,7 @@ def _handle_login(require_admin=False):
         flash(f'Welcome back, {row[1]}!', 'success')
         return redirect(url_for('dashboard'))
 
-    return render_template('auth/login.html', login_title=login_title, login_button_label=login_button_label)
+    return render_template('auth/login.html', **login_context)
 
 
 def _parse_permissions(raw_permissions):
