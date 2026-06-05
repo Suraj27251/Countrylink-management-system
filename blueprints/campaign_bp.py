@@ -29,6 +29,90 @@ VALID_TRANSITIONS = {
 # Actions that require the "campaign_send" permission
 PRIVILEGED_ACTIONS = {"approved", "sending"}
 
+ADMIN_ROLES = {"admin", "administrator", "super_admin", "superadmin"}
+CAMPAIGN_SEND_PERMISSION = "campaign_send"
+
+
+def _normalize_permissions(raw_permissions):
+    """Return a normalized list of permission strings from session/DB values."""
+    if not raw_permissions:
+        return []
+
+    if isinstance(raw_permissions, str):
+        try:
+            decoded = json.loads(raw_permissions)
+        except (TypeError, ValueError):
+            decoded = raw_permissions
+        if isinstance(decoded, str):
+            return [perm.strip() for perm in decoded.split(",") if perm.strip()]
+        raw_permissions = decoded
+
+    if isinstance(raw_permissions, (list, tuple, set)):
+        return [str(perm).strip() for perm in raw_permissions if str(perm).strip()]
+
+    return []
+
+
+def _get_user_access_context():
+    """
+    Resolve role/permissions for the active user.
+
+    Existing sessions created before permissions were introduced may not contain
+    all access fields. Refreshing from the auth database prevents valid admins
+    from being blocked while keeping the session as the primary source.
+    """
+    role = (session.get("user_role") or "").strip().lower()
+    permissions = _normalize_permissions(session.get("permissions"))
+
+    if role in ADMIN_ROLES:
+        return role, permissions
+
+    if role and permissions:
+        return role, permissions
+
+    user_id = session.get("user_id")
+    if not user_id:
+        return role, permissions
+
+    try:
+        import os
+        from auth import DB_PATH, get_db_connection
+
+        if DB_PATH and not os.path.exists(DB_PATH):
+            return role, permissions
+
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            columns = [row[1] for row in cursor.execute("PRAGMA table_info(users)").fetchall()]
+            selected_columns = ["role"]
+            if "permissions" in columns:
+                selected_columns.append("permissions")
+
+            cursor.execute(
+                f"SELECT {', '.join(selected_columns)} FROM users WHERE id=?",
+                (user_id,),
+            )
+            row = cursor.fetchone()
+    except Exception:
+        logger.exception("Failed to refresh campaign permission context for user_id=%s", user_id)
+        return role, permissions
+
+    if row:
+        if not role and row[0]:
+            role = str(row[0]).strip().lower()
+            session["user_role"] = role
+        if len(row) > 1 and not permissions:
+            permissions = _normalize_permissions(row[1])
+            session["permissions"] = permissions
+
+    return role, permissions
+
+
+def _has_campaign_send_permission():
+    """Return True when the active user may approve/send campaigns."""
+    role, permissions = _get_user_access_context()
+    return role in ADMIN_ROLES or CAMPAIGN_SEND_PERMISSION in permissions
+
 
 # ---------------------------------------------------------------------------
 # CampaignService — pure business logic, testable with a mock connection fn
@@ -1321,10 +1405,7 @@ def _require_campaign_send_permission(f):
     """Decorator: require 'campaign_send' permission for privileged actions."""
     @wraps(f)
     def decorated(*args, **kwargs):
-        user_role = session.get("user_role", "")
-        user_permissions = session.get("permissions", [])
-        # Admin role always has permission; otherwise check explicit permission
-        if user_role != "admin" and "campaign_send" not in user_permissions:
+        if not _has_campaign_send_permission():
             return jsonify({"error": "Forbidden. 'campaign_send' permission required."}), 403
         return f(*args, **kwargs)
     return decorated
@@ -1429,9 +1510,7 @@ def transition_campaign(campaign_id):
 
     # Privileged actions require campaign_send permission
     if new_state in PRIVILEGED_ACTIONS:
-        user_role = session.get("user_role", "")
-        user_permissions = session.get("permissions", [])
-        if user_role != "admin" and "campaign_send" not in user_permissions:
+        if not _has_campaign_send_permission():
             return jsonify({"error": "Forbidden. 'campaign_send' permission required."}), 403
 
     service = _get_service()

@@ -280,3 +280,79 @@ class TestRoleBasedPermissionProperties:
                 f"Got 403 for non-privileged transition to '{target_state}' — "
                 f"permission check should not apply for non-privileged states"
             )
+
+    def test_uppercase_admin_can_approve_campaign(self):
+        """Regression: admin role comparisons are case-insensitive for approval."""
+        app = _create_test_app()
+
+        with app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["user_id"] = 1
+                sess["user_name"] = "Admin User"
+                sess["user_role"] = "Admin"
+                sess["permissions"] = []
+
+            with patch("blueprints.campaign_bp._get_service") as mock_get_svc:
+                mock_service = MagicMock()
+                mock_service.approve_campaign.return_value = {
+                    "id": 1,
+                    "status": "sending",
+                    "name": "Test Campaign",
+                }
+                mock_get_svc.return_value = mock_service
+
+                response = client.post("/api/campaigns/1/approve")
+
+            assert response.status_code == 200
+            mock_service.approve_campaign.assert_called_once_with(1, "Admin User")
+
+    def test_session_refreshes_campaign_send_permission_from_auth_database(self, tmp_path, monkeypatch):
+        """Regression: stale sessions can approve when DB has campaign_send permission."""
+        import sqlite3
+
+        db_path = tmp_path / "auth.db"
+        with sqlite3.connect(db_path) as conn:
+            conn.execute(
+                """
+                CREATE TABLE users (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT,
+                    email TEXT,
+                    password_hash TEXT,
+                    role TEXT,
+                    permissions TEXT
+                )
+                """
+            )
+            conn.execute(
+                "INSERT INTO users (id, role, permissions) VALUES (?, ?, ?)",
+                (7, "operator", '["campaign_send"]'),
+            )
+            conn.commit()
+
+        def get_test_db_connection():
+            return sqlite3.connect(db_path)
+
+        monkeypatch.setattr("auth.DB_PATH", str(db_path))
+        monkeypatch.setattr("auth.get_db_connection", get_test_db_connection)
+        app = _create_test_app()
+
+        with app.test_client() as client:
+            with client.session_transaction() as sess:
+                sess["user_id"] = 7
+                sess["user_name"] = "Operator"
+                # Simulate an older session missing role/permissions.
+
+            with patch("blueprints.campaign_bp._get_service") as mock_get_svc:
+                mock_service = MagicMock()
+                mock_service.approve_campaign.return_value = {
+                    "id": 1,
+                    "status": "sending",
+                    "name": "Test Campaign",
+                }
+                mock_get_svc.return_value = mock_service
+
+                response = client.post("/api/campaigns/1/approve")
+
+            assert response.status_code == 200
+            mock_service.approve_campaign.assert_called_once_with(1, "Operator")
