@@ -67,25 +67,54 @@ def _handle_login(require_admin=False):
 
         with get_db() as conn:
             c = conn.cursor()
-            c.execute('SELECT id, name, email, password_hash, role FROM users WHERE email=?', (email,))
+            c.execute('PRAGMA table_info(users)')
+            columns = [column[1] for column in c.fetchall()]
+            selected_columns = ['id', 'name', 'email', 'password_hash', 'role']
+            if 'permissions' in columns:
+                selected_columns.append('permissions')
+            c.execute(
+                f"SELECT {', '.join(selected_columns)} FROM users WHERE email=?",
+                (email,)
+            )
             row = c.fetchone()
 
         if not row or not check_password_hash(row[3], password):
             flash('Invalid email or password.', 'error')
             return render_template('auth/login.html', login_title=login_title, login_button_label=login_button_label)
 
-        if require_admin and row[4] != 'admin':
+        user_role = (row[4] or 'user').strip().lower()
+        if require_admin and user_role != 'admin':
             flash('Admin access required for this login.', 'error')
             return render_template('auth/login.html', login_title=login_title, login_button_label=login_button_label)
 
         session['user_id'] = row[0]
         session['user_name'] = row[1]
         session['user_email'] = row[2]
-        session['user_role'] = row[4]
+        session['user_role'] = user_role
+        if len(row) > 5 and row[5]:
+            session['permissions'] = _parse_permissions(row[5])
         flash(f'Welcome back, {row[1]}!', 'success')
         return redirect(url_for('dashboard'))
 
     return render_template('auth/login.html', login_title=login_title, login_button_label=login_button_label)
+
+
+def _parse_permissions(raw_permissions):
+    """Normalize database permissions stored as JSON or comma-separated text."""
+    if not raw_permissions:
+        return []
+    if isinstance(raw_permissions, str):
+        try:
+            import json
+            decoded = json.loads(raw_permissions)
+        except (TypeError, ValueError):
+            decoded = raw_permissions
+        if isinstance(decoded, str):
+            return [perm.strip() for perm in decoded.split(',') if perm.strip()]
+        raw_permissions = decoded
+    if isinstance(raw_permissions, (list, tuple, set)):
+        return [str(perm).strip() for perm in raw_permissions if str(perm).strip()]
+    return []
 
 @auth_bp.route('/logout')
 def logout():
