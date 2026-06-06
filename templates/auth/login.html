@@ -55,12 +55,8 @@
 
       <button type="submit" class="btn">{{ login_button_label or "Login" }}</button>
 
-      <p class="muted"{% if show_signup_link is defined and not show_signup_link %} aria-hidden="true"{% endif %}>
-        {% if show_signup_link is not defined or show_signup_link %}
-          No account? <a href="{{ url_for('auth.signup') }}">Sign up</a>
-        {% else %}
-          &nbsp;
-        {% endif %}
+      <p class="muted" aria-hidden="true">
+        &nbsp;
       </p>
     </form>
   </div>

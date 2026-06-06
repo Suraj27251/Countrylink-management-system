@@ -124,31 +124,32 @@ def _handle_login(require_admin=False):
             return redirect(url_for('dashboard'))
 
         email = identifier.lower()
-        with get_db() as conn:
-            c = conn.cursor()
-            c.execute('PRAGMA table_info(users)')
-            columns = [column[1] for column in c.fetchall()]
-            selected_columns = ['id', 'name', 'email', 'password_hash', 'role']
-            if 'permissions' in columns:
-                selected_columns.append('permissions')
-            c.execute(
-                f"SELECT {', '.join(selected_columns)} FROM users WHERE email=?",
-                (email,)
-            )
-            row = c.fetchone()
+        
+        # Use MySQL database for regular user login (same as admin)
+        try:
+            user = _get_mysql_user(email)
+        except mysql.connector.Error:
+            flash('Login service unavailable. Please try again later.', 'error')
+            return render_template('auth/login.html', **login_context)
 
-        if not row or not check_password_hash(row[3], password):
+        if not user or not _password_matches(user.get('password'), password):
             flash('Invalid email or password.', 'error')
             return render_template('auth/login.html', **login_context)
 
-        user_role = (row[4] or 'user').strip().lower()
-        session['user_id'] = row[0]
-        session['user_name'] = row[1]
-        session['user_email'] = row[2]
+        if _is_inactive_user(user):
+            flash('Your account has not been approved by admin yet.', 'error')
+            return render_template('auth/login.html', **login_context)
+
+        user_name = user.get('name') or user.get('email') or f"User {user.get('id')}"
+        user_role = (user.get('role') or 'user').strip().lower()
+        session['user_id'] = user.get('id')
+        session['user_name'] = user_name
+        session['user_email'] = user.get('email') or ''
         session['user_role'] = user_role
-        if len(row) > 5 and row[5]:
-            session['permissions'] = _parse_permissions(row[5])
-        flash(f'Welcome back, {row[1]}!', 'success')
+        session['auth_source'] = 'mysql_users'
+        if user.get('permissions'):
+            session['permissions'] = _parse_permissions(user['permissions'])
+        flash(f'Welcome back, {user_name}!', 'success')
         return redirect(url_for('dashboard'))
 
     return render_template('auth/login.html', **login_context)
