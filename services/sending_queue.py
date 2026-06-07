@@ -640,17 +640,19 @@ class SendingQueue:
 
         mobile = msg["customer_mobile"]
 
-        # Get template name from DB
+        # Get template name and language from DB
         conn = self._get_conn()
         cursor = None
         try:
             cursor = conn.cursor(dictionary=True)
             cursor.execute(
-                "SELECT template_name FROM campaign_templates WHERE id = %s",
+                "SELECT template_name, template_language FROM campaign_templates WHERE id = %s",
                 (msg["template_id"],)
             )
             template_row = cursor.fetchone()
             template_name = template_row["template_name"] if template_row else ""
+            # Use the language stored in the template, fall back to dispatcher default
+            template_language = template_row["template_language"] if template_row and template_row.get("template_language") else None
         finally:
             if cursor:
                 cursor.close()
@@ -676,6 +678,7 @@ class SendingQueue:
             recipient=mobile,
             template_name=template_name,
             params=params_list,
+            language=template_language,
         )
 
     def _mark_message_sent(self, message_id: int, campaign_id: int, whatsapp_message_id: Optional[str]) -> None:

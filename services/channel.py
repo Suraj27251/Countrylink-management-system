@@ -31,6 +31,7 @@ class MessageDispatcher(ABC):
         template_name: str,
         params: List[str],
         media_url: Optional[str] = None,
+        language: Optional[str] = None,
     ) -> DispatchResult:
         """
         Send a template message to a recipient.
@@ -40,6 +41,8 @@ class MessageDispatcher(ABC):
             template_name: The approved template name registered with the channel provider.
             params: Positional parameters to fill template placeholders.
             media_url: Optional media URL for templates with a header media component.
+            language: Optional language code override (e.g. "en", "en_US").
+                      If not provided, the dispatcher default is used.
 
         Returns:
             DispatchResult with success status and message ID or error details.
@@ -106,6 +109,7 @@ class WhatsAppDispatcher(MessageDispatcher):
         template_name: str,
         params: List[str],
         media_url: Optional[str] = None,
+        language: Optional[str] = None,
     ) -> DispatchResult:
         """
         Send a WhatsApp template message via Meta's Cloud API.
@@ -118,6 +122,8 @@ class WhatsAppDispatcher(MessageDispatcher):
             template_name: Approved Meta template name.
             params: List of parameter values for body placeholders.
             media_url: Optional URL for header image/video/document component.
+            language: Optional language code override (e.g. "en_US").
+                      Uses self._template_language as fallback.
 
         Returns:
             DispatchResult with success=True and message_id on success,
@@ -160,14 +166,15 @@ class WhatsAppDispatcher(MessageDispatcher):
                 "parameters": body_parameters,
             })
 
-        # Construct the full payload
+        # Construct the full payload — use passed language or fall back to default
+        language_code = language or self._template_language
         payload = {
             "messaging_product": "whatsapp",
             "to": recipient,
             "type": "template",
             "template": {
                 "name": template_name,
-                "language": {"code": self._template_language},
+                "language": {"code": language_code},
             },
         }
 

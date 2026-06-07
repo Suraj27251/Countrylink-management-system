@@ -684,6 +684,11 @@ class CampaignService:
         """
         Fetch recipients from segment and enqueue them in the sending queue.
 
+        Dynamically selects all customer fields needed by the template's
+        placeholder_mappings so that placeholder values resolve correctly
+        (fixes bug where only mobile + customer_name were fetched, causing
+        template params like plan_name, total, due_date to be empty).
+
         This triggers the actual message dispatch process.
         """
         if not segment_id:
@@ -695,7 +700,44 @@ class CampaignService:
         try:
             cursor = conn.cursor(dictionary=True)
 
-            # Get segment filter criteria
+            import json as _json
+
+            # ---------------------------------------------------------------
+            # 1. Fetch campaign's template to discover needed placeholder fields
+            # ---------------------------------------------------------------
+            cursor.execute(
+                "SELECT template_id FROM campaigns WHERE id = %s",
+                (campaign_id,),
+            )
+            campaign_row = cursor.fetchone()
+            template_id = campaign_row["template_id"] if campaign_row else None
+
+            # Extract the field names from placeholder_mappings
+            needed_fields = {"mobile", "customer_name"}  # always include these
+            if template_id:
+                cursor.execute(
+                    "SELECT placeholder_mappings FROM campaign_templates WHERE id = %s",
+                    (template_id,),
+                )
+                template_row = cursor.fetchone()
+                if template_row:
+                    mappings_raw = template_row.get("placeholder_mappings")
+                    if mappings_raw:
+                        if isinstance(mappings_raw, str):
+                            try:
+                                mappings = _json.loads(mappings_raw)
+                            except (_json.JSONDecodeError, TypeError):
+                                mappings = {}
+                        else:
+                            mappings = mappings_raw
+                        # Add every field name referenced in mappings
+                        for field_name in mappings.values():
+                            if isinstance(field_name, str) and field_name.strip():
+                                needed_fields.add(field_name.strip())
+
+            # ---------------------------------------------------------------
+            # 2. Get segment filter criteria
+            # ---------------------------------------------------------------
             cursor.execute(
                 "SELECT filter_criteria FROM audience_segments WHERE id = %s",
                 (segment_id,),
@@ -705,7 +747,6 @@ class CampaignService:
                 logger.warning("Segment %d not found for campaign %d", segment_id, campaign_id)
                 return
 
-            import json as _json
             filter_criteria = segment.get("filter_criteria")
             if isinstance(filter_criteria, str):
                 try:
@@ -739,7 +780,8 @@ class CampaignService:
                         params.append(value["max"])
 
             where_sql = " AND ".join(where_parts) if where_parts else "1=1"
-            query = f"SELECT mobile, customer_name FROM customers WHERE {where_sql}"
+            select_cols = ", ".join(sorted(needed_fields))
+            query = f"SELECT {select_cols} FROM customers WHERE {where_sql}"
 
             cursor.execute(query, tuple(params))
             recipients = cursor.fetchall()
@@ -938,6 +980,7 @@ class CampaignService:
                 raise ValueError(f"Template {template_id} not found")
 
             template_name = template["template_name"]
+            template_language = template.get("template_language") or "en"
 
             # Resolve template params (use sample/empty values for test send)
             params_list = self._resolve_test_params(template)
@@ -952,6 +995,7 @@ class CampaignService:
                     recipient=mobile,
                     template_name=template_name,
                     params=params_list,
+                    language=template_language,
                 )
 
                 # Record in campaign_messages with is_test_send flag
