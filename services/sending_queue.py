@@ -134,6 +134,28 @@ class SendingQueue:
                 (template_id,)
             )
             template = cursor.fetchone()
+            # Validate template existence and required fields before enqueue
+            if not template:
+                raise ValueError(f"Template {template_id} not found for campaign {campaign_id}")
+
+            template_name = template.get("template_name") or ""
+            if not template_name:
+                raise ValueError(
+                    f"Template {template_id} for campaign {campaign_id} has no template_name"
+                )
+
+            # If template body contains placeholders but no mappings are configured,
+            # block enqueue to avoid producing messages with unresolved params.
+            body_text = template.get("body_text") or ""
+            mappings_raw = template.get("placeholder_mappings")
+            if not mappings_raw:
+                # Use TemplateValidator to detect placeholders in the body
+                validator = self._template_validator
+                placeholders = validator.parse_placeholders(body_text)
+                if placeholders:
+                    raise ValueError(
+                        f"Template '{template_name}' contains placeholders but has no placeholder_mappings configured"
+                    )
 
             enqueued_count = 0
             batch_size = 500

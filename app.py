@@ -2840,28 +2840,32 @@ def flow_endpoint():
 
     category = predict_category(payload["complaint"])
 
-    mysql_conn = None
-    mysql_cursor = None
+    # Use local SQLite complaints DB for lightweight incoming flows (testable via init_db)
+    sqlite_conn = None
     try:
-        mysql_conn = get_mysql_connection()
-        mysql_cursor = mysql_conn.cursor()
-        mysql_cursor.execute(
-            """INSERT INTO complaints
-               (customer_name, customer_phone, complaint_subject, complaint_description, category, status, escalation_level, created_at, updated_at)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, NOW(), NOW())""",
-            (payload["name"], payload["mobile"], payload["complaint"][:100], payload["complaint"], category, 'open', 'low')
+        sqlite_conn = get_db_connection()
+        cur = sqlite_conn.cursor()
+        # Insert into the local complaints table created by init_db()
+        cur.execute(
+            """INSERT INTO complaints (name, mobile, complaint, category, status, source, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)""",
+            (payload["name"], payload["mobile"], payload["complaint"][:100], category, 'Pending', 'Web')
         )
-        mysql_conn.commit()
+        sqlite_conn.commit()
     except Exception:
-        if mysql_conn:
-            mysql_conn.rollback()
+        if sqlite_conn:
+            try:
+                sqlite_conn.rollback()
+            except Exception:
+                pass
         app.logger.exception("Failed to insert complaint via flow-endpoint")
         return jsonify({"error": "Database error"}), 500
     finally:
-        if mysql_cursor:
-            mysql_cursor.close()
-        if mysql_conn and mysql_conn.is_connected():
-            mysql_conn.close()
+        if sqlite_conn:
+            try:
+                sqlite_conn.close()
+            except Exception:
+                pass
 
     return jsonify({"status": "received"}), 200
 
