@@ -87,7 +87,6 @@ Guidelines:
 - Be friendly, concise, and professional.
 - Keep messages short and WhatsApp-friendly (no heavy markdown).
 - Always respond in the same language the customer writes in.
-- Every successful complaint confirmation MUST include this exact standalone line: "Track your complaint here: https://countrylinks.in/track". This tracking URL is mandatory in every complaint confirmation, not optional.
 - When asked about plans, recommend based on the customer's usage:
   * Basic browsing/limited use: Limited 50 Mbps ₹499 plan.
   * Regular home use: Unlimited 50 Mbps ₹800 or Unlimited 100 Mbps ₹900 plan.
@@ -108,8 +107,6 @@ Do NOT attempt to answer general knowledge questions, news, entertainment, jokes
 BASE_DIR          = os.path.dirname(os.path.abspath(__file__))
 HISTORY_FILE      = os.path.join(BASE_DIR, "conversation_history.json")
 INVOICE_AUTH_FILE = os.path.join(BASE_DIR, "invoice_auth_requests.json")
-PAYMENT_VERIFY_FILE = os.path.join(BASE_DIR, "payment_verify_requests.json")
-ONBOARDING_FILE = os.path.join(BASE_DIR, "onboarding_requests.json")
 PENDING_ACTIONS_FILE = os.path.join(BASE_DIR, "pending_actions.json")
 
 # ── Repo 1 API Configuration ─────────────────────────────────────────────────
@@ -127,18 +124,8 @@ GEMINI_TIMEOUT_SECS  = 15    # FIX #10 — abort if Gemini takes too long
 PROCESSED_MESSAGE_IDS: set = set()
 
 INVOICE_KEYWORDS = (
-    "invoice", "bill", "billing", "unpaid",
-    "due", "due date", "amount", "outstanding"
-)
-
-PAYMENT_VERIFY_KEYWORDS = (
-    "paid", "payment done", "recharge done", "transferred", "upi",
-    "gpay", "phonepe", "paytm", "screenshot", "receipt", "transaction",
-)
-
-PAYMENT_PAGE_KEYWORDS = (
-    "pay", "payment", "recharge", "renew", "renewal", "how to pay",
-    "pay online", "online payment", "pay bill",
+    "invoice", "bill", "billing", "payment", "paid", "unpaid",
+    "due", "due date", "amount", "receipt", "outstanding"
 )
 
 COMPLAINT_KEYWORDS = (
@@ -151,12 +138,11 @@ COMPLAINT_KEYWORDS = (
 )
 
 NEW_CONNECTION_KEYWORDS = (
-    "new connection", "new customer", "new broadband", "want connection",
-    "apply connection", "broadband connection", "new internet",
-    "want internet", "get broadband", "start connection", "need internet",
-    "need wifi", "want wifi", "naya connection", "internet chahiye",
-    "broadband chahiye", "connection lena hai", "wifi lena hai",
-    "install internet", "setup internet", "get fiber", "want fiber",
+    "new connection", "want internet", "get broadband", "new broadband",
+    "start connection", "apply connection", "need internet", "need wifi",
+    "want wifi", "naya connection", "internet chahiye", "broadband chahiye",
+    "connection lena hai", "wifi lena hai", "install internet",
+    "setup internet", "get fiber", "want fiber",
 )
 
 
@@ -216,7 +202,7 @@ def save_invoice_auth_requests(requests_map: dict):
 
 def set_invoice_auth_pending(user_id: str):
     m = load_invoice_auth_requests()
-    m[user_id] = {"step": "awaiting_mobile", "data": {}}
+    m[user_id] = True
     save_invoice_auth_requests(m)
 
 
@@ -229,66 +215,6 @@ def clear_invoice_auth_pending(user_id: str):
 
 def is_invoice_auth_pending(user_id: str) -> bool:
     return bool(load_invoice_auth_requests().get(user_id))
-
-
-
-
-# ── Payment Verification State ───────────────────────────────────────────────
-def load_payment_verify_requests() -> dict:
-    return _load_json_file(PAYMENT_VERIFY_FILE)
-
-
-def save_payment_verify_requests(requests_map: dict):
-    _save_json_file(PAYMENT_VERIFY_FILE, requests_map)
-
-
-def set_payment_verify_pending(user_id: str, data: dict = None):
-    requests_map = load_payment_verify_requests()
-    requests_map[user_id] = {
-        "step": "awaiting_mobile",
-        "data": data or {},
-    }
-    save_payment_verify_requests(requests_map)
-
-
-def get_payment_verify_pending(user_id: str) -> Optional[dict]:
-    return load_payment_verify_requests().get(user_id)
-
-
-def clear_payment_verify_pending(user_id: str):
-    requests_map = load_payment_verify_requests()
-    if user_id in requests_map:
-        del requests_map[user_id]
-        save_payment_verify_requests(requests_map)
-
-
-# ── Onboarding State ─────────────────────────────────────────────────────────
-def load_onboarding_requests() -> dict:
-    return _load_json_file(ONBOARDING_FILE)
-
-
-def save_onboarding_requests(requests_map: dict):
-    _save_json_file(ONBOARDING_FILE, requests_map)
-
-
-def set_onboarding_state(user_id: str, step: str, data: dict = None):
-    requests_map = load_onboarding_requests()
-    requests_map[user_id] = {
-        "step": step,
-        "data": data or {},
-    }
-    save_onboarding_requests(requests_map)
-
-
-def get_onboarding_state(user_id: str) -> Optional[dict]:
-    return load_onboarding_requests().get(user_id)
-
-
-def clear_onboarding_state(user_id: str):
-    requests_map = load_onboarding_requests()
-    if user_id in requests_map:
-        del requests_map[user_id]
-        save_onboarding_requests(requests_map)
 
 
 # ── Pending Actions State (Multi-Turn) ────────────────────────────────────────
@@ -311,34 +237,10 @@ def set_pending_action(user_id: str, action_type: str, collected: dict = None):
     action_type: 'complaint' or 'new_connection'
     collected: dict of fields already collected (e.g. {'name': 'John'})
     """
-    collected = collected or {}
-    if action_type == "complaint":
-        if "name" not in collected:
-            step = "awaiting_name"
-        elif "mobile" not in collected:
-            step = "awaiting_mobile"
-        elif "complaint" not in collected:
-            step = "awaiting_issue"
-        else:
-            step = "ready_to_submit"
-    elif action_type == "new_connection":
-        if "name" not in collected:
-            step = "awaiting_name"
-        elif "mobile" not in collected:
-            step = "awaiting_mobile"
-        elif "area" not in collected:
-            step = "awaiting_area"
-        else:
-            step = "ready_to_submit"
-    else:
-        step = "pending"
-
     actions = load_pending_actions()
     actions[user_id] = {
         "type": action_type,
-        "step": step,
-        "data": collected,
-        "collected": collected
+        "collected": collected or {}
     }
     save_pending_actions(actions)
 
@@ -361,34 +263,6 @@ def is_new_connection_request(message: str) -> bool:
     """Detect if the message is a new connection request."""
     msg_lower = message.lower()
     return any(kw in msg_lower for kw in NEW_CONNECTION_KEYWORDS)
-
-
-def is_payment_verification_request(message: str, message_type: str = "text") -> bool:
-    """Detect payment screenshots/receipts that need account verification."""
-    if message_type == "image":
-        return True
-    msg_lower = message.lower()
-    return any(kw in msg_lower for kw in PAYMENT_VERIFY_KEYWORDS)
-
-
-def is_payment_page_request(message: str) -> bool:
-    """Detect general payment/recharge intent for the online payment page."""
-    msg_lower = message.lower()
-    return any(kw in msg_lower for kw in PAYMENT_PAGE_KEYWORDS)
-
-
-def looks_like_phone_number_or_numeric(value: str) -> bool:
-    stripped = value.strip()
-    digits = re.sub(r"\D", "", stripped)
-    return stripped.isdigit() or len(digits) >= 10
-
-
-def is_valid_person_name(value: str) -> bool:
-    """Require alphabetic characters so phone numbers cannot be accepted as names."""
-    stripped = value.strip()
-    if not stripped or looks_like_phone_number_or_numeric(stripped):
-        return False
-    return bool(re.search(r"[A-Za-zÀ-ÖØ-öø-ÿ]", stripped))
 
 
 # ── API Calls to Repo 1 ──────────────────────────────────────────────────────
@@ -475,7 +349,7 @@ def handle_pending_action(user_id: str, user_message: str, customer_name: str = 
         return None
 
     action_type = pending["type"]
-    collected = pending.get("collected") or pending.get("data") or {}
+    collected = pending["collected"]
 
     # Allow user to cancel
     cancel_words = ("cancel", "nevermind", "never mind", "stop", "nahi", "ruko", "band karo")
@@ -498,8 +372,6 @@ def _handle_complaint_collection(
 
     # Step 1: Collect name
     if "name" not in collected:
-        if not is_valid_person_name(user_message):
-            return "That looks like a number, not a name. Please share your full name first."
         collected["name"] = user_message.strip()
         set_pending_action(user_id, "complaint", collected)
         return "Got it. Now please share your registered 10-digit mobile number."
@@ -538,8 +410,7 @@ def _handle_complaint_collection(
             f"Complaint ID: {complaint_id}\n"
             f"Name: {collected['name']}\n"
             f"Mobile: {collected['mobile']}\n"
-            f"Issue: {collected['complaint']}\n"
-            f"Track your complaint here: https://countrylinks.in/track\n\n"
+            f"Issue: {collected['complaint']}\n\n"
             f"Our team will look into this and get back to you soon. "
             f"For urgent issues, call 9765009850 / 9765005851."
         )
@@ -634,35 +505,6 @@ def get_db_connection() -> pymysql.connections.Connection:
         cursorclass=pymysql.cursors.DictCursor,
         autocommit=True,
     )
-
-
-
-def get_customer_by_mobile(mobile_number: str) -> Optional[dict]:
-    """Find a Zoho customer by registered mobile or phone number."""
-    if not DB_USER or not DB_PASSWORD:
-        raise pymysql.Error(
-            "DB_USER / DB_PASSWORD not configured in cPanel env vars"
-        )
-
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cur:
-            mobile_expr = normalize_sql_phone("mobile")
-            phone_expr = normalize_sql_phone("phone")
-            cur.execute(
-                f"""
-                SELECT contact_name, company_name, mobile, phone, status, outstanding_amount
-                FROM zoho_customers
-                WHERE {mobile_expr} = %s
-                   OR {phone_expr} = %s
-                ORDER BY id DESC
-                LIMIT 1
-                """,
-                (mobile_number, mobile_number),
-            )
-            return cur.fetchone()
-    finally:
-        conn.close()
 
 
 def get_conversation_mode(phone: str) -> str:
@@ -875,151 +717,44 @@ def get_invoice_reply_if_applicable(
     return None
 
 
-
-def get_payment_verify_reply_if_applicable(
-    user_id: str, user_message: str, message_type: str = "text"
-) -> Optional[str]:
-    """Handle payment receipt/screenshot verification before invoice lookup."""
-    pending = get_payment_verify_pending(user_id)
-    mobile_number = extract_mobile_number(user_message)
-
-    if pending:
-        if mobile_number:
-            try:
-                customer = get_customer_by_mobile(mobile_number)
-            except pymysql.Error as e:
-                logging.error(f"Payment verification DB error for {mobile_number}: {e}")
-                clear_payment_verify_pending(user_id)
-                return (
-                    "Sorry, I cannot verify payment details right now. "
-                    "Please call 9765009850 / 9765005851 for assistance."
-                )
-
-            clear_payment_verify_pending(user_id)
-            if customer:
-                contact_name = (
-                    customer.get("contact_name")
-                    or customer.get("company_name")
-                    or "customer"
-                )
-                return (
-                    f"✅ We found your account for {contact_name}. Your payment is being verified. "
-                    "Our team will update your account within 2-4 hours. "
-                    "For urgent help call 9765009850."
-                )
-
-            return (
-                "❌ We couldn't find an account with that number. "
-                "Please call 9765009850 / 9765005851 for assistance."
-            )
-
-        return "Thank you! To verify your payment, please share your registered 10-digit mobile number."
-
-    if is_payment_verification_request(user_message, message_type):
-        set_payment_verify_pending(user_id)
-        return "Thank you! To verify your payment, please share your registered 10-digit mobile number."
-
-    return None
-
-
-def get_onboarding_reply_if_applicable(
+def get_structured_reply_if_applicable(
     user_id: str, user_message: str, customer_name: str = "Customer"
 ) -> Optional[str]:
-    """Handle new customer onboarding with name and area state."""
-    state = get_onboarding_state(user_id)
-
-    if state:
-        step = state.get("step")
-        data = state.get("data") or {}
-
-        if step == "awaiting_name":
-            if not is_valid_person_name(user_message):
-                return "That looks like a number, not a name. Please share your full name first."
-            data["name"] = user_message.strip()
-            set_onboarding_state(user_id, "awaiting_area", data)
-            return f"Thanks {data['name']}! Please share your area/locality so we can check availability."
-
-        if step == "awaiting_area":
-            area = user_message.strip()
-            if not area:
-                return "Please share your area/locality so we can check availability."
-            data["area"] = area
-            mobile = re.sub(r"\D", "", user_id)[-10:]
-            error = raise_new_connection_via_api(data["name"], mobile, data["area"])
-            clear_onboarding_state(user_id)
-            if error:
-                logging.error(f"Onboarding request submit failed for {user_id}: {error}")
-            return (
-                "Great! Our team will contact you within 24 hours to confirm availability "
-                "and schedule installation. For faster assistance call 9765009850. "
-                "You can also check our plans at https://countrylinks.in"
-            )
-
-    if is_new_connection_request(user_message):
-        set_onboarding_state(user_id, "awaiting_name", {})
-        return "Welcome to Countrylink Broadband! 🎉 Please share your full name."
-
-    return None
-
-
-def get_payment_page_reply_if_applicable(
-    user_message: str, user_id: str = None
-) -> Optional[str]:
-    # Do not send the payment page for receipt/screenshot reports; those
-    # belong to payment verification even when substring keywords overlap.
-    if is_payment_verification_request(user_message, "text"):
-        return None
-    if user_id and get_payment_verify_pending(user_id):
-        return None
-    if is_payment_page_request(user_message):
-        return "You can pay online here: https://countrylinks.in/payment"
-    return None
-
-
-def get_structured_reply_if_applicable(
-    user_id: str,
-    user_message: str,
-    customer_name: str = "Customer",
-    message_type: str = "text",
-) -> Optional[str]:
     """
-    Unified intent handler. Checks in required priority order:
-    payment_verify → invoice → onboarding → payment_page_keywords →
-    complaint → Groq/off-topic fallback.
+    Unified intent handler. Checks in priority order:
+    1. Pending multi-turn action (complaint/connection collection in progress)
+    2. Invoice lookup
+    3. Complaint intent detection → start multi-turn
+    4. New connection intent detection → start multi-turn
+    Returns None if no structured intent matched.
     """
 
-    # Legacy pending actions remain supported so in-progress users are not dropped.
-    pending = get_pending_action(user_id)
-    if pending and pending.get("type") in ("complaint", "new_connection"):
-        pending_reply = handle_pending_action(user_id, user_message, customer_name)
-        if pending_reply:
-            return pending_reply
+    # Priority 1: Handle any pending multi-turn action first
+    pending_reply = handle_pending_action(user_id, user_message, customer_name)
+    if pending_reply:
+        return pending_reply
 
-    payment_verify_reply = get_payment_verify_reply_if_applicable(
-        user_id, user_message, message_type
-    )
-    if payment_verify_reply:
-        return payment_verify_reply
-
+    # Priority 2: Invoice lookup (existing logic)
     invoice_reply = get_invoice_reply_if_applicable(user_id, user_message)
     if invoice_reply:
         return invoice_reply
 
-    onboarding_reply = get_onboarding_reply_if_applicable(
-        user_id, user_message, customer_name
-    )
-    if onboarding_reply:
-        return onboarding_reply
-
-    payment_page_reply = get_payment_page_reply_if_applicable(user_message, user_id)
-    if payment_page_reply:
-        return payment_page_reply
-
+    # Priority 3: Complaint detection → start multi-turn collection
     if is_complaint_request(user_message):
+        # If user already provided their name in the message context, use it
+        # Start collecting: ask for name first
         set_pending_action(user_id, "complaint", {})
         return (
             "I'm sorry to hear you're facing an issue. Let me help you raise a complaint.\n\n"
             "Please share your full name to get started."
+        )
+
+    # Priority 4: New connection request → start multi-turn collection
+    if is_new_connection_request(user_message):
+        set_pending_action(user_id, "new_connection", {})
+        return (
+            "Great, I'd love to help you get a new Countrylink broadband connection! 🚀\n\n"
+            "Please share your full name to begin."
         )
 
     return None
@@ -1031,15 +766,10 @@ RELEVANT_KEYWORDS = (
     "plan", "price", "pricing", "mbps", "speed", "data", "fiber", "fibre",
     "broadband", "internet", "connection", "recharge", "upgrade", "package",
     "ott", "hotstar", "sonyliv", "zee5", "prime", "netflix", "wifi", "wi-fi",
-    "router", "installation", "install", "new connection", "new customer",
-    "new broadband", "want connection", "apply connection",
-    "broadband connection", "new internet",
+    "router", "installation", "install", "new connection",
     # Billing
     "bill", "billing", "invoice", "payment", "paid", "unpaid", "due",
-    "amount", "receipt", "outstanding", "renewal", "renew", "pay",
-    "how to pay", "pay online", "online payment", "pay bill", "payment done",
-    "recharge done", "transferred", "upi", "gpay", "phonepe", "paytm",
-    "screenshot", "transaction",
+    "amount", "receipt", "outstanding", "renewal", "renew",
     # Support & Complaints
     "slow", "disconnect", "not working", "down", "outage", "issue", "problem",
     "complaint", "help", "support", "contact", "number", "repair", "technician",
@@ -1049,9 +779,8 @@ RELEVANT_KEYWORDS = (
     # Hindi/Marathi complaint keywords
     "net nahi chal raha", "internet band", "speed kam", "net nahi aa raha",
     # New connection
-    "new connection", "new customer", "want connection", "apply connection",
-    "broadband connection", "new internet", "want internet", "get broadband",
-    "new broadband", "naya connection", "internet chahiye", "broadband chahiye",
+    "new connection", "want internet", "get broadband", "new broadband",
+    "naya connection", "internet chahiye", "broadband chahiye",
     "connection lena hai", "wifi lena hai", "get fiber", "want fiber",
     # Greetings / generic (always let these through to Groq)
     "hi", "hello", "hii", "hey", "helo", "namaste", "namaskar",
@@ -1220,7 +949,7 @@ def handle_webhook():
                     if msg_type == "text":
                         user_text = message["text"]["body"]
                         logging.info(f"Received from {from_number}: {user_text[:80]}")
-                        ai_reply = get_structured_reply_if_applicable(from_number, user_text, message_type="text")
+                        ai_reply = get_structured_reply_if_applicable(from_number, user_text)
                         if not ai_reply:
                             if not is_relevant_to_countrylink(user_text):
                                 logging.info(f"Off-topic blocked from {from_number}: {user_text[:60]}")
@@ -1229,18 +958,10 @@ def handle_webhook():
                                 ai_reply = get_groq_response(from_number, user_text)
                         send_whatsapp_message(from_number, ai_reply)
                     elif msg_type in ("image", "audio", "video", "document"):
-                        if msg_type == "image":
-                            ai_reply = get_structured_reply_if_applicable(
-                                from_number, "", message_type="image"
-                            )
-                        else:
-                            ai_reply = None
                         send_whatsapp_message(
                             from_number,
-                            ai_reply or (
-                                "Thanks for your message! I can only read text right now. "
-                                "Please type your query and I'll help you."
-                            ),
+                            "Thanks for your message! I can only read text right now. "
+                            "Please type your query and I'll help you.",
                         )
     except Exception as e:
         logging.error(f"Webhook processing error: {e}")
@@ -1256,23 +977,20 @@ def webhook_ai():
         user_text     = (data.get("message") or "").strip()
         from_number   = (data.get("phone") or "").strip()
         customer_name = (data.get("name") or "Customer").strip()
-        message_type  = (data.get("message_type") or data.get("type") or "text").strip().lower()
 
         logging.info(
             f"Internal AI request from {from_number} ({customer_name}): "
-            f"type={message_type} text={user_text[:80]}"
+            f"{user_text[:80]}"
         )
 
-        if not from_number or (not user_text and message_type != "image"):
+        if not user_text or not from_number:
             return jsonify({
                 "status": "error",
                 "reply": "Missing message or phone"
             }), 400
 
-        # Structured intent handling follows the required flow order.
-        ai_reply = get_structured_reply_if_applicable(
-            from_number, user_text, customer_name, message_type=message_type
-        )
+        # Structured intent handling (invoice, complaint, new connection)
+        ai_reply = get_structured_reply_if_applicable(from_number, user_text, customer_name)
 
         # AI fallback with pre-filter
         if not ai_reply:
