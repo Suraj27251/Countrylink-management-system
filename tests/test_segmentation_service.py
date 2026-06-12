@@ -234,7 +234,7 @@ class TestEstimateCount(unittest.TestCase):
         # Should have executed a COUNT query
         sql, _ = cursor.executed[0]
         self.assertIn("COUNT(*)", sql)
-        self.assertIn("renewal_records", sql)
+        self.assertIn("customers", sql)
 
     def test_estimate_count_with_empty_filters(self):
         """estimate_count with empty filters should query all records."""

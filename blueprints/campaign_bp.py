@@ -437,8 +437,11 @@ class CampaignService:
 
             conn.commit()
 
-            # Enqueue campaign messages via the sending queue
-            self._enqueue_campaign_recipients(campaign_id, row.get("segment_id"))
+            try:
+                # Enqueue campaign messages via the sending queue
+                self._enqueue_campaign_recipients(campaign_id, row.get("segment_id"))
+            except Exception as e:
+                logger.exception("Failed to enqueue campaign recipients for campaign_id=%s", campaign_id)
 
             return self.get_campaign(campaign_id)
         except Exception:
@@ -535,9 +538,13 @@ class CampaignService:
                 if segment:
                     segment_name = segment["name"]
                     # Count recipients by evaluating the segment
-                    recipient_count = self._count_segment_recipients(
-                        cursor, segment.get("filter_criteria")
-                    )
+                    try:
+                        recipient_count = self._count_segment_recipients(
+                            cursor, segment.get("filter_criteria")
+                        )
+                    except Exception:
+                        logger.exception("Failed to count segment recipients in get_approval_preview")
+                        recipient_count = 0
 
             # Get template content
             template_content = None
@@ -566,6 +573,15 @@ class CampaignService:
                 recipient_count / throttle_rate if recipient_count > 0 else 0
             )
 
+            import math
+            minutes = int(math.ceil(estimated_time_seconds / 60.0))
+            if minutes <= 0:
+                estimated_time_str = "0 minutes"
+            elif minutes == 1:
+                estimated_time_str = "~1 minute"
+            else:
+                estimated_time_str = f"~{minutes} minutes"
+
             return {
                 "campaign_id": campaign_id,
                 "campaign_name": campaign["name"],
@@ -575,6 +591,7 @@ class CampaignService:
                 "template_name": template_name,
                 "template_content": template_content,
                 "estimated_time_seconds": round(estimated_time_seconds, 1),
+                "estimated_time": estimated_time_str,
                 "segment_name": segment_name,
             }
         finally:
@@ -1146,6 +1163,30 @@ class CampaignService:
                     "response_count": 0,
                     "is_winner": 0,
                 })
+
+            segment_id = campaign.get("segment_id")
+            segment_size = 0
+            if segment_id:
+                cursor.execute(
+                    "SELECT filter_criteria FROM audience_segments WHERE id = %s",
+                    (segment_id,),
+                )
+                segment_row = cursor.fetchone()
+                if segment_row:
+                    segment_size = self._count_segment_recipients(
+                        cursor, segment_row.get("filter_criteria")
+                    )
+
+            test_audience_size = int(round(segment_size * (test_pct / 100.0)))
+            splits = self.compute_ab_split(test_audience_size, len(variants))
+
+            for idx, variant in enumerate(created_variants):
+                variant_recipient_count = splits[idx]
+                cursor.execute(
+                    "UPDATE campaign_ab_variants SET recipient_count = %s WHERE id = %s",
+                    (variant_recipient_count, variant["id"]),
+                )
+                variant["recipient_count"] = variant_recipient_count
 
             # Audit log
             self._log_action(cursor, operator_name, "create_ab_test", campaign_id, {

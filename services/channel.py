@@ -65,7 +65,7 @@ class WhatsAppDispatcher(MessageDispatcher):
         get_headers_fn=None,
         api_version: Optional[str] = None,
         get_phone_number_id_fn=None,
-        template_language: str = "en",
+        template_language: str = "en_US",
     ):
         """
         Initialize the WhatsApp dispatcher.
@@ -151,7 +151,7 @@ class WhatsAppDispatcher(MessageDispatcher):
             })
 
         # Body parameters
-        if params:
+        if params and len(params) > 0:
             body_parameters = [
                 {"type": "text", "text": str(p)} for p in params
             ]

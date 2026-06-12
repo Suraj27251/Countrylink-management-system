@@ -476,7 +476,6 @@ function campShowCreate() {
               <option value="expired">Expired</option>
               <option value="today">Expiring Today</option>
               <option value="upcoming">Upcoming</option>
-            </select>
               <option value="inactive">Inactive</option>
               <option value="disconnected">Disconnected</option>
             </select>
@@ -584,7 +583,10 @@ async function campLoadTemplatesForSelect() {
 
     templates.forEach(tpl => {
       const opt = document.createElement('option');
-      opt.value = tpl.id || tpl.name;
+      opt.value = tpl.name;
+      if (tpl.id) {
+        opt.setAttribute('data-template-id', tpl.id);
+      }
       opt.textContent = tpl.name || tpl.template_name || `Template #${tpl.id}`;
       if (tpl.status && tpl.status !== 'APPROVED') {
         opt.textContent += ` (${tpl.status})`;
@@ -601,18 +603,35 @@ async function campHandleCreate(e) {
   const name = document.getElementById('campName')?.value?.trim();
   if (!name) return campShowToast('Campaign name is required', 'error');
 
+  const parseIdOrName = (val) => {
+    if (!val || val === "0" || val === "null" || val === "") return null;
+    const parsed = parseInt(val, 10);
+    return isNaN(parsed) ? val : parsed;
+  };
+
+  const segmentSelect = document.getElementById('campSegment');
+  const segment_id = segmentSelect ? parseIdOrName(segmentSelect.value) : null;
+
+  const templateSelect = document.getElementById('campTemplate');
+  let template_id = null;
+  if (templateSelect) {
+    const selectedOpt = templateSelect.options[templateSelect.selectedIndex];
+    const dataId = selectedOpt?.getAttribute('data-template-id');
+    if (dataId && dataId !== "undefined" && dataId !== "null" && dataId !== "0") {
+      template_id = parseInt(dataId, 10);
+    } else {
+      template_id = parseIdOrName(templateSelect.value);
+    }
+  }
+
   const payload = {
     name,
     campaign_type: document.getElementById('campType')?.value || 'promotional',
     priority: parseInt(document.getElementById('campPriority')?.value || '5', 10),
-    segment_id: document.getElementById('campSegment')?.value || null,
-    template_id: document.getElementById('campTemplate')?.value || null,
+    segment_id,
+    template_id,
     description: document.getElementById('campDesc')?.value?.trim() || '',
   };
-
-  // Convert empty strings to null
-  if (!payload.segment_id) payload.segment_id = null;
-  if (!payload.template_id) payload.template_id = null;
 
   // Include scheduling if set
   const scheduledAt = document.getElementById('campScheduledAt')?.value;
@@ -685,7 +704,7 @@ function campShowPostCreateActions(campaignId) {
         <i class="fas fa-arrow-left"></i> Back to Dashboard
       </button>
     </div>
-    <div id="campSimulationPanel" class="camp-simulation-panel" style="display:none;"></div>
+    <div id="campSimulationPanelPost" class="camp-simulation-panel" style="display:none;"></div>
   `;
   container.appendChild(actionsPanel);
 }
@@ -995,7 +1014,10 @@ async function campLoadABTemplates() {
       if (!select) return;
       templates.forEach(tpl => {
         const opt = document.createElement('option');
-        opt.value = tpl.id || tpl.name;
+        opt.value = tpl.name;
+        if (tpl.id) {
+          opt.setAttribute('data-template-id', tpl.id);
+        }
         opt.textContent = tpl.name || tpl.template_name || `Template #${tpl.id}`;
         select.appendChild(opt);
       });
@@ -1007,21 +1029,37 @@ async function campLoadABTemplates() {
 
 async function campHandleABTest(e) {
   e.preventDefault();
+  const getSelectedTemplateId = (selectEl) => {
+    if (!selectEl) return null;
+    const selectedOpt = selectEl.options[selectEl.selectedIndex];
+    const dataId = selectedOpt?.getAttribute('data-template-id');
+    if (dataId && dataId !== "undefined" && dataId !== "null" && dataId !== "0") {
+      return parseInt(dataId, 10);
+    }
+    const val = selectEl.value;
+    if (!val || val === "0" || val === "null" || val === "") return null;
+    const parsed = parseInt(val, 10);
+    return isNaN(parsed) ? val : parsed;
+  };
+
   const campaignId = document.getElementById('campABCampaign')?.value;
-  const variantA = document.getElementById('campABVariantA')?.value;
-  const variantB = document.getElementById('campABVariantB')?.value;
+  const selectA = document.getElementById('campABVariantA');
+  const selectB = document.getElementById('campABVariantB');
   const percent = parseInt(document.getElementById('campABPercent')?.value || '20', 10);
 
+  const valA = getSelectedTemplateId(selectA);
+  const valB = getSelectedTemplateId(selectB);
+
   if (!campaignId) return campShowToast('Select a campaign', 'error');
-  if (!variantA || !variantB) return campShowToast('Select both template variants', 'error');
-  if (variantA === variantB) return campShowToast('Variants must be different templates', 'error');
+  if (!valA || !valB) return campShowToast('Select both template variants', 'error');
+  if (valA === valB) return campShowToast('Variants must be different templates', 'error');
 
   try {
     const res = await fetch(`${CAMP_API}/${campaignId}/ab-test`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        template_variants: [parseInt(variantA, 10), parseInt(variantB, 10)],
+        variants: [parseInt(valA, 10), parseInt(valB, 10)],
         test_percentage: percent,
       }),
     });
@@ -1427,7 +1465,17 @@ async function campExecuteTestSend(campaignId) {
 
   const numbers = textarea.value
     .split(/[\n,;]+/)
-    .map(n => n.trim())
+    .map(n => {
+      let cleaned = n.trim().replace(/\D/g, ''); // strip all non-digit characters
+      if (cleaned.length === 10) {
+        cleaned = "91" + cleaned;
+      } else if (cleaned.length === 12 && cleaned.startsWith("91")) {
+        // keep as-is
+      } else if (cleaned.length === 13 && cleaned.startsWith("091")) {
+        cleaned = cleaned.slice(1);
+      }
+      return cleaned;
+    })
     .filter(n => n.length > 0);
 
   if (numbers.length === 0) {
@@ -1507,7 +1555,7 @@ async function campRunSimulation(campaignId) {
     return;
   }
 
-  const panel = document.getElementById('campSimulationPanel');
+  const panel = document.getElementById('campSimulationPanelPost') || document.getElementById('campSimulationPanel');
   if (panel) {
     panel.style.display = 'block';
     panel.innerHTML = `
@@ -1549,7 +1597,7 @@ async function campRunSimulation(campaignId) {
  * @param {Object} data - The simulation response from the API
  */
 function campRenderSimulationResults(data) {
-  const panel = document.getElementById('campSimulationPanel');
+  const panel = document.getElementById('campSimulationPanelPost') || document.getElementById('campSimulationPanel');
   if (!panel) return;
 
   const sendTimeMins = Math.ceil((data.estimated_send_time_seconds || 0) / 60);

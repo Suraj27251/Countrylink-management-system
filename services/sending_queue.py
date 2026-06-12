@@ -533,6 +533,11 @@ class SendingQueue:
                 SELECT c.id
                 FROM campaigns c
                 WHERE c.status = 'sending'
+                  AND c.total_recipients > 0
+                  AND EXISTS (
+                      SELECT 1 FROM campaign_messages cm
+                      WHERE cm.campaign_id = c.id
+                  )
                   AND NOT EXISTS (
                       SELECT 1 FROM campaign_messages cm
                       WHERE cm.campaign_id = c.id
